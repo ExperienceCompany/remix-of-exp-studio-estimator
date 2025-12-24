@@ -103,7 +103,7 @@ export function StepTimeSlot() {
       ))}
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setCurrentStep(2)}>
+        <Button variant="outline" onClick={() => setCurrentStep(selection.sessionType === 'diy' ? 1 : 2)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
