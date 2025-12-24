@@ -70,7 +70,8 @@ export function StepStudio() {
 
   const handleNext = () => {
     if (selection.studioType) {
-      setCurrentStep(2);
+      // DIY sessions skip the Service step
+      setCurrentStep(selection.sessionType === 'diy' ? 3 : 2);
     }
   };
 

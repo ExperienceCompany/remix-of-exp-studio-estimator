@@ -78,6 +78,15 @@ export const STEP_LABELS = [
   'Summary',
 ] as const;
 
+export const DIY_STEP_LABELS = [
+  'Session Type',
+  'Studio',
+  'Day & Time',
+  'Duration',
+  'Add-ons',
+  'Summary',
+] as const;
+
 export const STUDIO_LABELS: Record<StudioType, string> = {
   podcast_room: 'Podcast Room',
   audio_studio: 'Audio Studio',
