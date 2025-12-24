@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, ArrowRight, Film, Camera, Settings, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus } from 'lucide-react';
 
 export function StepAddons() {
   const { selection, updateSelection, setCurrentStep, totals } = useEstimator();
@@ -31,9 +31,8 @@ export function StepAddons() {
     return true;
   }) || [];
 
-  // Group editing menu by category
+  // Filter for photo editing only (video editing moved to Post-Production Services)
   const photoEditingItems = editingMenu?.filter(item => item.category === 'photo_editing') || [];
-  const videoEditingItems = editingMenu?.filter(item => item.category !== 'photo_editing') || [];
 
   // Show photo editing only for photoshoot package
   const showPhotoEditing = selection.serviceType === 'photoshoot';
@@ -198,46 +197,6 @@ export function StepAddons() {
     );
   };
 
-  const renderVideoEditingItems = () => {
-    if (videoEditingItems.length === 0) return null;
-    
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Film className="h-4 w-4" />
-            Video Editing Services
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {videoEditingItems.map(item => {
-            const isSelected = selection.editingItems.some(e => e.id === item.id);
-            const customerPrice = Number(item.customer_price || item.base_price * 2);
-            return (
-              <div 
-                key={item.id} 
-                className="flex items-center justify-between py-2 border-b last:border-0"
-              >
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={isSelected}
-                    onCheckedChange={() => toggleEditingItem(item)}
-                  />
-                  <div>
-                    <p className="text-sm font-medium">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
-                  </div>
-                </div>
-                <span className="text-sm font-medium">
-                  ${customerPrice}
-                </span>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -287,9 +246,6 @@ export function StepAddons() {
 
       {/* Photo Editing Services (only for photoshoot) */}
       {renderPhotoEditingWithQuantity()}
-
-      {/* Video Editing Services */}
-      {renderVideoEditingItems()}
 
       {/* Running Total */}
       <Card className="bg-muted/50">
