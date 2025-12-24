@@ -31,6 +31,10 @@ export function StepService() {
   };
 
   const availableServices = services?.filter(service => {
+    // Full Studio Buyout has access to ALL services (includes all spaces)
+    if (selection.studioType === 'full_studio_buyout') {
+      return true;
+    }
     const requiredStudio = SERVICE_STUDIO_MAP[service.type];
     if (requiredStudio && selection.studioType !== requiredStudio) {
       return false;
@@ -39,6 +43,10 @@ export function StepService() {
   });
 
   const getRestrictionMessage = () => {
+    // No restrictions for Full Studio Buyout - all spaces included
+    if (selection.studioType === 'full_studio_buyout') {
+      return [];
+    }
     const messages: string[] = [];
     if (selection.studioType !== 'multimedia_studio') {
       messages.push('Photoshoot & Vodcast available in Multimedia Studio only');
