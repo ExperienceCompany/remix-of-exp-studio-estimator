@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calculator, Users, Settings, LogIn } from 'lucide-react';
+import { Calculator, Users, Settings, LogIn, Scissors } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Index() {
@@ -57,7 +57,7 @@ export default function Index() {
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
                 <Calculator className="h-6 w-6 text-primary" />
               </div>
-              <CardTitle>Customer Estimate</CardTitle>
+              <CardTitle>Studio Estimate</CardTitle>
               <CardDescription>
                 Get a quick quote for your studio session
               </CardDescription>
@@ -65,6 +65,24 @@ export default function Index() {
             <CardContent>
               <Button asChild className="w-full">
                 <Link to="/estimate">Start Estimate</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Post-Production Services */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                <Scissors className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle>Post-Production</CardTitle>
+              <CardDescription>
+                Video editing services — no studio booking required
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="secondary" className="w-full">
+                <Link to="/services">Get Quote</Link>
               </Button>
             </CardContent>
           </Card>
