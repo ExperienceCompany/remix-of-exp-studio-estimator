@@ -43,6 +43,7 @@ const initialSelection: EstimatorSelection = {
   cameraCount: 1,
   autoEditTier: null,
   editingItems: [],
+  sessionAddons: [],
 };
 
 const EstimatorContext = createContext<EstimatorContextValue | undefined>(undefined);
@@ -92,6 +93,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
     let cameraAddonTotal = 0;
     let autoEditTotal = 0;
     let editingTotal = 0;
+    let sessionAddonTotal = 0;
 
     // Find the rate for current studio and time slot
     if (diyRates && selection.studioType && selection.timeSlotType) {
@@ -180,7 +182,17 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    const customerTotal = studioTotal + providerTotal + cameraAddonTotal + autoEditTotal + editingTotal;
+    // Session add-ons (flat fees per session)
+    selection.sessionAddons.forEach(addon => {
+      sessionAddonTotal += addon.flatAmount;
+      lineItems.push({
+        label: addon.name,
+        amount: addon.flatAmount,
+        type: 'session_addon',
+      });
+    });
+
+    const customerTotal = studioTotal + providerTotal + cameraAddonTotal + autoEditTotal + editingTotal + sessionAddonTotal;
 
     // Internal calculations
     let providerBasePay = 0;
@@ -203,6 +215,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
         cameraAddonTotal,
         autoEditTotal,
         editingTotal,
+        sessionAddonTotal,
         customerTotal,
         lineItems,
       },
@@ -212,6 +225,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
         cameraAddonTotal,
         autoEditTotal,
         editingTotal,
+        sessionAddonTotal,
         customerTotal,
         lineItems,
         providerBasePay,

@@ -133,3 +133,17 @@ export function usePackages() {
     },
   });
 }
+
+export function useSessionAddons() {
+  return useQuery({
+    queryKey: ['session_addons'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('session_addons')
+        .select('*')
+        .eq('is_active', true);
+      if (error) throw error;
+      return data;
+    },
+  });
+}
