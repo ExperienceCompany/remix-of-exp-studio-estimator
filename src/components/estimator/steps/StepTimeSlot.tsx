@@ -7,6 +7,13 @@ import { cn } from '@/lib/utils';
 import { TimeSlotType } from '@/types/estimator';
 import { Sun, Moon, ArrowLeft, ArrowRight } from 'lucide-react';
 
+const formatTime12Hour = (time24: string): string => {
+  const [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
+
 export function StepTimeSlot() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: timeSlots, isLoading } = useTimeSlots();
@@ -85,7 +92,7 @@ export function StepTimeSlot() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {slot.start_time} - {slot.end_time}
+                      {formatTime12Hour(slot.start_time)} - {formatTime12Hour(slot.end_time)}
                     </p>
                   </CardHeader>
                 </Card>
