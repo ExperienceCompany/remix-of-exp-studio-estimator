@@ -5,13 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { STUDIO_LABELS, StudioType } from '@/types/estimator';
-import { Mic, Music, Video, Monitor, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Mic, Music, Video, Monitor, ArrowLeft, ArrowRight, Building } from 'lucide-react';
 
 const STUDIO_ICONS: Record<StudioType, typeof Mic> = {
   podcast_room: Mic,
   audio_studio: Music,
   multimedia_studio: Video,
   digital_edit_studio: Monitor,
+  full_studio_buyout: Building,
 };
 
 export function StepStudio() {

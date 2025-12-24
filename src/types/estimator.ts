@@ -1,5 +1,5 @@
 export type SessionType = 'diy' | 'serviced';
-export type StudioType = 'podcast_room' | 'audio_studio' | 'multimedia_studio' | 'digital_edit_studio';
+export type StudioType = 'podcast_room' | 'audio_studio' | 'multimedia_studio' | 'digital_edit_studio' | 'full_studio_buyout';
 export type ServiceType = 'audio_podcast' | 'vodcast' | 'recording_session' | 'photoshoot';
 export type TimeSlotType = 'mon_wed_day' | 'mon_wed_eve' | 'thu_fri_day' | 'thu_fri_eve' | 'sat_sun_day' | 'sat_sun_eve';
 export type ProviderLevel = 'lv1' | 'lv2' | 'lv3';
@@ -92,6 +92,7 @@ export const STUDIO_LABELS: Record<StudioType, string> = {
   audio_studio: 'Audio Studio',
   multimedia_studio: 'Multimedia Studio',
   digital_edit_studio: 'Digital/Edit Studio',
+  full_studio_buyout: 'Full Studio / Lobby',
 };
 
 export const SERVICE_LABELS: Record<ServiceType, string> = {

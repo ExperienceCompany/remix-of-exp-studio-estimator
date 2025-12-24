@@ -476,6 +476,7 @@ export type Database = {
         | "audio_studio"
         | "multimedia_studio"
         | "digital_edit_studio"
+        | "full_studio_buyout"
       time_slot_type:
         | "mon_wed_day"
         | "mon_wed_eve"
@@ -625,6 +626,7 @@ export const Constants = {
         "audio_studio",
         "multimedia_studio",
         "digital_edit_studio",
+        "full_studio_buyout",
       ],
       time_slot_type: [
         "mon_wed_day",
