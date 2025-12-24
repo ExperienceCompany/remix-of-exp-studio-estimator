@@ -323,9 +323,9 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useEstimator() {
+export function useEstimator(): EstimatorContextValue {
   const context = useContext(EstimatorContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useEstimator must be used within EstimatorProvider');
   }
   return context;
