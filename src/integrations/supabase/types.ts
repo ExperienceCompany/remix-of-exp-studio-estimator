@@ -350,30 +350,36 @@ export type Database = {
           addon_type: string
           applies_to_session_type: string | null
           applies_to_studio_type: string | null
+          applies_to_studio_types: string[] | null
           description: string | null
           flat_amount: number
           id: string
           is_active: boolean | null
+          is_hourly: boolean | null
           name: string
         }
         Insert: {
           addon_type: string
           applies_to_session_type?: string | null
           applies_to_studio_type?: string | null
+          applies_to_studio_types?: string[] | null
           description?: string | null
           flat_amount: number
           id?: string
           is_active?: boolean | null
+          is_hourly?: boolean | null
           name: string
         }
         Update: {
           addon_type?: string
           applies_to_session_type?: string | null
           applies_to_studio_type?: string | null
+          applies_to_studio_types?: string[] | null
           description?: string | null
           flat_amount?: number
           id?: string
           is_active?: boolean | null
+          is_hourly?: boolean | null
           name?: string
         }
         Relationships: []

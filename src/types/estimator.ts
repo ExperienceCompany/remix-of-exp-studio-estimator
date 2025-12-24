@@ -37,6 +37,7 @@ export interface SessionAddon {
   id: string;
   name: string;
   flatAmount: number;
+  isHourly?: boolean;
 }
 
 export interface EditingItem {
