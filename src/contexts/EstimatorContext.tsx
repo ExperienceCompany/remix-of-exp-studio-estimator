@@ -68,10 +68,15 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const applyPackage = useCallback((preset: any) => {
+    // If photoshoot, force multimedia_studio
+    const studioType = preset.service_type === 'photoshoot' 
+      ? 'multimedia_studio' 
+      : (preset.studio_type || null);
+    
     setSelection({
       ...initialSelection,
       sessionType: preset.session_type || 'diy',
-      studioType: preset.studio_type || null,
+      studioType,
       serviceType: preset.service_type || null,
       providerLevel: preset.provider_level || null,
       cameraCount: preset.camera_count || 1,

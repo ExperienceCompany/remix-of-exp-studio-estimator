@@ -18,6 +18,16 @@ export function StepService() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: services, isLoading } = useServices();
 
+  // Filter services: photoshoot only available in multimedia_studio
+  const availableServices = services?.filter(service => {
+    if (service.type === 'photoshoot' && selection.studioType !== 'multimedia_studio') {
+      return false;
+    }
+    return true;
+  });
+
+  const photoshootRestricted = selection.studioType !== 'multimedia_studio';
+
   const handleSelect = (service: any) => {
     updateSelection({
       serviceId: service.id,
@@ -45,7 +55,7 @@ export function StepService() {
   return (
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-4">
-        {services?.map(service => {
+        {availableServices?.map(service => {
           const Icon = SERVICE_ICONS[service.type as ServiceType] || Mic;
           
           return (
@@ -72,6 +82,12 @@ export function StepService() {
           );
         })}
       </div>
+
+      {photoshootRestricted && (
+        <p className="text-sm text-muted-foreground text-center">
+          💡 Photoshoot sessions are available in the Multimedia Studio only
+        </p>
+      )}
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => setCurrentStep(1)}>
