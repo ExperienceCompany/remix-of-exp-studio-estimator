@@ -15,6 +15,8 @@ interface VideoService {
   incrementUnit: string;
   baseDuration: number; // in seconds, 0 for non-duration-based
   durationBased: boolean;
+  minDuration?: number; // in seconds
+  maxDuration?: number; // in seconds
 }
 
 // Video editing pricing tiers based on editing_menu data
@@ -35,9 +37,10 @@ const VIDEO_SERVICES: Record<string, VideoService> = {
     description: 'Standard cuts, transitions, and basic color correction',
     basePrice: 150,
     incrementPrice: 75,
-    incrementUnit: '30 seconds',
-    baseDuration: 30, // 30 seconds included
+    incrementUnit: '15 seconds',
+    baseDuration: 15, // 15 seconds included
     durationBased: true,
+    maxDuration: 360, // 6 minutes max
   },
   general_advanced: {
     id: 'general_advanced',
@@ -45,9 +48,10 @@ const VIDEO_SERVICES: Record<string, VideoService> = {
     description: 'Motion graphics, color grading, and complex transitions',
     basePrice: 250,
     incrementPrice: 125,
-    incrementUnit: '30 seconds',
-    baseDuration: 30,
+    incrementUnit: '15 seconds',
+    baseDuration: 15, // 15 seconds included
     durationBased: true,
+    maxDuration: 360, // 6 minutes max
   },
   longform_simple: {
     id: 'longform_simple',
@@ -58,6 +62,8 @@ const VIDEO_SERVICES: Record<string, VideoService> = {
     incrementUnit: '15 minutes',
     baseDuration: 15 * 60, // 15 minutes in seconds
     durationBased: true,
+    minDuration: 6 * 60, // 6 minutes min
+    maxDuration: 4 * 60 * 60, // 4 hours max
   },
   longform_advanced: {
     id: 'longform_advanced',
@@ -68,6 +74,8 @@ const VIDEO_SERVICES: Record<string, VideoService> = {
     incrementUnit: '15 minutes',
     baseDuration: 15 * 60,
     durationBased: true,
+    minDuration: 6 * 60, // 6 minutes min
+    maxDuration: 4 * 60 * 60, // 4 hours max
   },
 };
 
@@ -99,8 +107,9 @@ export function VideoEditingEstimator() {
     }
 
     // Duration-based pricing
-    const baseDuration = selectedService.baseDuration || 30;
-    const incrementSeconds = selectedService.id.includes('longform') ? 15 * 60 : 30;
+    const baseDuration = selectedService.baseDuration || 15;
+    const isLongform = selectedService.id.includes('longform');
+    const incrementSeconds = isLongform ? 15 * 60 : 15; // 15 min for longform, 15 sec for regular
     
     if (state.duration <= baseDuration) {
       return selectedService.basePrice;
@@ -120,10 +129,13 @@ export function VideoEditingEstimator() {
   };
 
   const handleServiceSelect = (serviceId: ServiceId) => {
+    const service = VIDEO_SERVICES[serviceId];
+    // Use minDuration if set (for longform), otherwise baseDuration, fallback to 15
+    const initialDuration = service.minDuration || service.baseDuration || 15;
     setState(prev => ({
       ...prev,
       serviceType: serviceId,
-      duration: VIDEO_SERVICES[serviceId].baseDuration || 30,
+      duration: initialDuration,
       revisionBuckets: 1,
     }));
   };
@@ -202,6 +214,19 @@ export function VideoEditingEstimator() {
     if (!selectedService) return null;
 
     const isLongform = selectedService.id.includes('longform');
+    const minDuration = selectedService.minDuration || selectedService.baseDuration || 15;
+    const maxDuration = selectedService.maxDuration || (isLongform ? 4 * 60 * 60 : 360);
+
+    // Format description based on service type
+    const getDurationDescription = () => {
+      if (!selectedService.durationBased) {
+        return 'Each revision bucket adds additional time for changes';
+      }
+      if (isLongform) {
+        return `Minimum ${formatDuration(minDuration)}, maximum ${formatDuration(maxDuration)}. Base includes ${formatDuration(selectedService.baseDuration || 15 * 60)}`;
+      }
+      return `Base price includes up to ${formatDuration(selectedService.baseDuration || 15)}. Maximum ${formatDuration(maxDuration)}`;
+    };
 
     return (
       <Card>
@@ -213,9 +238,7 @@ export function VideoEditingEstimator() {
               : 'How many revision rounds do you need?'}
           </CardTitle>
           <CardDescription>
-            {selectedService.durationBased
-              ? `Base price includes up to ${formatDuration(selectedService.baseDuration || 30)}`
-              : 'Each revision bucket adds additional time for changes'}
+            {getDurationDescription()}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -228,15 +251,15 @@ export function VideoEditingEstimator() {
                     <>
                       <Input
                         type="number"
-                        min={1}
-                        max={120}
+                        min={Math.floor(minDuration / 60)}
+                        max={Math.floor(maxDuration / 60)}
+                        step={15}
                         value={Math.floor(state.duration / 60)}
-                        onChange={(e) =>
-                          setState(prev => ({
-                            ...prev,
-                            duration: Math.max(1, parseInt(e.target.value) || 1) * 60,
-                          }))
-                        }
+                        onChange={(e) => {
+                          const mins = parseInt(e.target.value) || Math.floor(minDuration / 60);
+                          const clampedMins = Math.min(Math.max(mins, Math.floor(minDuration / 60)), Math.floor(maxDuration / 60));
+                          setState(prev => ({ ...prev, duration: clampedMins * 60 }));
+                        }}
                         className="w-24"
                       />
                       <span className="text-sm text-muted-foreground">minutes</span>
@@ -246,15 +269,14 @@ export function VideoEditingEstimator() {
                       <Input
                         type="number"
                         min={15}
-                        max={300}
+                        max={maxDuration}
                         step={15}
                         value={state.duration}
-                        onChange={(e) =>
-                          setState(prev => ({
-                            ...prev,
-                            duration: Math.max(15, parseInt(e.target.value) || 30),
-                          }))
-                        }
+                        onChange={(e) => {
+                          const secs = parseInt(e.target.value) || 15;
+                          const clampedSecs = Math.min(Math.max(secs, 15), maxDuration);
+                          setState(prev => ({ ...prev, duration: clampedSecs }));
+                        }}
                         className="w-24"
                       />
                       <span className="text-sm text-muted-foreground">seconds</span>
@@ -267,6 +289,13 @@ export function VideoEditingEstimator() {
               <div className="flex flex-wrap gap-2">
                 {isLongform ? (
                   <>
+                    <Button
+                      variant={state.duration === 6 * 60 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setState(prev => ({ ...prev, duration: 6 * 60 }))}
+                    >
+                      6 min
+                    </Button>
                     <Button
                       variant={state.duration === 15 * 60 ? 'default' : 'outline'}
                       size="sm"
@@ -288,9 +317,30 @@ export function VideoEditingEstimator() {
                     >
                       1 hour
                     </Button>
+                    <Button
+                      variant={state.duration === 2 * 60 * 60 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setState(prev => ({ ...prev, duration: 2 * 60 * 60 }))}
+                    >
+                      2 hours
+                    </Button>
+                    <Button
+                      variant={state.duration === 4 * 60 * 60 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setState(prev => ({ ...prev, duration: 4 * 60 * 60 }))}
+                    >
+                      4 hours
+                    </Button>
                   </>
                 ) : (
                   <>
+                    <Button
+                      variant={state.duration === 15 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setState(prev => ({ ...prev, duration: 15 }))}
+                    >
+                      15 sec
+                    </Button>
                     <Button
                       variant={state.duration === 30 ? 'default' : 'outline'}
                       size="sm"
@@ -306,11 +356,25 @@ export function VideoEditingEstimator() {
                       1 min
                     </Button>
                     <Button
-                      variant={state.duration === 120 ? 'default' : 'outline'}
+                      variant={state.duration === 2 * 60 ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 120 }))}
+                      onClick={() => setState(prev => ({ ...prev, duration: 2 * 60 }))}
                     >
                       2 min
+                    </Button>
+                    <Button
+                      variant={state.duration === 4 * 60 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setState(prev => ({ ...prev, duration: 4 * 60 }))}
+                    >
+                      4 min
+                    </Button>
+                    <Button
+                      variant={state.duration === 6 * 60 ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setState(prev => ({ ...prev, duration: 6 * 60 }))}
+                    >
+                      6 min
                     </Button>
                   </>
                 )}
