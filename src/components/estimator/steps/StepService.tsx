@@ -18,15 +18,47 @@ export function StepService() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: services, isLoading } = useServices();
 
-  // Filter services: photoshoot only available in multimedia_studio
+  // Service to Studio restrictions:
+  // - photoshoot -> multimedia_studio
+  // - recording_session -> audio_studio
+  // - audio_podcast -> podcast_room
+  // - vodcast -> multimedia_studio
+  const SERVICE_STUDIO_MAP: Record<string, string> = {
+    photoshoot: 'multimedia_studio',
+    recording_session: 'audio_studio',
+    audio_podcast: 'podcast_room',
+    vodcast: 'multimedia_studio',
+  };
+
   const availableServices = services?.filter(service => {
-    if (service.type === 'photoshoot' && selection.studioType !== 'multimedia_studio') {
+    const requiredStudio = SERVICE_STUDIO_MAP[service.type];
+    if (requiredStudio && selection.studioType !== requiredStudio) {
       return false;
     }
     return true;
   });
 
-  const photoshootRestricted = selection.studioType !== 'multimedia_studio';
+  const getRestrictionMessage = () => {
+    const messages: string[] = [];
+    if (selection.studioType !== 'multimedia_studio') {
+      messages.push('Photoshoot & Vodcast available in Multimedia Studio only');
+    }
+    if (selection.studioType !== 'audio_studio') {
+      messages.push('Recording Sessions available in Audio Studio only');
+    }
+    if (selection.studioType !== 'podcast_room') {
+      messages.push('Podcasts available in Podcast Room only');
+    }
+    return messages.filter(m => {
+      // Only show relevant restrictions for current studio
+      if (selection.studioType === 'multimedia_studio') return m.includes('Recording') || m.includes('Podcast');
+      if (selection.studioType === 'audio_studio') return m.includes('Photoshoot') || m.includes('Podcast');
+      if (selection.studioType === 'podcast_room') return m.includes('Photoshoot') || m.includes('Recording');
+      return true;
+    }).slice(0, 2);
+  };
+
+  const restrictionMessages = getRestrictionMessage();
 
   const handleSelect = (service: any) => {
     updateSelection({
@@ -83,10 +115,12 @@ export function StepService() {
         })}
       </div>
 
-      {photoshootRestricted && (
-        <p className="text-sm text-muted-foreground text-center">
-          💡 Photoshoot sessions are available in the Multimedia Studio only
-        </p>
+      {restrictionMessages.length > 0 && (
+        <div className="text-sm text-muted-foreground text-center space-y-1">
+          {restrictionMessages.map((msg, i) => (
+            <p key={i}>💡 {msg}</p>
+          ))}
+        </div>
       )}
 
       <div className="flex justify-between">

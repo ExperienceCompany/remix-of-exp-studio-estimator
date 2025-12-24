@@ -28,14 +28,38 @@ export function StepStudio() {
     return minRate;
   };
 
-  // If photoshoot is selected, only multimedia_studio is available
-  const isPhotoshootSelected = selection.serviceType === 'photoshoot';
+  // Service to Studio restrictions
+  const SERVICE_STUDIO_MAP: Record<string, string> = {
+    photoshoot: 'multimedia_studio',
+    recording_session: 'audio_studio',
+    audio_podcast: 'podcast_room',
+    vodcast: 'multimedia_studio',
+  };
+
+  const requiredStudioForService = selection.serviceType ? SERVICE_STUDIO_MAP[selection.serviceType] : null;
+
+  const getDisabledMessage = (studioType: string) => {
+    if (!requiredStudioForService || studioType === requiredStudioForService) return null;
+    const serviceLabels: Record<string, string> = {
+      photoshoot: 'Photoshoot',
+      recording_session: 'Recording Session',
+      audio_podcast: 'Podcast',
+      vodcast: 'Vodcast',
+    };
+    const studioLabels: Record<string, string> = {
+      multimedia_studio: 'Multimedia Studio',
+      audio_studio: 'Audio Studio',
+      podcast_room: 'Podcast Room',
+      digital_edit_studio: 'Digital/Edit Studio',
+    };
+    return `${serviceLabels[selection.serviceType!]} requires ${studioLabels[requiredStudioForService]}`;
+  };
 
   const handleSelect = (studio: any) => {
     const newStudioType = studio.type as StudioType;
     
-    // If changing away from multimedia_studio and photoshoot was selected, clear service
-    const shouldClearService = selection.serviceType === 'photoshoot' && newStudioType !== 'multimedia_studio';
+    // Clear service if changing to incompatible studio
+    const shouldClearService = requiredStudioForService && newStudioType !== requiredStudioForService;
     
     updateSelection({
       studioId: studio.id,
@@ -66,7 +90,8 @@ export function StepStudio() {
         {studios?.map(studio => {
           const Icon = STUDIO_ICONS[studio.type as StudioType] || Mic;
           const startingPrice = getStartingPrice(studio.type);
-          const isDisabled = isPhotoshootSelected && studio.type !== 'multimedia_studio';
+          const disabledMessage = getDisabledMessage(studio.type);
+          const isDisabled = !!disabledMessage;
           
           return (
             <Card 
@@ -94,9 +119,9 @@ export function StepStudio() {
                 <CardTitle className="text-lg">{studio.name}</CardTitle>
                 <CardDescription>
                   {studio.description}
-                  {isDisabled && (
+                  {disabledMessage && (
                     <span className="block text-xs mt-1 text-destructive">
-                      Photoshoot requires Multimedia Studio
+                      {disabledMessage}
                     </span>
                   )}
                 </CardDescription>

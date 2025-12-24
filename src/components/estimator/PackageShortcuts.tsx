@@ -26,13 +26,13 @@ export function PackageShortcuts() {
         <Package className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium">Quick Packages</span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
         {packages.map(pkg => (
           <Button
             key={pkg.id}
             variant="outline"
             size="sm"
-            className="flex-shrink-0 whitespace-nowrap"
+            className="whitespace-nowrap text-xs"
             onClick={() => applyPackage(pkg.preset_json)}
           >
             {pkg.name}
