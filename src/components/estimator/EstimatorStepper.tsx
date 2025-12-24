@@ -9,6 +9,7 @@ import { StepTimeSlot } from './steps/StepTimeSlot';
 import { StepDuration } from './steps/StepDuration';
 import { StepAddons } from './steps/StepAddons';
 import { StepSummary } from './steps/StepSummary';
+import { SelectionSummary } from './SelectionSummary';
 
 const STEPS = [
   StepSessionType,
@@ -56,9 +57,12 @@ export function EstimatorStepper() {
       </div>
 
       {/* Current step label */}
-      <div className="text-center mb-6">
+      <div className="text-center mb-4">
         <h2 className="text-xl font-semibold">{STEP_LABELS[currentStep]}</h2>
       </div>
+
+      {/* Selection summary */}
+      <SelectionSummary />
 
       {/* Step content */}
       <div className="animate-fade-in">
