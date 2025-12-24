@@ -36,7 +36,7 @@ const VIDEO_SERVICES: Record<string, VideoService> = {
     name: 'General Basic Editing',
     description: 'Standard cuts, transitions, and basic color correction',
     basePrice: 150,
-    incrementPrice: 75,
+    incrementPrice: 25,
     incrementUnit: '15 seconds',
     baseDuration: 15, // 15 seconds included
     durationBased: true,
