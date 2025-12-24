@@ -10,6 +10,7 @@ import {
   TimeSlotType,
   ProviderLevel,
   EditingItem,
+  PackagePricing,
 } from '@/types/estimator';
 import { 
   useDiyRates, 
@@ -24,7 +25,7 @@ interface EstimatorContextValue {
   setCurrentStep: (step: number) => void;
   updateSelection: (updates: Partial<EstimatorSelection>) => void;
   resetSelection: () => void;
-  applyPackage: (preset: any) => void;
+  applyPackage: (preset: any, packageData?: any) => void;
   totals: QuoteTotals;
   internalTotals: InternalTotals;
   isLoading: boolean;
@@ -44,6 +45,7 @@ const initialSelection: EstimatorSelection = {
   autoEditTier: null,
   editingItems: [],
   sessionAddons: [],
+  packagePricing: null,
 };
 
 const EstimatorContext = createContext<EstimatorContextValue | undefined>(undefined);
@@ -68,11 +70,26 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
     setCurrentStep(0);
   }, []);
 
-  const applyPackage = useCallback((preset: any) => {
+  const applyPackage = useCallback((preset: any, packageData?: any) => {
     // If photoshoot, force multimedia_studio
     const studioType = preset.service_type === 'photoshoot' 
       ? 'multimedia_studio' 
       : (preset.studio_type || null);
+    
+    // Build package pricing if this is a fixed-price package
+    let packagePricing: PackagePricing | null = null;
+    if (packageData?.is_package_pricing) {
+      packagePricing = {
+        packageId: packageData.id,
+        packageName: packageData.name,
+        firstHourPrice: Number(packageData.package_price_first_hour),
+        additionalHourPrice: Number(packageData.package_price_additional_hour),
+        includedEdits: Number(packageData.included_edits) || 0,
+        payoutBase: Number(packageData.payout_base) || 0,
+        payoutHourly: Number(packageData.payout_hourly) || 0,
+        payoutEditsIncluded: Number(packageData.payout_edits_included) || 0,
+      };
+    }
     
     setSelection({
       ...initialSelection,
@@ -81,6 +98,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       serviceType: preset.service_type || null,
       providerLevel: preset.provider_level || null,
       cameraCount: preset.camera_count || 1,
+      packagePricing,
     });
     setCurrentStep(3); // Go to time slot selection
   }, []);
@@ -94,47 +112,75 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
     let autoEditTotal = 0;
     let editingTotal = 0;
     let sessionAddonTotal = 0;
+    let packageTotal = 0;
 
-    // Find the rate for current studio and time slot
-    if (diyRates && selection.studioType && selection.timeSlotType) {
-      const rate = diyRates.find(
-        r => r.studios?.type === selection.studioType && r.time_slots?.type === selection.timeSlotType
-      );
+    // Check if we have package pricing (fixed price package)
+    const pkg = selection.packagePricing;
+    
+    if (pkg) {
+      // Package pricing - use fixed rates
+      if (selection.hours === 1) {
+        packageTotal = pkg.firstHourPrice;
+      } else {
+        packageTotal = pkg.firstHourPrice + (selection.hours - 1) * pkg.additionalHourPrice;
+      }
       
-      if (rate) {
-        const firstHour = Number(rate.first_hour_rate);
-        const afterFirstHour = rate.after_first_hour_rate ? Number(rate.after_first_hour_rate) : null;
+      lineItems.push({
+        label: `${pkg.packageName} (${selection.hours}hr${selection.hours > 1 ? ` - $${pkg.firstHourPrice} + ${selection.hours - 1}×$${pkg.additionalHourPrice}` : ''})`,
+        amount: packageTotal,
+        type: 'studio',
+      });
+
+      // Add note about included edits if any
+      if (pkg.includedEdits > 0) {
+        lineItems.push({
+          label: `Included: ${pkg.includedEdits} Enhance Edits`,
+          amount: 0,
+          type: 'editing',
+          details: 'Included in package',
+        });
+      }
+    } else {
+      // Standard pricing - Find the rate for current studio and time slot
+      if (diyRates && selection.studioType && selection.timeSlotType) {
+        const rate = diyRates.find(
+          r => r.studios?.type === selection.studioType && r.time_slots?.type === selection.timeSlotType
+        );
         
-        if (afterFirstHour !== null && selection.hours > 1) {
-          studioTotal = firstHour + (selection.hours - 1) * afterFirstHour;
-          lineItems.push({
-            label: `Studio (1hr @ $${firstHour} + ${selection.hours - 1}hr @ $${afterFirstHour})`,
-            amount: studioTotal,
-            type: 'studio',
-          });
-        } else {
-          studioTotal = selection.hours * firstHour;
-          lineItems.push({
-            label: `Studio (${selection.hours}hr @ $${firstHour}/hr)`,
-            amount: studioTotal,
-            type: 'studio',
-          });
+        if (rate) {
+          const firstHour = Number(rate.first_hour_rate);
+          const afterFirstHour = rate.after_first_hour_rate ? Number(rate.after_first_hour_rate) : null;
+          
+          if (afterFirstHour !== null && selection.hours > 1) {
+            studioTotal = firstHour + (selection.hours - 1) * afterFirstHour;
+            lineItems.push({
+              label: `Studio (1hr @ $${firstHour} + ${selection.hours - 1}hr @ $${afterFirstHour})`,
+              amount: studioTotal,
+              type: 'studio',
+            });
+          } else {
+            studioTotal = selection.hours * firstHour;
+            lineItems.push({
+              label: `Studio (${selection.hours}hr @ $${firstHour}/hr)`,
+              amount: studioTotal,
+              type: 'studio',
+            });
+          }
         }
       }
-    }
 
-    // Provider add-on (if serviced)
-    let providerHourlyRate = 0;
-    if (selection.sessionType === 'serviced' && selection.providerLevel && providerLevels) {
-      const provider = providerLevels.find(p => p.level === selection.providerLevel);
-      if (provider) {
-        providerHourlyRate = Number(provider.hourly_rate);
-        providerTotal = providerHourlyRate * selection.hours;
-        lineItems.push({
-          label: `Production Crew ${selection.providerLevel.toUpperCase()} (${selection.hours}hr @ $${providerHourlyRate}/hr)`,
-          amount: providerTotal,
-          type: 'provider',
-        });
+      // Provider add-on (if serviced and NOT package pricing)
+      if (selection.sessionType === 'serviced' && selection.providerLevel && providerLevels) {
+        const provider = providerLevels.find(p => p.level === selection.providerLevel);
+        if (provider) {
+          const providerHourlyRate = Number(provider.hourly_rate);
+          providerTotal = providerHourlyRate * selection.hours;
+          lineItems.push({
+            label: `Production Crew ${selection.providerLevel.toUpperCase()} (${selection.hours}hr @ $${providerHourlyRate}/hr)`,
+            amount: providerTotal,
+            type: 'provider',
+          });
+        }
       }
     }
 
@@ -171,7 +217,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Editing items
+    // Editing items (exclude items already included in package)
     selection.editingItems.forEach(item => {
       const itemTotal = item.basePrice + (item.incrementPrice || 0) * Math.max(0, item.quantity - 1);
       editingTotal += itemTotal;
@@ -192,25 +238,45 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    const customerTotal = studioTotal + providerTotal + cameraAddonTotal + autoEditTotal + editingTotal + sessionAddonTotal;
+    const customerTotal = packageTotal + studioTotal + providerTotal + cameraAddonTotal + autoEditTotal + editingTotal + sessionAddonTotal;
 
     // Internal calculations
     let providerBasePay = 0;
-    if (selection.sessionType === 'serviced' && selection.serviceType === 'photoshoot') {
-      providerBasePay = 60;
-    } else if (selection.sessionType === 'serviced' && selection.serviceType === 'vodcast') {
-      providerBasePay = 30 * selection.cameraCount;
+    let providerHourlyPay = 0;
+    let editorPayout = 0;
+
+    if (pkg) {
+      // Package payout calculation
+      providerBasePay = pkg.payoutBase;
+      providerHourlyPay = pkg.payoutHourly * selection.hours;
+      // Editor gets $5/edit for the included edits
+      editorPayout = pkg.payoutEditsIncluded * 5;
+    } else {
+      // Standard payout calculation
+      if (selection.sessionType === 'serviced') {
+        if (selection.serviceType === 'photoshoot') {
+          providerBasePay = 60;
+        } else if (selection.serviceType === 'vodcast') {
+          providerBasePay = 30 * selection.cameraCount;
+        }
+        
+        if (selection.providerLevel && providerLevels) {
+          const provider = providerLevels.find(p => p.level === selection.providerLevel);
+          if (provider) {
+            providerHourlyPay = Number(provider.hourly_rate) * selection.hours;
+          }
+        }
+      }
     }
 
-    const providerHourlyPay = providerHourlyRate * selection.hours;
-    const providerPayout = providerBasePay + providerHourlyPay;
+    const providerPayout = providerBasePay + providerHourlyPay + editorPayout;
     const grossMargin = customerTotal - providerPayout;
     const marginPerHour = selection.hours > 0 ? grossMargin / selection.hours : 0;
     const marginPercent = customerTotal > 0 ? (grossMargin / customerTotal) * 100 : 0;
 
     return {
       totals: {
-        studioTotal,
+        studioTotal: packageTotal || studioTotal,
         providerTotal,
         cameraAddonTotal,
         autoEditTotal,
@@ -220,7 +286,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
         lineItems,
       },
       internalTotals: {
-        studioTotal,
+        studioTotal: packageTotal || studioTotal,
         providerTotal,
         cameraAddonTotal,
         autoEditTotal,

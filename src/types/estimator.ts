@@ -5,6 +5,17 @@ export type TimeSlotType = 'mon_wed_day' | 'mon_wed_eve' | 'thu_fri_day' | 'thu_
 export type ProviderLevel = 'lv1' | 'lv2' | 'lv3';
 export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'completed';
 
+export interface PackagePricing {
+  packageId: string;
+  packageName: string;
+  firstHourPrice: number;
+  additionalHourPrice: number;
+  includedEdits: number;
+  payoutBase: number;
+  payoutHourly: number;
+  payoutEditsIncluded: number;
+}
+
 export interface EstimatorSelection {
   sessionType: SessionType;
   studioId: string | null;
@@ -19,6 +30,7 @@ export interface EstimatorSelection {
   autoEditTier: string | null;
   editingItems: EditingItem[];
   sessionAddons: SessionAddon[];
+  packagePricing: PackagePricing | null;
 }
 
 export interface SessionAddon {
@@ -74,6 +86,13 @@ export interface Package {
     camera_count?: number;
   };
   display_order: number;
+  is_package_pricing: boolean | null;
+  package_price_first_hour: number | null;
+  package_price_additional_hour: number | null;
+  included_edits: number | null;
+  payout_base: number | null;
+  payout_hourly: number | null;
+  payout_edits_included: number | null;
 }
 
 export const STEP_LABELS = [

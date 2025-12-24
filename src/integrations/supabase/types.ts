@@ -133,24 +133,45 @@ export type Database = {
           description: string | null
           display_order: number | null
           id: string
+          included_edits: number | null
           is_active: boolean | null
+          is_package_pricing: boolean | null
           name: string
+          package_price_additional_hour: number | null
+          package_price_first_hour: number | null
+          payout_base: number | null
+          payout_edits_included: number | null
+          payout_hourly: number | null
           preset_json: Json
         }
         Insert: {
           description?: string | null
           display_order?: number | null
           id?: string
+          included_edits?: number | null
           is_active?: boolean | null
+          is_package_pricing?: boolean | null
           name: string
+          package_price_additional_hour?: number | null
+          package_price_first_hour?: number | null
+          payout_base?: number | null
+          payout_edits_included?: number | null
+          payout_hourly?: number | null
           preset_json: Json
         }
         Update: {
           description?: string | null
           display_order?: number | null
           id?: string
+          included_edits?: number | null
           is_active?: boolean | null
+          is_package_pricing?: boolean | null
           name?: string
+          package_price_additional_hour?: number | null
+          package_price_first_hour?: number | null
+          payout_base?: number | null
+          payout_edits_included?: number | null
+          payout_hourly?: number | null
           preset_json?: Json
         }
         Relationships: []

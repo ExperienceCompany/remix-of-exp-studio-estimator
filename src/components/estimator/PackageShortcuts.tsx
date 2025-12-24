@@ -33,7 +33,7 @@ export function PackageShortcuts() {
             variant="outline"
             size="sm"
             className="whitespace-nowrap text-xs"
-            onClick={() => applyPackage(pkg.preset_json)}
+            onClick={() => applyPackage(pkg.preset_json, pkg)}
           >
             {pkg.name}
           </Button>
