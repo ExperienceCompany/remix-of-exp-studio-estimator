@@ -58,13 +58,13 @@ export function StepDuration() {
           <Slider
             value={[selection.hours]}
             onValueChange={handleHoursChange}
-            min={0.25}
+            min={1}
             max={8}
             step={0.25}
             className="w-full"
           />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>15 min</span>
+            <span>1 hour</span>
             <span>8 hours</span>
           </div>
           {/* Quick select buttons */}
