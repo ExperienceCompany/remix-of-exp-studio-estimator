@@ -28,10 +28,19 @@ export function StepStudio() {
     return minRate;
   };
 
+  // If photoshoot is selected, only multimedia_studio is available
+  const isPhotoshootSelected = selection.serviceType === 'photoshoot';
+
   const handleSelect = (studio: any) => {
+    const newStudioType = studio.type as StudioType;
+    
+    // If changing away from multimedia_studio and photoshoot was selected, clear service
+    const shouldClearService = selection.serviceType === 'photoshoot' && newStudioType !== 'multimedia_studio';
+    
     updateSelection({
       studioId: studio.id,
-      studioType: studio.type as StudioType,
+      studioType: newStudioType,
+      ...(shouldClearService && { serviceId: null, serviceType: null }),
     });
   };
 
@@ -57,15 +66,19 @@ export function StepStudio() {
         {studios?.map(studio => {
           const Icon = STUDIO_ICONS[studio.type as StudioType] || Mic;
           const startingPrice = getStartingPrice(studio.type);
+          const isDisabled = isPhotoshootSelected && studio.type !== 'multimedia_studio';
           
           return (
             <Card 
               key={studio.id}
               className={cn(
-                "cursor-pointer transition-all hover:shadow-md",
+                "transition-all",
+                isDisabled 
+                  ? "opacity-50 cursor-not-allowed" 
+                  : "cursor-pointer hover:shadow-md",
                 selection.studioId === studio.id && "ring-2 ring-primary"
               )}
-              onClick={() => handleSelect(studio)}
+              onClick={() => !isDisabled && handleSelect(studio)}
             >
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -79,7 +92,14 @@ export function StepStudio() {
                   )}
                 </div>
                 <CardTitle className="text-lg">{studio.name}</CardTitle>
-                <CardDescription>{studio.description}</CardDescription>
+                <CardDescription>
+                  {studio.description}
+                  {isDisabled && (
+                    <span className="block text-xs mt-1 text-destructive">
+                      Photoshoot requires Multimedia Studio
+                    </span>
+                  )}
+                </CardDescription>
               </CardHeader>
             </Card>
           );

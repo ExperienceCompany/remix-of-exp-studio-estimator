@@ -5,9 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { cn } from '@/lib/utils';
-import { PROVIDER_LEVEL_LABELS, ProviderLevel } from '@/types/estimator';
+import { ProviderLevel } from '@/types/estimator';
 import { ArrowLeft, ArrowRight, Clock, Camera } from 'lucide-react';
+
+// Format hours as "Xh Ym"
+function formatDuration(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
 
 export function StepDuration() {
   const { selection, updateSelection, setCurrentStep, totals } = useEstimator();
@@ -29,6 +37,9 @@ export function StepDuration() {
     setCurrentStep(5);
   };
 
+  // Quick select buttons for common durations
+  const quickDurations = [1, 2, 3, 4];
+
   return (
     <div className="space-y-6">
       {/* Hours */}
@@ -41,20 +52,34 @@ export function StepDuration() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Hours</span>
-            <span className="text-2xl font-bold">{selection.hours}</span>
+            <span className="text-sm text-muted-foreground">Duration</span>
+            <span className="text-2xl font-bold">{formatDuration(selection.hours)}</span>
           </div>
           <Slider
             value={[selection.hours]}
             onValueChange={handleHoursChange}
-            min={1}
+            min={0.25}
             max={8}
-            step={1}
+            step={0.25}
             className="w-full"
           />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>1 hour</span>
+            <span>15 min</span>
             <span>8 hours</span>
+          </div>
+          {/* Quick select buttons */}
+          <div className="flex gap-2 pt-2">
+            {quickDurations.map(dur => (
+              <Button
+                key={dur}
+                variant={selection.hours === dur ? "default" : "outline"}
+                size="sm"
+                onClick={() => updateSelection({ hours: dur })}
+                className="flex-1"
+              >
+                {dur}h
+              </Button>
+            ))}
           </div>
         </CardContent>
       </Card>
