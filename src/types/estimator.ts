@@ -18,6 +18,13 @@ export interface EstimatorSelection {
   cameraCount: number;
   autoEditTier: string | null;
   editingItems: EditingItem[];
+  sessionAddons: SessionAddon[];
+}
+
+export interface SessionAddon {
+  id: string;
+  name: string;
+  flatAmount: number;
 }
 
 export interface EditingItem {
@@ -31,7 +38,7 @@ export interface EditingItem {
 export interface LineItem {
   label: string;
   amount: number;
-  type: 'studio' | 'provider' | 'camera' | 'autoedit' | 'editing';
+  type: 'studio' | 'provider' | 'camera' | 'autoedit' | 'editing' | 'session_addon';
   details?: string;
 }
 
@@ -41,6 +48,7 @@ export interface QuoteTotals {
   cameraAddonTotal: number;
   autoEditTotal: number;
   editingTotal: number;
+  sessionAddonTotal: number;
   customerTotal: number;
   lineItems: LineItem[];
 }
