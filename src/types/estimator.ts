@@ -43,7 +43,8 @@ export interface EditingItem {
   id: string;
   name: string;
   quantity: number;
-  basePrice: number;
+  basePrice: number;      // Internal payout rate
+  customerPrice: number;  // Customer-facing price (2× payout)
   incrementPrice: number | null;
 }
 

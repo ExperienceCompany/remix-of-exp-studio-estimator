@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ArrowLeft, ArrowRight, Sparkles, Film, Camera, Settings } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, ArrowRight, Sparkles, Film, Camera, Settings, Minus, Plus } from 'lucide-react';
 
 export function StepAddons() {
   const { selection, updateSelection, setCurrentStep, totals } = useEstimator();
@@ -36,6 +37,9 @@ export function StepAddons() {
   const photoEditingItems = editingMenu?.filter(item => item.category === 'photo_editing') || [];
   const videoEditingItems = editingMenu?.filter(item => item.category !== 'photo_editing') || [];
 
+  // Show photo editing only for photoshoot package
+  const showPhotoEditing = selection.serviceType === 'photoshoot';
+
   const handleAutoEditChange = (tier: string | null) => {
     updateSelection({ autoEditTier: tier });
   };
@@ -47,19 +51,39 @@ export function StepAddons() {
         editingItems: selection.editingItems.filter(e => e.id !== item.id),
       });
     } else {
+      // For Enhance Edit, enforce 10 edit minimum
+      const isEnhance = item.name === 'Enhance Edit';
+      const defaultQuantity = isEnhance ? 10 : 1;
+      
       updateSelection({
         editingItems: [
           ...selection.editingItems,
           {
             id: item.id,
             name: item.name,
-            quantity: 1,
+            quantity: defaultQuantity,
             basePrice: Number(item.base_price),
+            customerPrice: Number(item.customer_price || item.base_price * 2),
             incrementPrice: item.increment_price ? Number(item.increment_price) : null,
           },
         ],
       });
     }
+  };
+
+  const updateEditingQuantity = (itemId: string, newQuantity: number) => {
+    updateSelection({
+      editingItems: selection.editingItems.map(e => {
+        if (e.id !== itemId) return e;
+        
+        // Enforce 10 minimum for Enhance Edit
+        const isEnhance = e.name === 'Enhance Edit';
+        const minQuantity = isEnhance ? 10 : 1;
+        const quantity = Math.max(minQuantity, newQuantity);
+        
+        return { ...e, quantity };
+      }),
+    });
   };
 
   const toggleSessionAddon = (addon: any) => {
@@ -86,20 +110,114 @@ export function StepAddons() {
     setCurrentStep(6);
   };
 
-  const renderEditingItems = (items: any[], title: string, icon: React.ReactNode) => {
-    if (items.length === 0) return null;
+  const renderPhotoEditingWithQuantity = () => {
+    if (!showPhotoEditing || photoEditingItems.length === 0) return null;
+    
+    // Get included edits from package
+    const includedEdits = selection.packagePricing?.includedEdits || 0;
     
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            {icon}
-            {title}
+            <Camera className="h-4 w-4" />
+            Photo Editing
+          </CardTitle>
+          <CardDescription>
+            {includedEdits > 0 
+              ? `${includedEdits} enhance edits included with package. Add more below.`
+              : 'Select editing services and quantity'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {photoEditingItems.map(item => {
+            const selectedItem = selection.editingItems.find(e => e.id === item.id);
+            const isSelected = !!selectedItem;
+            const quantity = selectedItem?.quantity || 0;
+            const customerPrice = Number(item.customer_price || item.base_price * 2);
+            const isEnhance = item.name === 'Enhance Edit';
+            const itemTotal = quantity * customerPrice;
+            
+            return (
+              <div 
+                key={item.id} 
+                className="space-y-2 py-3 border-b last:border-0"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={isSelected}
+                      onCheckedChange={() => toggleEditingItem(item)}
+                    />
+                    <div>
+                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                      {isEnhance && (
+                        <p className="text-xs text-primary font-medium">10 edit minimum ($100)</p>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-sm font-medium">
+                    ${customerPrice}/edit
+                  </span>
+                </div>
+                
+                {isSelected && (
+                  <div className="flex items-center justify-between pl-12">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateEditingQuantity(item.id, quantity - 1)}
+                        disabled={isEnhance ? quantity <= 10 : quantity <= 1}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <Input
+                        type="number"
+                        value={quantity}
+                        onChange={(e) => updateEditingQuantity(item.id, parseInt(e.target.value) || 1)}
+                        className="w-16 h-8 text-center"
+                        min={isEnhance ? 10 : 1}
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateEditingQuantity(item.id, quantity + 1)}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <span className="text-sm font-bold">
+                      = ${itemTotal}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderVideoEditingItems = () => {
+    if (videoEditingItems.length === 0) return null;
+    
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Film className="h-4 w-4" />
+            Video Editing Services
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {items.map(item => {
+          {videoEditingItems.map(item => {
             const isSelected = selection.editingItems.some(e => e.id === item.id);
+            const customerPrice = Number(item.customer_price || item.base_price * 2);
             return (
               <div 
                 key={item.id} 
@@ -116,7 +234,7 @@ export function StepAddons() {
                   </div>
                 </div>
                 <span className="text-sm font-medium">
-                  ${Number(item.base_price)}
+                  ${customerPrice}
                 </span>
               </div>
             );
@@ -206,11 +324,11 @@ export function StepAddons() {
         </CardContent>
       </Card>
 
-      {/* Photo Editing Services */}
-      {renderEditingItems(photoEditingItems, 'Photo Editing', <Camera className="h-4 w-4" />)}
+      {/* Photo Editing Services (only for photoshoot) */}
+      {renderPhotoEditingWithQuantity()}
 
       {/* Video Editing Services */}
-      {renderEditingItems(videoEditingItems, 'Video Editing Services', <Film className="h-4 w-4" />)}
+      {renderVideoEditingItems()}
 
       {/* Running Total */}
       <Card className="bg-muted/50">

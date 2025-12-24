@@ -99,6 +99,7 @@ export type Database = {
         Row: {
           base_price: number
           category: string
+          customer_price: number | null
           description: string | null
           id: string
           increment_price: number | null
@@ -109,6 +110,7 @@ export type Database = {
         Insert: {
           base_price: number
           category: string
+          customer_price?: number | null
           description?: string | null
           id?: string
           increment_price?: number | null
@@ -119,6 +121,7 @@ export type Database = {
         Update: {
           base_price?: number
           category?: string
+          customer_price?: number | null
           description?: string | null
           id?: string
           increment_price?: number | null

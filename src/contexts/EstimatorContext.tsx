@@ -217,12 +217,12 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Editing items (exclude items already included in package)
+    // Editing items - use customerPrice for client total
     selection.editingItems.forEach(item => {
-      const itemTotal = item.basePrice + (item.incrementPrice || 0) * Math.max(0, item.quantity - 1);
+      const itemTotal = item.customerPrice * item.quantity;
       editingTotal += itemTotal;
       lineItems.push({
-        label: `${item.name} (x${item.quantity})`,
+        label: `${item.name} (x${item.quantity} @ $${item.customerPrice}/ea)`,
         amount: itemTotal,
         type: 'editing',
       });
@@ -268,6 +268,11 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
+
+    // Add editor payout for additional editing items (basePrice = payout rate)
+    selection.editingItems.forEach(item => {
+      editorPayout += item.basePrice * item.quantity;
+    });
 
     const providerPayout = providerBasePay + providerHourlyPay + editorPayout;
     const grossMargin = customerTotal - providerPayout;
