@@ -1,35 +1,33 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
-import { useVerticalAutoeditAddons, useEditingMenu, useSessionAddons } from '@/hooks/useEstimatorData';
+import { useEditingMenu, useSessionAddons } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, ArrowRight, Sparkles, Film, Camera, Settings, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Film, Camera, Settings, Minus, Plus } from 'lucide-react';
 
 export function StepAddons() {
   const { selection, updateSelection, setCurrentStep, totals } = useEstimator();
-  const { data: autoEditAddons } = useVerticalAutoeditAddons();
   const { data: editingMenu } = useEditingMenu();
   const { data: sessionAddons } = useSessionAddons();
 
-  // Get the time slot group for auto-edit pricing
-  const timeSlotGroup = selection.timeSlotType?.startsWith('mon_wed') ? 'mon_wed' 
-    : selection.timeSlotType?.startsWith('thu_fri') ? 'thu_fri' : 'sat_sun';
-
-  const availableAutoEditTiers = autoEditAddons?.filter(
-    a => a.time_slot_group === timeSlotGroup
-  ) || [];
-
   // Filter session add-ons based on session type and studio
   const availableSessionAddons = sessionAddons?.filter(addon => {
+    // Check session type restriction (e.g., 'diy' only)
     if (addon.applies_to_session_type && addon.applies_to_session_type !== selection.sessionType) {
       return false;
     }
-    if (addon.applies_to_studio_type && addon.applies_to_studio_type !== selection.studioType) {
+    
+    // Check studio types array restriction (new multi-studio logic)
+    if (addon.applies_to_studio_types && addon.applies_to_studio_types.length > 0) {
+      if (!selection.studioType || !addon.applies_to_studio_types.includes(selection.studioType)) {
+        return false;
+      }
+    } else if (addon.applies_to_studio_type && addon.applies_to_studio_type !== selection.studioType) {
+      // Legacy single-value fallback
       return false;
     }
+    
     return true;
   }) || [];
 
@@ -39,10 +37,6 @@ export function StepAddons() {
 
   // Show photo editing only for photoshoot package
   const showPhotoEditing = selection.serviceType === 'photoshoot';
-
-  const handleAutoEditChange = (tier: string | null) => {
-    updateSelection({ autoEditTier: tier });
-  };
 
   const toggleEditingItem = (item: any) => {
     const existing = selection.editingItems.find(e => e.id === item.id);
@@ -100,6 +94,7 @@ export function StepAddons() {
             id: addon.id,
             name: addon.name,
             flatAmount: Number(addon.flat_amount),
+            isHourly: addon.is_hourly ?? false,
           },
         ],
       });
@@ -246,7 +241,7 @@ export function StepAddons() {
 
   return (
     <div className="space-y-6">
-      {/* Session Add-ons (Flat fees) */}
+      {/* Session Add-ons */}
       {availableSessionAddons.length > 0 && (
         <Card>
           <CardHeader>
@@ -255,12 +250,16 @@ export function StepAddons() {
               Session Add-ons
             </CardTitle>
             <CardDescription>
-              Optional equipment and setup services (flat fee per session)
+              Optional equipment and setup services
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {availableSessionAddons.map(addon => {
               const isSelected = selection.sessionAddons.some(a => a.id === addon.id);
+              const isHourly = addon.is_hourly;
+              const displayPrice = isHourly 
+                ? `+$${Number(addon.flat_amount)}/hr` 
+                : `+$${Number(addon.flat_amount)}`;
               return (
                 <div 
                   key={addon.id} 
@@ -277,7 +276,7 @@ export function StepAddons() {
                     </div>
                   </div>
                   <span className="text-sm font-medium">
-                    +${Number(addon.flat_amount)}
+                    {displayPrice}
                   </span>
                 </div>
               );
@@ -285,44 +284,6 @@ export function StepAddons() {
           </CardContent>
         </Card>
       )}
-
-      {/* Auto-Edited Vertical Video */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4" />
-            Auto-Edited Vertical Video
-          </CardTitle>
-          <CardDescription>
-            Get vertical clips auto-edited from your session (per hour)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RadioGroup
-            value={selection.autoEditTier || 'none'}
-            onValueChange={(v) => handleAutoEditChange(v === 'none' ? null : v)}
-            className="space-y-2"
-          >
-            <div className="flex items-center space-x-3">
-              <RadioGroupItem value="none" id="autoedit-none" />
-              <Label htmlFor="autoedit-none" className="cursor-pointer">
-                No auto-edit
-              </Label>
-            </div>
-            {availableAutoEditTiers.map(tier => (
-              <div key={tier.id} className="flex items-center space-x-3">
-                <RadioGroupItem value={tier.tier_name} id={`autoedit-${tier.tier_name}`} />
-                <Label htmlFor={`autoedit-${tier.tier_name}`} className="flex-1 cursor-pointer">
-                  <span className="font-medium">{tier.tier_name}</span>
-                  <span className="text-muted-foreground ml-2">
-                    +${Number(tier.hourly_amount)}/hr
-                  </span>
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </CardContent>
-      </Card>
 
       {/* Photo Editing Services (only for photoshoot) */}
       {renderPhotoEditingWithQuantity()}

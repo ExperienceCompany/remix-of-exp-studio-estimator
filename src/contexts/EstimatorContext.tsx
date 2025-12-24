@@ -15,8 +15,7 @@ import {
 import { 
   useDiyRates, 
   useProviderLevels, 
-  useVodcastCameraAddons, 
-  useVerticalAutoeditAddons 
+  useVodcastCameraAddons,
 } from '@/hooks/useEstimatorData';
 
 interface EstimatorContextValue {
@@ -57,9 +56,8 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
   const { data: diyRates, isLoading: ratesLoading } = useDiyRates();
   const { data: providerLevels, isLoading: providersLoading } = useProviderLevels();
   const { data: cameraAddons, isLoading: camerasLoading } = useVodcastCameraAddons();
-  const { data: autoEditAddons, isLoading: autoEditLoading } = useVerticalAutoeditAddons();
 
-  const isLoading = ratesLoading || providersLoading || camerasLoading || autoEditLoading;
+  const isLoading = ratesLoading || providersLoading || camerasLoading;
 
   const updateSelection = useCallback((updates: Partial<EstimatorSelection>) => {
     setSelection(prev => ({ ...prev, ...updates }));
@@ -197,26 +195,6 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Auto-edit add-on
-    if (selection.autoEditTier && autoEditAddons && selection.timeSlotType) {
-      const timeSlotGroup = selection.timeSlotType.startsWith('mon_wed') ? 'mon_wed' 
-        : selection.timeSlotType.startsWith('thu_fri') ? 'thu_fri' : 'sat_sun';
-      
-      const addon = autoEditAddons.find(
-        a => a.time_slot_group === timeSlotGroup && a.tier_name === selection.autoEditTier
-      );
-      
-      if (addon) {
-        const hourlyAmount = Number(addon.hourly_amount);
-        autoEditTotal = hourlyAmount * selection.hours;
-        lineItems.push({
-          label: `Auto-Edited Vertical Video (${selection.autoEditTier} - ${selection.hours}hr @ $${hourlyAmount}/hr)`,
-          amount: autoEditTotal,
-          type: 'autoedit',
-        });
-      }
-    }
-
     // Editing items - use customerPrice for client total
     selection.editingItems.forEach(item => {
       const itemTotal = item.customerPrice * item.quantity;
@@ -228,12 +206,17 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    // Session add-ons (flat fees per session)
+    // Session add-ons (flat or hourly)
     selection.sessionAddons.forEach(addon => {
-      sessionAddonTotal += addon.flatAmount;
+      const addonAmount = addon.isHourly 
+        ? addon.flatAmount * selection.hours 
+        : addon.flatAmount;
+      sessionAddonTotal += addonAmount;
       lineItems.push({
-        label: addon.name,
-        amount: addon.flatAmount,
+        label: addon.isHourly 
+          ? `${addon.name} (${selection.hours}hr × $${addon.flatAmount}/hr)` 
+          : addon.name,
+        amount: addonAmount,
         type: 'session_addon',
       });
     });
@@ -307,7 +290,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
         marginPercent,
       },
     };
-  }, [selection, diyRates, providerLevels, cameraAddons, autoEditAddons]);
+  }, [selection, diyRates, providerLevels, cameraAddons]);
 
   const value: EstimatorContextValue = {
     selection,
