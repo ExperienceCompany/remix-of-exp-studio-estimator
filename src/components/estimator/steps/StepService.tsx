@@ -1,11 +1,11 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
-import { useServices } from '@/hooks/useEstimatorData';
+import { useServices, useProviderLevels } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { SERVICE_LABELS, ServiceType } from '@/types/estimator';
-import { Mic, Video, Music, Camera, ArrowLeft, ArrowRight } from 'lucide-react';
+import { SERVICE_LABELS, ServiceType, CrewAllocation } from '@/types/estimator';
+import { Mic, Video, Music, Camera, ArrowLeft, ArrowRight, Minus, Plus, Users } from 'lucide-react';
 
 const SERVICE_ICONS: Record<ServiceType, typeof Mic> = {
   audio_podcast: Mic,
@@ -17,6 +17,7 @@ const SERVICE_ICONS: Record<ServiceType, typeof Mic> = {
 export function StepService() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: services, isLoading } = useServices();
+  const { data: providerLevels } = useProviderLevels();
 
   // Service to Studio restrictions:
   // - photoshoot -> multimedia_studio
@@ -76,11 +77,30 @@ export function StepService() {
     });
   };
 
+  const updateCrewLevel = (level: keyof CrewAllocation, delta: number) => {
+    const current = selection.crewAllocation[level];
+    const newValue = Math.max(0, current + delta);
+    updateSelection({
+      crewAllocation: {
+        ...selection.crewAllocation,
+        [level]: newValue,
+      },
+    });
+  };
+
   const handleNext = () => {
     if (selection.serviceType) {
       setCurrentStep(3);
     }
   };
+
+  // Calculate total crew and cost
+  const { lv1, lv2, lv3 } = selection.crewAllocation;
+  const totalCrew = lv1 + lv2 + lv3;
+  const lv1Rate = providerLevels?.find(p => p.level === 'lv1')?.hourly_rate || 20;
+  const lv2Rate = providerLevels?.find(p => p.level === 'lv2')?.hourly_rate || 30;
+  const lv3Rate = providerLevels?.find(p => p.level === 'lv3')?.hourly_rate || 40;
+  const totalCrewCostPerHour = lv1 * Number(lv1Rate) + lv2 * Number(lv2Rate) + lv3 * Number(lv3Rate);
 
   if (isLoading) {
     return (
@@ -133,6 +153,114 @@ export function StepService() {
             <p key={i}>💡 {msg}</p>
           ))}
         </div>
+      )}
+
+      {/* Production Crew Level Selector (only for serviced sessions) */}
+      {selection.sessionType === 'serviced' && selection.serviceType && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4" />
+              Production Crew
+            </CardTitle>
+            <CardDescription>
+              Select the number of crew members at each level
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Level 1 */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Level 1 - Entry</p>
+                <p className="text-xs text-muted-foreground">+${lv1Rate}/hr per crew</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv1', -1)}
+                  disabled={lv1 <= 0}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-8 text-center font-medium">{lv1}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv1', 1)}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Level 2 */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Level 2 - Experienced</p>
+                <p className="text-xs text-muted-foreground">+${lv2Rate}/hr per crew</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv2', -1)}
+                  disabled={lv2 <= 0}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-8 text-center font-medium">{lv2}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv2', 1)}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Level 3 */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Level 3 - Expert</p>
+                <p className="text-xs text-muted-foreground">+${lv3Rate}/hr per crew</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv3', -1)}
+                  disabled={lv3 <= 0}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-8 text-center font-medium">{lv3}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv3', 1)}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Summary */}
+            {totalCrew > 0 && (
+              <div className="pt-3 border-t flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Total Crew: {totalCrew}</span>
+                <span className="text-sm font-medium">+${totalCrewCostPerHour}/hr</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <div className="flex justify-between">
