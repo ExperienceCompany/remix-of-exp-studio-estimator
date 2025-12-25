@@ -35,7 +35,7 @@ export const VIDEO_EDITING_CONFIG: Record<string, {
     formatDuration: (seconds: number) => seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`,
   },
   long_form_simple: {
-    minDuration: 360,
+    minDuration: 900,
     maxDuration: 14400,
     baseDuration: 900,
     incrementDuration: 900,
@@ -48,7 +48,7 @@ export const VIDEO_EDITING_CONFIG: Record<string, {
     },
   },
   long_form_advanced: {
-    minDuration: 360,
+    minDuration: 900,
     maxDuration: 14400,
     baseDuration: 900,
     incrementDuration: 900,
