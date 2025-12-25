@@ -11,6 +11,7 @@ import {
   ProviderLevel,
   EditingItem,
   PackagePricing,
+  CrewAllocation,
 } from '@/types/estimator';
 import { 
   useDiyRates, 
@@ -30,6 +31,8 @@ interface EstimatorContextValue {
   isLoading: boolean;
 }
 
+const initialCrewAllocation: CrewAllocation = { lv1: 0, lv2: 0, lv3: 0 };
+
 const initialSelection: EstimatorSelection = {
   sessionType: 'diy',
   studioId: null,
@@ -40,6 +43,7 @@ const initialSelection: EstimatorSelection = {
   timeSlotType: null,
   hours: 1,
   providerLevel: null,
+  crewAllocation: initialCrewAllocation,
   cameraCount: 1,
   autoEditTier: null,
   editingItems: [],
@@ -95,6 +99,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       studioType,
       serviceType: preset.service_type || null,
       providerLevel: preset.provider_level || null,
+      crewAllocation: initialCrewAllocation,
       cameraCount: preset.camera_count || 1,
       packagePricing,
     });
@@ -168,16 +173,52 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Provider add-on (if serviced and NOT package pricing)
-      if (selection.sessionType === 'serviced' && selection.providerLevel && providerLevels) {
-        const provider = providerLevels.find(p => p.level === selection.providerLevel);
-        if (provider) {
-          const providerHourlyRate = Number(provider.hourly_rate);
-          providerTotal = providerHourlyRate * selection.hours;
-          lineItems.push({
-            label: `Production Crew ${selection.providerLevel.toUpperCase()} (${selection.hours}hr @ $${providerHourlyRate}/hr)`,
-            amount: providerTotal,
-            type: 'provider',
-          });
+      // Use crewAllocation for multi-level crew pricing
+      if (selection.sessionType === 'serviced' && providerLevels) {
+        const { lv1, lv2, lv3 } = selection.crewAllocation;
+        const totalCrew = lv1 + lv2 + lv3;
+        
+        if (totalCrew > 0) {
+          const lv1Rate = providerLevels.find(p => p.level === 'lv1')?.hourly_rate || 20;
+          const lv2Rate = providerLevels.find(p => p.level === 'lv2')?.hourly_rate || 30;
+          const lv3Rate = providerLevels.find(p => p.level === 'lv3')?.hourly_rate || 40;
+          
+          providerTotal = (lv1 * Number(lv1Rate) + lv2 * Number(lv2Rate) + lv3 * Number(lv3Rate)) * selection.hours;
+          
+          // Add line items for each level with crew
+          if (lv1 > 0) {
+            lineItems.push({
+              label: `Lv1 Crew × ${lv1} (${selection.hours}hr @ $${lv1Rate}/hr)`,
+              amount: lv1 * Number(lv1Rate) * selection.hours,
+              type: 'provider',
+            });
+          }
+          if (lv2 > 0) {
+            lineItems.push({
+              label: `Lv2 Crew × ${lv2} (${selection.hours}hr @ $${lv2Rate}/hr)`,
+              amount: lv2 * Number(lv2Rate) * selection.hours,
+              type: 'provider',
+            });
+          }
+          if (lv3 > 0) {
+            lineItems.push({
+              label: `Lv3 Crew × ${lv3} (${selection.hours}hr @ $${lv3Rate}/hr)`,
+              amount: lv3 * Number(lv3Rate) * selection.hours,
+              type: 'provider',
+            });
+          }
+        } else if (selection.providerLevel) {
+          // Fallback to single provider level for backward compatibility
+          const provider = providerLevels.find(p => p.level === selection.providerLevel);
+          if (provider) {
+            const providerHourlyRate = Number(provider.hourly_rate);
+            providerTotal = providerHourlyRate * selection.hours;
+            lineItems.push({
+              label: `Production Crew ${selection.providerLevel.toUpperCase()} (${selection.hours}hr @ $${providerHourlyRate}/hr)`,
+              amount: providerTotal,
+              type: 'provider',
+            });
+          }
         }
       }
     }
@@ -290,7 +331,17 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
           providerBasePay = 30 * selection.cameraCount;
         }
         
-        if (selection.providerLevel && providerLevels) {
+        // Use crewAllocation for payout
+        const { lv1, lv2, lv3 } = selection.crewAllocation;
+        const totalCrew = lv1 + lv2 + lv3;
+        
+        if (totalCrew > 0 && providerLevels) {
+          const lv1Rate = providerLevels.find(p => p.level === 'lv1')?.hourly_rate || 20;
+          const lv2Rate = providerLevels.find(p => p.level === 'lv2')?.hourly_rate || 30;
+          const lv3Rate = providerLevels.find(p => p.level === 'lv3')?.hourly_rate || 40;
+          providerHourlyPay = (lv1 * Number(lv1Rate) + lv2 * Number(lv2Rate) + lv3 * Number(lv3Rate)) * selection.hours;
+        } else if (selection.providerLevel && providerLevels) {
+          // Fallback to single provider level
           const provider = providerLevels.find(p => p.level === selection.providerLevel);
           if (provider) {
             providerHourlyPay = Number(provider.hourly_rate) * selection.hours;

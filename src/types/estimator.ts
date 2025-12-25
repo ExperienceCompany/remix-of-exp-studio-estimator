@@ -5,6 +5,13 @@ export type TimeSlotType = 'mon_wed_day' | 'mon_wed_eve' | 'thu_fri_day' | 'thu_
 export type ProviderLevel = 'lv1' | 'lv2' | 'lv3';
 export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'completed';
 
+// Multi-level crew allocation
+export interface CrewAllocation {
+  lv1: number;
+  lv2: number;
+  lv3: number;
+}
+
 export interface PackagePricing {
   packageId: string;
   packageName: string;
@@ -25,7 +32,8 @@ export interface EstimatorSelection {
   timeSlotId: string | null;
   timeSlotType: TimeSlotType | null;
   hours: number;
-  providerLevel: ProviderLevel | null;
+  providerLevel: ProviderLevel | null;  // Keep for backward compatibility
+  crewAllocation: CrewAllocation;       // Multi-level crew counts
   cameraCount: number;
   autoEditTier: string | null;
   editingItems: EditingItem[];
@@ -49,7 +57,8 @@ export interface EditingItem {
   basePrice: number;      // Internal payout rate
   customerPrice: number;  // Customer-facing price (base price)
   incrementPrice: number | null;  // Customer-facing increment price
-  crewCount?: number;     // Number of production crew
+  crewCount?: number;     // DEPRECATED: use assignedCrew instead
+  assignedCrew?: CrewAllocation;  // Crew assigned per level
 }
 
 export interface LineItem {

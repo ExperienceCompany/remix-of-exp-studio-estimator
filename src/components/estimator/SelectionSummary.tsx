@@ -87,13 +87,18 @@ export function SelectionSummary() {
     });
   }
 
-  // Provider Level (only for serviced sessions)
-  if (selection.sessionType === 'serviced' && selection.providerLevel) {
-    items.push({
-      icon: <UserCheck className="h-3 w-3" />,
-      label: 'Provider',
-      value: PROVIDER_LEVEL_LABELS[selection.providerLevel as ProviderLevel].replace(' (+$', ' (').replace('/hr)', ')')
-    });
+  // Crew Allocation (show each level with crew)
+  if (selection.sessionType === 'serviced') {
+    const { lv1, lv2, lv3 } = selection.crewAllocation;
+    if (lv1 > 0) {
+      items.push({ icon: <UserCheck className="h-3 w-3" />, label: 'Lv1 Crew', value: `${lv1}` });
+    }
+    if (lv2 > 0) {
+      items.push({ icon: <UserCheck className="h-3 w-3" />, label: 'Lv2 Crew', value: `${lv2}` });
+    }
+    if (lv3 > 0) {
+      items.push({ icon: <UserCheck className="h-3 w-3" />, label: 'Lv3 Crew', value: `${lv3}` });
+    }
   }
 
   // Camera Count (only for vodcast with multiple cameras)
@@ -118,7 +123,8 @@ export function SelectionSummary() {
 
   selection.editingItems.forEach(item => {
     const durationStr = formatEditDuration(item.quantity, item.category);
-    const crewStr = item.crewCount && item.crewCount > 1 ? ` • ${item.crewCount} crew` : '';
+    const totalAssigned = (item.assignedCrew?.lv1 || 0) + (item.assignedCrew?.lv2 || 0) + (item.assignedCrew?.lv3 || 0);
+    const crewStr = totalAssigned > 0 ? ` • ${totalAssigned} crew` : '';
     items.push({
       icon: <Film className="h-3 w-3" />,
       label: item.name.split(' ')[0],
