@@ -195,12 +195,50 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Editing items - use customerPrice for client total
+    // Video editing config for duration-based pricing
+    const VIDEO_EDITING_CONFIG: Record<string, { baseDuration: number; incrementDuration: number }> = {
+      social: { baseDuration: 1, incrementDuration: 1 },
+      general_basic: { baseDuration: 15, incrementDuration: 15 },
+      general_advanced: { baseDuration: 15, incrementDuration: 15 },
+      long_form_simple: { baseDuration: 900, incrementDuration: 900 },
+      long_form_advanced: { baseDuration: 900, incrementDuration: 900 },
+    };
+
+    // Editing items - calculate based on category type
     selection.editingItems.forEach(item => {
-      const itemTotal = item.customerPrice * item.quantity;
+      const config = VIDEO_EDITING_CONFIG[item.category];
+      let itemTotal: number;
+      let labelDetails: string;
+      
+      if (config) {
+        // Video editing: duration-based pricing
+        const duration = item.quantity;
+        if (duration <= config.baseDuration) {
+          itemTotal = item.customerPrice;
+        } else {
+          const additionalIncrements = Math.ceil((duration - config.baseDuration) / config.incrementDuration);
+          itemTotal = item.customerPrice + (additionalIncrements * (item.incrementPrice || 0));
+        }
+        
+        // Format duration for display
+        const formatDuration = (seconds: number) => {
+          if (item.category === 'social') return `${seconds} bucket${seconds > 1 ? 's' : ''}`;
+          if (seconds < 60) return `${seconds}s`;
+          const mins = Math.floor(seconds / 60);
+          if (mins < 60) return `${mins}min`;
+          const hrs = Math.floor(mins / 60);
+          return `${hrs}h${mins % 60 > 0 ? ` ${mins % 60}m` : ''}`;
+        };
+        labelDetails = formatDuration(duration);
+      } else {
+        // Photo editing: simple quantity × price
+        itemTotal = item.customerPrice * item.quantity;
+        labelDetails = `x${item.quantity} @ $${item.customerPrice}/ea`;
+      }
+      
       editingTotal += itemTotal;
       lineItems.push({
-        label: `${item.name} (x${item.quantity} @ $${item.customerPrice}/ea)`,
+        label: `${item.name} (${labelDetails})`,
         amount: itemTotal,
         type: 'editing',
       });
@@ -252,9 +290,24 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Add editor payout for additional editing items (basePrice = payout rate)
+    // Add editor payout for additional editing items
     selection.editingItems.forEach(item => {
-      editorPayout += item.basePrice * item.quantity;
+      const config = VIDEO_EDITING_CONFIG[item.category];
+      if (config) {
+        // Video editing: duration-based payout using base_price as internal rate
+        const duration = item.quantity;
+        if (duration <= config.baseDuration) {
+          editorPayout += item.basePrice;
+        } else {
+          const additionalIncrements = Math.ceil((duration - config.baseDuration) / config.incrementDuration);
+          // Internal increment = half of customer increment (since incrementPrice is already customer-facing)
+          const internalIncrement = (item.incrementPrice || 0) / 2;
+          editorPayout += item.basePrice + (additionalIncrements * internalIncrement);
+        }
+      } else {
+        // Photo editing: quantity × basePrice
+        editorPayout += item.basePrice * item.quantity;
+      }
     });
 
     const providerPayout = providerBasePay + providerHourlyPay + editorPayout;

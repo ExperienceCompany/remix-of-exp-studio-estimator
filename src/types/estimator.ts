@@ -43,10 +43,11 @@ export interface SessionAddon {
 export interface EditingItem {
   id: string;
   name: string;
+  category: string;       // Category for pricing logic (e.g., 'photo_editing', 'general_basic')
   quantity: number;
   basePrice: number;      // Internal payout rate
-  customerPrice: number;  // Customer-facing price (2× payout)
-  incrementPrice: number | null;
+  customerPrice: number;  // Customer-facing price (base price)
+  incrementPrice: number | null;  // Customer-facing increment price
 }
 
 export interface LineItem {

@@ -64,6 +64,7 @@ export function StepAddons() {
           {
             id: item.id,
             name: item.name,
+            category: item.category,
             quantity: defaultQuantity,
             basePrice: Number(item.base_price),
             customerPrice: Number(item.customer_price || item.base_price * 2),
