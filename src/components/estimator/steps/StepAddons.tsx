@@ -4,65 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { Slider } from '@/components/ui/slider';
 import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus, Video } from 'lucide-react';
-
-// Video editing config with duration-based pricing
-const VIDEO_EDITING_CONFIG: Record<string, {
-  minDuration: number;
-  maxDuration: number;
-  baseDuration: number;
-  incrementDuration: number;
-  formatDuration: (seconds: number) => string;
-}> = {
-  social: {
-    minDuration: 1, // 1 revision bucket
-    maxDuration: 10,
-    baseDuration: 1,
-    incrementDuration: 1,
-    formatDuration: (buckets: number) => `${buckets} revision bucket${buckets > 1 ? 's' : ''}`,
-  },
-  general_basic: {
-    minDuration: 15, // 15 seconds
-    maxDuration: 360, // 6 min max
-    baseDuration: 15,
-    incrementDuration: 15,
-    formatDuration: (seconds: number) => seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`,
-  },
-  general_advanced: {
-    minDuration: 15,
-    maxDuration: 360,
-    baseDuration: 15,
-    incrementDuration: 15,
-    formatDuration: (seconds: number) => seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`,
-  },
-  long_form_simple: {
-    minDuration: 360, // 6 min minimum
-    maxDuration: 14400, // 4 hours max (in seconds)
-    baseDuration: 900, // 15 min base
-    incrementDuration: 900, // 15 min increments
-    formatDuration: (seconds: number) => {
-      const mins = Math.floor(seconds / 60);
-      if (mins < 60) return `${mins} min`;
-      const hours = Math.floor(mins / 60);
-      const remainingMins = mins % 60;
-      return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
-    },
-  },
-  long_form_advanced: {
-    minDuration: 360,
-    maxDuration: 14400,
-    baseDuration: 900,
-    incrementDuration: 900,
-    formatDuration: (seconds: number) => {
-      const mins = Math.floor(seconds / 60);
-      if (mins < 60) return `${mins} min`;
-      const hours = Math.floor(mins / 60);
-      const remainingMins = mins % 60;
-      return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
-    },
-  },
-};
+import { VIDEO_EDITING_CONFIG } from './StepConfigure';
 
 export function StepAddons() {
   const { selection, updateSelection, setCurrentStep, totals } = useEstimator();
@@ -168,22 +111,18 @@ export function StepAddons() {
     }
   };
 
-  const calculateVideoEditPrice = (item: any, duration: number): number => {
-    const config = VIDEO_EDITING_CONFIG[item.category];
-    if (!config) return Number(item.customer_price);
-    
-    const basePrice = Number(item.customer_price);
-    const incrementPrice = Number(item.increment_price) * 2; // Customer price is 2x base
-    const baseDuration = config.baseDuration;
-    
-    if (duration <= baseDuration) return basePrice;
-    
-    const additionalIncrements = Math.ceil((duration - baseDuration) / config.incrementDuration);
-    return basePrice + (additionalIncrements * incrementPrice);
-  };
-
   const handleNext = () => {
-    setCurrentStep(6);
+    // Check if there are video editing items that need configuration
+    const hasVideoEditingToConfig = selection.editingItems.some(item => {
+      const menuItem = editingMenu?.find(m => m.id === item.id);
+      return menuItem && menuItem.category !== 'photo_editing';
+    });
+    
+    if (hasVideoEditingToConfig) {
+      setCurrentStep(6); // Go to Configure step
+    } else {
+      setCurrentStep(7); // Skip to Summary
+    }
   };
 
   const renderPhotoEditingWithQuantity = () => {
@@ -297,57 +236,26 @@ export function StepAddons() {
           {videoEditingItems.map(item => {
             const selectedItem = selection.editingItems.find(e => e.id === item.id);
             const isSelected = !!selectedItem;
-            const config = VIDEO_EDITING_CONFIG[item.category];
-            const duration = selectedItem?.quantity || config?.baseDuration || 1;
             const customerPrice = Number(item.customer_price);
-            const itemTotal = isSelected ? calculateVideoEditPrice(item, duration) : customerPrice;
             
             return (
               <div 
                 key={item.id} 
-                className="space-y-3 py-3 border-b last:border-0"
+                className="flex items-center justify-between py-3 border-b last:border-0"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      checked={isSelected}
-                      onCheckedChange={() => toggleEditingItem(item, config?.baseDuration)}
-                    />
-                    <div>
-                      <p className="text-sm font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{item.description}</p>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={isSelected}
+                    onCheckedChange={() => toggleEditingItem(item, VIDEO_EDITING_CONFIG[item.category]?.baseDuration)}
+                  />
+                  <div>
+                    <p className="text-sm font-medium">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">{item.description}</p>
                   </div>
-                  <span className="text-sm font-medium">
-                    ${customerPrice} base
-                  </span>
                 </div>
-                
-                {isSelected && config && (
-                  <div className="pl-12 space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Duration:</span>
-                      <span className="font-medium">{config.formatDuration(duration)}</span>
-                    </div>
-                    <Slider
-                      value={[duration]}
-                      min={config.minDuration}
-                      max={config.maxDuration}
-                      step={config.incrementDuration}
-                      onValueChange={([val]) => updateEditingQuantity(item.id, val, item.category)}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{config.formatDuration(config.minDuration)}</span>
-                      <span>{config.formatDuration(config.maxDuration)}</span>
-                    </div>
-                    <div className="flex justify-end">
-                      <span className="text-sm font-bold">
-                        = ${itemTotal}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                <span className="text-sm font-medium">
+                  from ${customerPrice}
+                </span>
               </div>
             );
           })}
@@ -425,7 +333,7 @@ export function StepAddons() {
           Back
         </Button>
         <Button onClick={handleNext}>
-          View Summary
+          Next
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
