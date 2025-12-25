@@ -2,9 +2,10 @@ import { useEstimator } from '@/contexts/EstimatorContext';
 import { useProviderLevels } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CrewAllocation } from '@/types/estimator';
 import { Slider } from '@/components/ui/slider';
-import { ArrowLeft, ArrowRight, Clock, Camera, Users, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Camera, Users, Minus, Plus, AlertCircle } from 'lucide-react';
 
 // Format hours as "Xh Ym"
 function formatDuration(hours: number): string {
@@ -26,6 +27,13 @@ export function StepDuration() {
   const updateCrewLevel = (level: keyof CrewAllocation, delta: number) => {
     const current = selection.crewAllocation[level];
     const newValue = Math.max(0, current + delta);
+    
+    // For serviced sessions, enforce minimum 1 total crew
+    if (selection.sessionType === 'serviced' && delta < 0) {
+      const newTotal = (lv1 + lv2 + lv3) + delta;
+      if (newTotal < 1) return; // Don't allow decrement below 1 total crew
+    }
+    
     updateSelection({
       crewAllocation: {
         ...selection.crewAllocation,
@@ -122,7 +130,7 @@ export function StepDuration() {
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => updateCrewLevel('lv1', -1)}
-                  disabled={lv1 <= 0}
+                  disabled={lv1 <= 0 || (totalCrew <= 1 && lv1 > 0)}
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
@@ -150,7 +158,7 @@ export function StepDuration() {
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => updateCrewLevel('lv2', -1)}
-                  disabled={lv2 <= 0}
+                  disabled={lv2 <= 0 || (totalCrew <= 1 && lv2 > 0)}
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
@@ -178,7 +186,7 @@ export function StepDuration() {
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => updateCrewLevel('lv3', -1)}
-                  disabled={lv3 <= 0}
+                  disabled={lv3 <= 0 || (totalCrew <= 1 && lv3 > 0)}
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
@@ -193,6 +201,16 @@ export function StepDuration() {
                 </Button>
               </div>
             </div>
+
+            {/* Minimum crew info */}
+            {totalCrew === 1 && (
+              <Alert variant="default" className="bg-muted">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  EXP Sessions require at least 1 crew member.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Summary */}
             {totalCrew > 0 && (
