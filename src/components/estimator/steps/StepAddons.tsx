@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus, Video, Users, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus, Video, Users, AlertCircle, Check } from 'lucide-react';
 import { VIDEO_EDITING_CONFIG } from './StepConfigure';
 import { CrewAllocation } from '@/types/estimator';
 export function StepAddons() {
@@ -175,6 +176,9 @@ export function StepAddons() {
 
   const toggleSessionAddon = (addon: any) => {
     const existing = selection.sessionAddons.find(a => a.id === addon.id);
+    // Don't allow toggling auto-included addons
+    if (existing?.isAutoIncluded) return;
+    
     if (existing) {
       updateSelection({
         sessionAddons: selection.sessionAddons.filter(a => a.id !== addon.id),
@@ -195,6 +199,9 @@ export function StepAddons() {
       });
     }
   };
+
+  // Get auto-included session addons (like photoshoot set design fee)
+  const autoIncludedAddons = selection.sessionAddons.filter(a => a.isAutoIncluded);
 
   const updateRevisionHours = (addonId: string, newHours: number) => {
     updateSelection({
@@ -513,6 +520,35 @@ export function StepAddons() {
 
   return (
     <div className="space-y-6">
+      {/* Auto-included Add-ons (e.g., Photoshoot Set Design Fee) */}
+      {autoIncludedAddons.length > 0 && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Check className="h-4 w-4 text-primary" />
+              Included with Session
+            </CardTitle>
+            <CardDescription>
+              These are automatically included with your selected service
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {autoIncludedAddons.map(addon => (
+              <div key={addon.id} className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-3">
+                  <Check className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">{addon.name}</p>
+                    <p className="text-xs text-muted-foreground">Included with photoshoot</p>
+                  </div>
+                </div>
+                <Badge variant="secondary">+${addon.flatAmount}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Session Add-ons */}
       {availableSessionAddons.length > 0 && (
         <Card>

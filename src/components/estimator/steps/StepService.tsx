@@ -69,11 +69,29 @@ export function StepService() {
   const restrictionMessages = getRestrictionMessage();
 
   const handleSelect = (service: any) => {
-    updateSelection({
+    const updates: any = {
       serviceId: service.id,
       serviceType: service.type as ServiceType,
       cameraCount: service.type === 'vodcast' ? 1 : 1,
-    });
+    };
+    
+    // Auto-include Set Design + Lv1 Props Access for photoshoots
+    if (service.type === 'photoshoot') {
+      updates.sessionAddons = [
+        {
+          id: 'set-design-photoshoot',
+          name: 'Set Design + Lv1 Props Access',
+          flatAmount: 60,
+          isHourly: false,
+          isAutoIncluded: true,
+        },
+      ];
+    } else {
+      // Clear auto-included addons when switching away from photoshoot
+      updates.sessionAddons = selection.sessionAddons.filter(a => !a.isAutoIncluded);
+    }
+    
+    updateSelection(updates);
   };
 
   const handleNext = () => {
