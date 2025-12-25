@@ -17,7 +17,9 @@ import {
   Clock, 
   Timer, 
   UserCheck, 
-  Camera 
+  Camera,
+  Film,
+  Package
 } from 'lucide-react';
 
 function formatDuration(hours: number): string {
@@ -103,7 +105,35 @@ export function SelectionSummary() {
     });
   }
 
+  // Editing Items
+  const formatEditDuration = (seconds: number, category: string) => {
+    if (category === 'social') return `${seconds} buckets`;
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    if (mins < 60) return `${mins}min`;
+    const hrs = Math.floor(mins / 60);
+    const remainingMins = mins % 60;
+    return `${hrs}h${remainingMins > 0 ? ` ${remainingMins}m` : ''}`;
+  };
+
+  selection.editingItems.forEach(item => {
+    items.push({
+      icon: <Film className="h-3 w-3" />,
+      label: item.name.split(' ')[0],
+      value: formatEditDuration(item.quantity, item.category)
+    });
+  });
+
+  // Session Add-ons
+  selection.sessionAddons.forEach(addon => {
+    items.push({
+      icon: <Package className="h-3 w-3" />,
+      label: 'Add-on',
+      value: addon.name
+  });
+
   if (items.length === 0) return null;
+  });
 
   return (
     <div className="flex flex-wrap gap-2 justify-center mb-6 px-4">
