@@ -292,8 +292,8 @@ export function VideoEditingEstimator() {
             <div className="flex items-center gap-3">
               <CheckCircle className="h-5 w-5 text-primary" />
               <div>
-                <p className="font-medium">1 Revision Round Included</p>
-                <p className="text-sm text-muted-foreground">Base revision included with your package</p>
+                <p className="font-medium">1 Revision Round Included (1 hr)</p>
+                <p className="text-sm text-muted-foreground">Revisions are billed hourly</p>
               </div>
             </div>
           </div>
@@ -305,9 +305,9 @@ export function VideoEditingEstimator() {
                 <div className="flex items-center gap-3">
                   <RefreshCw className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <Label className="text-sm font-medium">Add Extra Revisions</Label>
+                    <Label className="text-sm font-medium">Add Extra Revision Hours</Label>
                     <p className="text-xs text-muted-foreground">
-                      Additional revision rounds @ ${REVISIONS_PRICE}/each
+                      Additional revision hours @ ${REVISIONS_PRICE}/hr
                     </p>
                   </div>
                 </div>
