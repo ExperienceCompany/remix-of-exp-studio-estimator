@@ -77,14 +77,29 @@ export function StepSummary() {
               <p className="text-muted-foreground">Duration</p>
               <p className="font-medium">{selection.hours} hour(s)</p>
             </div>
-            {selection.sessionType === 'serviced' && selection.providerLevel && (
-              <div>
-                <p className="text-muted-foreground">Crew Level</p>
-                <p className="font-medium">
-                  {PROVIDER_LEVEL_LABELS[selection.providerLevel]}
-                </p>
-              </div>
-            )}
+            {selection.sessionType === 'serviced' && (() => {
+              const { lv1, lv2, lv3 } = selection.crewAllocation;
+              const totalCrew = lv1 + lv2 + lv3;
+              if (totalCrew === 0 && !selection.providerLevel) return null;
+              
+              // Build crew display parts
+              const crewParts: string[] = [];
+              if (lv1 > 0) crewParts.push(lv1 > 1 ? `Lv1 ×${lv1}` : 'Lv1');
+              if (lv2 > 0) crewParts.push(lv2 > 1 ? `Lv2 ×${lv2}` : 'Lv2');
+              if (lv3 > 0) crewParts.push(lv3 > 1 ? `Lv3 ×${lv3}` : 'Lv3');
+              
+              // Fallback to providerLevel if no crewAllocation
+              const crewDisplay = crewParts.length > 0 
+                ? crewParts.join(', ') 
+                : (selection.providerLevel ? PROVIDER_LEVEL_LABELS[selection.providerLevel] : '-');
+              
+              return (
+                <div>
+                  <p className="text-muted-foreground">Crew Allocation</p>
+                  <p className="font-medium">{crewDisplay}</p>
+                </div>
+              );
+            })()}
             {selection.serviceType === 'vodcast' && (
               <div>
                 <p className="text-muted-foreground">Cameras</p>
