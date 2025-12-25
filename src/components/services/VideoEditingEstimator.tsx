@@ -4,8 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ArrowLeft, ArrowRight, Film, Clock, CheckCircle2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, ArrowRight, Film, Clock, CheckCircle2, RefreshCw, Minus, Plus } from 'lucide-react';
 
+// Revisions add-on pricing (from session_addons table)
+const REVISIONS_PRICE = 60; // $60 per revision
 interface VideoService {
   id: string;
   name: string;
@@ -86,6 +89,8 @@ interface EstimatorState {
   serviceType: ServiceId | null;
   duration: number; // in seconds for duration-based, or revision buckets for social
   revisionBuckets: number;
+  includeRevisions: boolean;
+  revisionCount: number;
 }
 
 export function VideoEditingEstimator() {
@@ -94,11 +99,13 @@ export function VideoEditingEstimator() {
     serviceType: null,
     duration: 30,
     revisionBuckets: 1,
+    includeRevisions: false,
+    revisionCount: 1,
   });
 
   const selectedService = state.serviceType ? VIDEO_SERVICES[state.serviceType] : null;
 
-  const calculatePrice = useMemo(() => {
+  const calculateBasePrice = useMemo(() => {
     if (!selectedService) return 0;
 
     if (!selectedService.durationBased) {
@@ -119,6 +126,9 @@ export function VideoEditingEstimator() {
     const increments = Math.ceil(extraDuration / incrementSeconds);
     return selectedService.basePrice + increments * selectedService.incrementPrice;
   }, [selectedService, state.duration, state.revisionBuckets]);
+
+  const revisionsTotal = state.includeRevisions ? state.revisionCount * REVISIONS_PRICE : 0;
+  const calculatePrice = calculateBasePrice + revisionsTotal;
 
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${seconds} seconds`;
@@ -154,6 +164,8 @@ export function VideoEditingEstimator() {
       serviceType: null,
       duration: 30,
       revisionBuckets: 1,
+      includeRevisions: false,
+      revisionCount: 1,
     });
   };
 
@@ -409,6 +421,66 @@ export function VideoEditingEstimator() {
             </div>
           )}
 
+          {/* Revisions Add-on */}
+          <Card className="border-dashed">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <RefreshCw className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <Label className="text-sm font-medium">Add Revisions</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Additional revision rounds @ ${REVISIONS_PRICE}/each
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={state.includeRevisions}
+                  onCheckedChange={(checked) =>
+                    setState(prev => ({ ...prev, includeRevisions: checked }))
+                  }
+                />
+              </div>
+              
+              {state.includeRevisions && (
+                <div className="flex items-center gap-3 mt-4 pt-4 border-t">
+                  <span className="text-sm text-muted-foreground">Quantity:</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() =>
+                        setState(prev => ({
+                          ...prev,
+                          revisionCount: Math.max(1, prev.revisionCount - 1),
+                        }))
+                      }
+                      disabled={state.revisionCount <= 1}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <span className="w-8 text-center font-medium">{state.revisionCount}</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() =>
+                        setState(prev => ({
+                          ...prev,
+                          revisionCount: prev.revisionCount + 1,
+                        }))
+                      }
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <span className="ml-auto font-medium">${revisionsTotal}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Price preview */}
           <Card className="bg-muted/50">
             <CardContent className="pt-4">
@@ -416,12 +488,16 @@ export function VideoEditingEstimator() {
                 <span className="text-sm text-muted-foreground">Estimated Price</span>
                 <span className="text-2xl font-bold">${calculatePrice}</span>
               </div>
-              {selectedService.durationBased && state.duration > (selectedService.baseDuration || 30) && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Base (${selectedService.basePrice}) + extra duration (+$
-                  {calculatePrice - selectedService.basePrice})
-                </p>
-              )}
+              {(selectedService.durationBased && state.duration > (selectedService.baseDuration || 30)) || state.includeRevisions ? (
+                <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                  {selectedService.durationBased && state.duration > (selectedService.baseDuration || 30) && (
+                    <p>Base (${selectedService.basePrice}) + extra duration (+${calculateBasePrice - selectedService.basePrice})</p>
+                  )}
+                  {state.includeRevisions && (
+                    <p>+ {state.revisionCount} revision{state.revisionCount > 1 ? 's' : ''} (+${revisionsTotal})</p>
+                  )}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -473,12 +549,20 @@ export function VideoEditingEstimator() {
               <span className="text-muted-foreground">Base Price</span>
               <span className="font-medium">${selectedService.basePrice}</span>
             </div>
-            {calculatePrice > selectedService.basePrice && (
+            {calculateBasePrice > selectedService.basePrice && (
               <div className="flex justify-between py-2 border-b">
-                <span className="text-muted-foreground">Additional</span>
+                <span className="text-muted-foreground">Duration Add-on</span>
                 <span className="font-medium">
-                  +${calculatePrice - selectedService.basePrice}
+                  +${calculateBasePrice - selectedService.basePrice}
                 </span>
+              </div>
+            )}
+            {state.includeRevisions && (
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-muted-foreground">
+                  Revisions ({state.revisionCount}x)
+                </span>
+                <span className="font-medium">+${revisionsTotal}</span>
               </div>
             )}
           </div>
