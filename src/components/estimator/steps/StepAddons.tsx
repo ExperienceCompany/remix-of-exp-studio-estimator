@@ -66,11 +66,11 @@ export function StepAddons() {
       // For vodcast/audio_podcast, start video editing at session duration
       let defaultQuantity = isEnhance ? 10 : (defaultDuration || config?.baseDuration || 1);
       
+      // Only long form editing uses session duration as starting point
       if (
         (selection.serviceType === 'vodcast' || selection.serviceType === 'audio_podcast') &&
         config &&
-        (item.category === 'general_basic' || item.category === 'general_advanced' || 
-         item.category === 'long_form_simple' || item.category === 'long_form_advanced')
+        (item.category === 'long_form_simple' || item.category === 'long_form_advanced')
       ) {
         const sessionDurationSeconds = selection.hours * 3600;
         defaultQuantity = Math.max(defaultQuantity, sessionDurationSeconds);
