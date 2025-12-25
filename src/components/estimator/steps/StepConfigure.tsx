@@ -3,7 +3,7 @@ import { useEditingMenu } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { ArrowLeft, ArrowRight, Settings2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Settings2, AlertCircle } from 'lucide-react';
 
 // Video editing config with duration-based pricing
 export const VIDEO_EDITING_CONFIG: Record<string, {
@@ -159,6 +159,12 @@ export function StepConfigure() {
               item.incrementPrice,
               duration
             );
+
+            // Check if this is long form and vodcast/podcast is selected
+            const isLongForm = menuItem.category.startsWith('long_form');
+            const isVodcastOrPodcast = selection.serviceType === 'vodcast' || selection.serviceType === 'audio_podcast';
+            const sessionDurationSeconds = selection.hours * 3600;
+            const showSessionMinCaution = isLongForm && isVodcastOrPodcast && sessionDurationSeconds > config.minDuration;
             
             return (
               <div key={item.id} className="space-y-3 pb-4 border-b last:border-0">
@@ -187,6 +193,15 @@ export function StepConfigure() {
                     <span>{config.formatDuration(config.minDuration)}</span>
                     <span>{config.formatDuration(config.maxDuration)}</span>
                   </div>
+                  
+                  {showSessionMinCaution && (
+                    <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-200">
+                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs">
+                        Duration minimum is <strong>{config.formatDuration(sessionDurationSeconds)}</strong> based on your {selection.hours}hr session
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             );
