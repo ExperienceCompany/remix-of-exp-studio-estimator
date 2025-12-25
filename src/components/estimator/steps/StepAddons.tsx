@@ -15,6 +15,11 @@ export function StepAddons() {
 
   // Filter session add-ons based on session type and studio
   const availableSessionAddons = sessionAddons?.filter(addon => {
+    // Hide 'service' type add-ons (like Revisions) - these are for post-production, not sessions
+    if (addon.addon_type === 'service') {
+      return false;
+    }
+    
     // Check session type restriction (e.g., 'diy' only)
     if (addon.applies_to_session_type && addon.applies_to_session_type !== selection.sessionType) {
       return false;
