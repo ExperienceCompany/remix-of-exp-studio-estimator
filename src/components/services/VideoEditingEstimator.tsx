@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, ArrowRight, Film, Clock, CheckCircle2, RefreshCw, Minus, Plus, CheckCircle } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { ArrowLeft, ArrowRight, Film, Clock, RefreshCw, Minus, Plus, CheckCircle } from 'lucide-react';
 import { useEditingMenu } from '@/hooks/useEstimatorData';
 
 // Revisions add-on pricing
@@ -243,153 +243,48 @@ export function VideoEditingEstimator() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            {isDurationBased ? 'How long is your video?' : 'Configure your edit'}
+            {isDurationBased ? 'Configure Duration' : 'Configure your edit'}
           </CardTitle>
           <CardDescription>
             {isDurationBased
-              ? `Base includes ${formatDuration(serviceConfig.baseDuration)}. Maximum ${formatDuration(maxDuration)}`
+              ? `Adjust the slider to set your video duration`
               : 'Configure your social media edit'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isDurationBased && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Video Duration</Label>
-                <div className="flex items-center gap-4">
-                  {isLongform ? (
-                    <>
-                      <Input
-                        type="number"
-                        min={Math.floor(minDuration / 60)}
-                        max={Math.floor(maxDuration / 60)}
-                        step={15}
-                        value={Math.floor(state.duration / 60)}
-                        onChange={(e) => {
-                          const mins = parseInt(e.target.value) || Math.floor(minDuration / 60);
-                          const clampedMins = Math.min(Math.max(mins, Math.floor(minDuration / 60)), Math.floor(maxDuration / 60));
-                          setState(prev => ({ ...prev, duration: clampedMins * 60 }));
-                        }}
-                        className="w-24"
-                      />
-                      <span className="text-sm text-muted-foreground">minutes</span>
-                    </>
-                  ) : (
-                    <>
-                      <Input
-                        type="number"
-                        min={15}
-                        max={maxDuration}
-                        step={15}
-                        value={state.duration}
-                        onChange={(e) => {
-                          const secs = parseInt(e.target.value) || 15;
-                          const clampedSecs = Math.min(Math.max(secs, 15), maxDuration);
-                          setState(prev => ({ ...prev, duration: clampedSecs }));
-                        }}
-                        className="w-24"
-                      />
-                      <span className="text-sm text-muted-foreground">seconds</span>
-                    </>
-                  )}
+            <Card className="border bg-card">
+              <CardContent className="pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{selectedService.name}</p>
+                    {selectedService.description && (
+                      <p className="text-xs text-muted-foreground">{selectedService.description}</p>
+                    )}
+                  </div>
+                  <span className="text-lg font-bold">${calculateBasePrice}</span>
                 </div>
-              </div>
-
-              {/* Quick duration presets */}
-              <div className="flex flex-wrap gap-2">
-                {isLongform ? (
-                  <>
-                    <Button
-                      variant={state.duration === 6 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 6 * 60 }))}
-                    >
-                      6 min
-                    </Button>
-                    <Button
-                      variant={state.duration === 15 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 15 * 60 }))}
-                    >
-                      15 min
-                    </Button>
-                    <Button
-                      variant={state.duration === 30 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 30 * 60 }))}
-                    >
-                      30 min
-                    </Button>
-                    <Button
-                      variant={state.duration === 60 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 60 * 60 }))}
-                    >
-                      1 hour
-                    </Button>
-                    <Button
-                      variant={state.duration === 2 * 60 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 2 * 60 * 60 }))}
-                    >
-                      2 hours
-                    </Button>
-                    <Button
-                      variant={state.duration === 4 * 60 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 4 * 60 * 60 }))}
-                    >
-                      4 hours
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant={state.duration === 15 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 15 }))}
-                    >
-                      15 sec
-                    </Button>
-                    <Button
-                      variant={state.duration === 30 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 30 }))}
-                    >
-                      30 sec
-                    </Button>
-                    <Button
-                      variant={state.duration === 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 60 }))}
-                    >
-                      1 min
-                    </Button>
-                    <Button
-                      variant={state.duration === 2 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 2 * 60 }))}
-                    >
-                      2 min
-                    </Button>
-                    <Button
-                      variant={state.duration === 4 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 4 * 60 }))}
-                    >
-                      4 min
-                    </Button>
-                    <Button
-                      variant={state.duration === 6 * 60 ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setState(prev => ({ ...prev, duration: 6 * 60 }))}
-                    >
-                      6 min
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Duration:</span>
+                    <span className="font-medium">{serviceConfig.formatDuration(state.duration)}</span>
+                  </div>
+                  <Slider
+                    value={[state.duration]}
+                    min={minDuration}
+                    max={maxDuration}
+                    step={serviceConfig.incrementDuration}
+                    onValueChange={([val]) => setState(prev => ({ ...prev, duration: val }))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{serviceConfig.formatDuration(minDuration)}</span>
+                    <span>{serviceConfig.formatDuration(maxDuration)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Base revision - always included */}
@@ -508,7 +403,7 @@ export function VideoEditingEstimator() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-primary" />
+            <CheckCircle className="h-5 w-5 text-primary" />
             Your Estimate
           </CardTitle>
           <CardDescription>Review your video editing service quote</CardDescription>
