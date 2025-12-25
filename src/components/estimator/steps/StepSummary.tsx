@@ -12,8 +12,10 @@ import {
   TimeSlotType,
   ProviderLevel,
 } from '@/types/estimator';
-import { ArrowLeft, Copy, FileText, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Copy, FileText, RotateCcw, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { generateQuotePdf } from '@/lib/generateQuotePdf';
+import { format } from 'date-fns';
 
 export function StepSummary() {
   const { selection, totals, setCurrentStep, resetSelection } = useEstimator();
@@ -37,6 +39,38 @@ export function StepSummary() {
 
     navigator.clipboard.writeText(lines.join('\n'));
     toast({ title: 'Quote copied to clipboard!' });
+  };
+
+  const handleDownloadQuote = async () => {
+    // Generate unique quote number (timestamp-based)
+    const quoteNumber = `EXP-${Date.now().toString(36).toUpperCase()}`;
+    
+    // Build crew display string
+    const { lv1, lv2, lv3 } = selection.crewAllocation;
+    const crewParts: string[] = [];
+    if (lv1 > 0) crewParts.push(lv1 > 1 ? `Lv1 ×${lv1}` : 'Lv1');
+    if (lv2 > 0) crewParts.push(lv2 > 1 ? `Lv2 ×${lv2}` : 'Lv2');
+    if (lv3 > 0) crewParts.push(lv3 > 1 ? `Lv3 ×${lv3}` : 'Lv3');
+    
+    try {
+      await generateQuotePdf({
+        quoteNumber,
+        date: format(new Date(), 'MMMM d, yyyy'),
+        sessionType: selection.sessionType === 'diy' ? 'DIY' : 'EXP Session',
+        studio: selection.studioType ? STUDIO_LABELS[selection.studioType] : 'Not selected',
+        service: selection.serviceType ? SERVICE_LABELS[selection.serviceType] : 'Not selected',
+        timeSlot: selection.timeSlotType ? TIME_SLOT_LABELS[selection.timeSlotType] : 'Not selected',
+        duration: `${selection.hours} hour(s)`,
+        crew: crewParts.length > 0 ? crewParts.join(', ') : undefined,
+        cameras: selection.serviceType === 'vodcast' ? selection.cameraCount : undefined,
+        lineItems: totals.lineItems.map(item => ({ label: item.label, amount: item.amount })),
+        total: totals.customerTotal,
+      });
+      
+      toast({ title: 'Quote downloaded!' });
+    } catch (error) {
+      toast({ title: 'Failed to generate PDF', variant: 'destructive' });
+    }
   };
 
   return (
@@ -133,10 +167,14 @@ export function StepSummary() {
       </Card>
 
       {/* Actions */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Button variant="outline" onClick={handleCopyQuote}>
           <Copy className="h-4 w-4 mr-2" />
           Copy Quote
+        </Button>
+        <Button variant="outline" onClick={handleDownloadQuote}>
+          <Download className="h-4 w-4 mr-2" />
+          Download PDF
         </Button>
         <Button>
           <FileText className="h-4 w-4 mr-2" />

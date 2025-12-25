@@ -1,0 +1,135 @@
+import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
+
+export interface QuotePdfData {
+  quoteNumber: string;
+  date: string;
+  sessionType: string;
+  studio: string;
+  service: string;
+  timeSlot: string;
+  duration: string;
+  crew?: string;
+  cameras?: number;
+  lineItems: Array<{ label: string; amount: number }>;
+  total: number;
+}
+
+export async function generateQuotePdf(data: QuotePdfData): Promise<void> {
+  const doc = new jsPDF();
+  
+  // Generate QR code as data URL
+  const qrDataUrl = await QRCode.toDataURL(
+    `https://expstudio.com/quote/${data.quoteNumber}`,
+    { width: 80, margin: 1 }
+  );
+  
+  // Header
+  doc.setFontSize(28);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EXP Studio', 20, 25);
+  
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Quote', 20, 35);
+  
+  // QR Code (top right)
+  doc.addImage(qrDataUrl, 'PNG', 150, 10, 40, 40);
+  
+  // Quote details
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Quote #: ${data.quoteNumber}`, 20, 50);
+  doc.text(`Date: ${data.date}`, 20, 57);
+  doc.setTextColor(0, 0, 0);
+  
+  // Divider line
+  doc.setDrawColor(200, 200, 200);
+  doc.line(20, 65, 190, 65);
+  
+  // Session Info section
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Session Details', 20, 80);
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  
+  let y = 92;
+  const labelX = 20;
+  const valueX = 80;
+  
+  const addRow = (label: string, value: string) => {
+    doc.setTextColor(100, 100, 100);
+    doc.text(label, labelX, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text(value, valueX, y);
+    y += 8;
+  };
+  
+  addRow('Session Type:', data.sessionType);
+  addRow('Studio:', data.studio);
+  addRow('Service:', data.service);
+  addRow('Time Slot:', data.timeSlot);
+  addRow('Duration:', data.duration);
+  if (data.crew) {
+    addRow('Crew:', data.crew);
+  }
+  if (data.cameras) {
+    addRow('Cameras:', `${data.cameras}`);
+  }
+  
+  // Line Items section
+  y += 10;
+  doc.setDrawColor(200, 200, 200);
+  doc.line(20, y, 190, y);
+  y += 15;
+  
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Pricing Breakdown', 20, y);
+  y += 12;
+  
+  // Table header
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(100, 100, 100);
+  doc.text('Description', 20, y);
+  doc.text('Amount', 170, y, { align: 'right' });
+  y += 4;
+  doc.line(20, y, 190, y);
+  y += 8;
+  
+  // Line items
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  
+  data.lineItems.forEach(item => {
+    doc.text(item.label, 20, y);
+    doc.text(`$${item.amount.toFixed(2)}`, 170, y, { align: 'right' });
+    y += 8;
+  });
+  
+  // Total section
+  y += 4;
+  doc.setDrawColor(100, 100, 100);
+  doc.line(20, y, 190, y);
+  y += 12;
+  
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TOTAL', 20, y);
+  doc.setFontSize(16);
+  doc.text(`$${data.total.toFixed(2)}`, 170, y, { align: 'right' });
+  
+  // Footer
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(120, 120, 120);
+  doc.text('EXP Studio | expstudio.com', 105, 280, { align: 'center' });
+  doc.text('This quote is valid for 30 days from the date above.', 105, 286, { align: 'center' });
+  
+  // Download
+  doc.save(`EXP-Quote-${data.quoteNumber}.pdf`);
+}
