@@ -5,148 +5,153 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, ArrowRight, Film, Clock, CheckCircle2, RefreshCw, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Film, Clock, CheckCircle2, RefreshCw, Minus, Plus, CheckCircle } from 'lucide-react';
+import { useEditingMenu } from '@/hooks/useEstimatorData';
 
-// Revisions add-on pricing (from session_addons table)
-const REVISIONS_PRICE = 60; // $60 per revision
-interface VideoService {
-  id: string;
-  name: string;
-  description: string;
-  basePrice: number;
-  incrementPrice: number;
-  incrementUnit: string;
-  baseDuration: number; // in seconds, 0 for non-duration-based
-  durationBased: boolean;
-  minDuration?: number; // in seconds
-  maxDuration?: number; // in seconds
-}
+// Revisions add-on pricing
+const REVISIONS_PRICE = 60; // $60 per additional revision
 
-// Video editing pricing tiers based on editing_menu data
-const VIDEO_SERVICES: Record<string, VideoService> = {
-  social_template: {
-    id: 'social_template',
-    name: 'Social Template Edit',
-    description: 'Quick turnaround for social media clips',
-    basePrice: 75,
-    incrementPrice: 75,
-    incrementUnit: '1-hour revision bucket',
-    baseDuration: 0, // No duration limit, uses revision buckets
-    durationBased: false,
+// Video editing configuration for duration-based services
+const VIDEO_EDITING_CONFIG: Record<string, {
+  minDuration: number;
+  maxDuration: number;
+  baseDuration: number;
+  incrementDuration: number;
+  formatDuration: (seconds: number) => string;
+}> = {
+  social: {
+    minDuration: 0,
+    maxDuration: 0,
+    baseDuration: 0,
+    incrementDuration: 0,
+    formatDuration: () => 'N/A',
   },
   general_basic: {
-    id: 'general_basic',
-    name: 'General Basic Editing',
-    description: 'Standard cuts, transitions, and basic color correction',
-    basePrice: 150,
-    incrementPrice: 25,
-    incrementUnit: '15 seconds',
-    baseDuration: 15, // 15 seconds included
-    durationBased: true,
-    maxDuration: 360, // 6 minutes max
+    minDuration: 15,
+    maxDuration: 360,
+    baseDuration: 15,
+    incrementDuration: 15,
+    formatDuration: (s) => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60 ? `${s % 60}s` : ''}`.trim(),
   },
   general_advanced: {
-    id: 'general_advanced',
-    name: 'General Advanced Editing',
-    description: 'Motion graphics, color grading, and complex transitions',
-    basePrice: 250,
-    incrementPrice: 125,
-    incrementUnit: '15 seconds',
-    baseDuration: 15, // 15 seconds included
-    durationBased: true,
-    maxDuration: 360, // 6 minutes max
+    minDuration: 15,
+    maxDuration: 360,
+    baseDuration: 15,
+    incrementDuration: 15,
+    formatDuration: (s) => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60 ? `${s % 60}s` : ''}`.trim(),
   },
-  longform_simple: {
-    id: 'longform_simple',
-    name: 'Long Form Simple',
-    description: 'Basic editing for longer content (podcasts, interviews)',
-    basePrice: 300,
-    incrementPrice: 150,
-    incrementUnit: '15 minutes',
-    baseDuration: 15 * 60, // 15 minutes in seconds
-    durationBased: true,
-    minDuration: 6 * 60, // 6 minutes min
-    maxDuration: 4 * 60 * 60, // 4 hours max
-  },
-  longform_advanced: {
-    id: 'longform_advanced',
-    name: 'Long Form Advanced',
-    description: 'Full production for documentaries, branded content',
-    basePrice: 450,
-    incrementPrice: 225,
-    incrementUnit: '15 minutes',
+  long_form_simple: {
+    minDuration: 6 * 60,
+    maxDuration: 4 * 60 * 60,
     baseDuration: 15 * 60,
-    durationBased: true,
-    minDuration: 6 * 60, // 6 minutes min
-    maxDuration: 4 * 60 * 60, // 4 hours max
+    incrementDuration: 15 * 60,
+    formatDuration: (s) => {
+      const hours = Math.floor(s / 3600);
+      const mins = Math.floor((s % 3600) / 60);
+      if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+      return `${mins}m`;
+    },
+  },
+  long_form_advanced: {
+    minDuration: 6 * 60,
+    maxDuration: 4 * 60 * 60,
+    baseDuration: 15 * 60,
+    incrementDuration: 15 * 60,
+    formatDuration: (s) => {
+      const hours = Math.floor(s / 3600);
+      const mins = Math.floor((s % 3600) / 60);
+      if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+      return `${mins}m`;
+    },
   },
 };
 
-type ServiceId = keyof typeof VIDEO_SERVICES;
-
 interface EstimatorState {
   step: number;
-  serviceType: ServiceId | null;
+  serviceId: string | null;
   duration: number; // in seconds for duration-based, or revision buckets for social
-  revisionBuckets: number;
-  includeRevisions: boolean;
-  revisionCount: number;
+  includeExtraRevisions: boolean;
+  extraRevisionCount: number;
 }
 
 export function VideoEditingEstimator() {
+  const { data: editingMenu, isLoading } = useEditingMenu();
+  
   const [state, setState] = useState<EstimatorState>({
     step: 1,
-    serviceType: null,
-    duration: 30,
-    revisionBuckets: 1,
-    includeRevisions: false,
-    revisionCount: 1,
+    serviceId: null,
+    duration: 15,
+    includeExtraRevisions: false,
+    extraRevisionCount: 1,
   });
 
-  const selectedService = state.serviceType ? VIDEO_SERVICES[state.serviceType] : null;
+  // Filter to video editing services only (exclude photo_editing)
+  const videoServices = useMemo(() => {
+    return editingMenu?.filter(item => item.category !== 'photo_editing') || [];
+  }, [editingMenu]);
+
+  const selectedService = useMemo(() => {
+    return videoServices.find(s => s.id === state.serviceId);
+  }, [videoServices, state.serviceId]);
+
+  const serviceConfig = useMemo(() => {
+    if (!selectedService) return null;
+    return VIDEO_EDITING_CONFIG[selectedService.category] || null;
+  }, [selectedService]);
+
+  const isDurationBased = serviceConfig && serviceConfig.baseDuration > 0;
+  const isLongform = selectedService?.category.includes('long_form');
 
   const calculateBasePrice = useMemo(() => {
     if (!selectedService) return 0;
 
-    if (!selectedService.durationBased) {
-      // Social template uses revision buckets
-      return selectedService.basePrice + (state.revisionBuckets - 1) * selectedService.incrementPrice;
+    // Use customer_price if available, otherwise base_price
+    const basePrice = selectedService.customer_price || selectedService.base_price;
+    const incrementPrice = selectedService.increment_price || 0;
+
+    if (!isDurationBased || !serviceConfig) {
+      // Social template - fixed price
+      return basePrice;
     }
 
     // Duration-based pricing
-    const baseDuration = selectedService.baseDuration || 15;
-    const isLongform = selectedService.id.includes('longform');
-    const incrementSeconds = isLongform ? 15 * 60 : 15; // 15 min for longform, 15 sec for regular
-    
-    if (state.duration <= baseDuration) {
-      return selectedService.basePrice;
+    if (state.duration <= serviceConfig.baseDuration) {
+      return basePrice;
     }
 
-    const extraDuration = state.duration - baseDuration;
-    const increments = Math.ceil(extraDuration / incrementSeconds);
-    return selectedService.basePrice + increments * selectedService.incrementPrice;
-  }, [selectedService, state.duration, state.revisionBuckets]);
+    const extraDuration = state.duration - serviceConfig.baseDuration;
+    const increments = Math.ceil(extraDuration / serviceConfig.incrementDuration);
+    return basePrice + increments * incrementPrice;
+  }, [selectedService, serviceConfig, isDurationBased, state.duration]);
 
-  const revisionsTotal = state.includeRevisions ? state.revisionCount * REVISIONS_PRICE : 0;
-  const calculatePrice = calculateBasePrice + revisionsTotal;
+  const extraRevisionsTotal = state.includeExtraRevisions ? state.extraRevisionCount * REVISIONS_PRICE : 0;
+  const totalPrice = calculateBasePrice + extraRevisionsTotal;
 
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${seconds} seconds`;
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const remainingMins = minutes % 60;
+      if (remainingMins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+      return `${hours}h ${remainingMins}m`;
+    }
     if (remainingSeconds === 0) return `${minutes} minute${minutes > 1 ? 's' : ''}`;
     return `${minutes}m ${remainingSeconds}s`;
   };
 
-  const handleServiceSelect = (serviceId: ServiceId) => {
-    const service = VIDEO_SERVICES[serviceId];
-    // Use minDuration if set (for longform), otherwise baseDuration, fallback to 15
-    const initialDuration = service.minDuration || service.baseDuration || 15;
+  const handleServiceSelect = (serviceId: string) => {
+    const service = videoServices.find(s => s.id === serviceId);
+    if (!service) return;
+    
+    const config = VIDEO_EDITING_CONFIG[service.category];
+    const initialDuration = config?.minDuration || config?.baseDuration || 15;
+    
     setState(prev => ({
       ...prev,
-      serviceType: serviceId,
+      serviceId,
       duration: initialDuration,
-      revisionBuckets: 1,
     }));
   };
 
@@ -161,11 +166,10 @@ export function VideoEditingEstimator() {
   const handleReset = () => {
     setState({
       step: 1,
-      serviceType: null,
-      duration: 30,
-      revisionBuckets: 1,
-      includeRevisions: false,
-      revisionCount: 1,
+      serviceId: null,
+      duration: 15,
+      includeExtraRevisions: false,
+      extraRevisionCount: 1,
     });
   };
 
@@ -182,37 +186,43 @@ export function VideoEditingEstimator() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <RadioGroup
-          value={state.serviceType || ''}
-          onValueChange={(value) => handleServiceSelect(value as ServiceId)}
-          className="space-y-3"
-        >
-          {Object.entries(VIDEO_SERVICES).map(([id, service]) => (
-            <div
-              key={id}
-              className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
-                state.serviceType === id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-              }`}
-              onClick={() => handleServiceSelect(id as ServiceId)}
-            >
-              <RadioGroupItem value={id} id={id} className="mt-1" />
-              <div className="flex-1">
-                <Label htmlFor={id} className="text-sm font-medium cursor-pointer">
-                  {service.name}
-                </Label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {service.description}
-                </p>
-                <p className="text-xs font-medium text-primary mt-2">
-                  Starting at ${service.basePrice}
-                </p>
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">Loading services...</div>
+        ) : (
+          <RadioGroup
+            value={state.serviceId || ''}
+            onValueChange={handleServiceSelect}
+            className="space-y-3"
+          >
+            {videoServices.map((service) => (
+              <div
+                key={service.id}
+                className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
+                  state.serviceId === service.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                }`}
+                onClick={() => handleServiceSelect(service.id)}
+              >
+                <RadioGroupItem value={service.id} id={service.id} className="mt-1" />
+                <div className="flex-1">
+                  <Label htmlFor={service.id} className="text-sm font-medium cursor-pointer">
+                    {service.name}
+                  </Label>
+                  {service.description && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {service.description}
+                    </p>
+                  )}
+                  <p className="text-xs font-medium text-primary mt-2">
+                    Starting at ${service.customer_price || service.base_price}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </RadioGroup>
+            ))}
+          </RadioGroup>
+        )}
 
         <div className="flex justify-end mt-6">
-          <Button onClick={handleNext} disabled={!state.serviceType}>
+          <Button onClick={handleNext} disabled={!state.serviceId}>
             Next
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
@@ -221,40 +231,28 @@ export function VideoEditingEstimator() {
     </Card>
   );
 
-  // Step 2: Duration or revisions
+  // Step 2: Duration and revisions
   const renderStep2 = () => {
-    if (!selectedService) return null;
+    if (!selectedService || !serviceConfig) return null;
 
-    const isLongform = selectedService.id.includes('longform');
-    const minDuration = selectedService.minDuration || selectedService.baseDuration || 15;
-    const maxDuration = selectedService.maxDuration || (isLongform ? 4 * 60 * 60 : 360);
-
-    // Format description based on service type
-    const getDurationDescription = () => {
-      if (!selectedService.durationBased) {
-        return 'Each revision bucket adds additional time for changes';
-      }
-      if (isLongform) {
-        return `Minimum ${formatDuration(minDuration)}, maximum ${formatDuration(maxDuration)}. Base includes ${formatDuration(selectedService.baseDuration || 15 * 60)}`;
-      }
-      return `Base price includes up to ${formatDuration(selectedService.baseDuration || 15)}. Maximum ${formatDuration(maxDuration)}`;
-    };
+    const minDuration = serviceConfig.minDuration || serviceConfig.baseDuration || 15;
+    const maxDuration = serviceConfig.maxDuration || 360;
 
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            {selectedService.durationBased
-              ? 'How long is your video?'
-              : 'How many revision rounds do you need?'}
+            {isDurationBased ? 'How long is your video?' : 'Configure your edit'}
           </CardTitle>
           <CardDescription>
-            {getDurationDescription()}
+            {isDurationBased
+              ? `Base includes ${formatDuration(serviceConfig.baseDuration)}. Maximum ${formatDuration(maxDuration)}`
+              : 'Configure your social media edit'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {selectedService.durationBased ? (
+          {isDurationBased && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Video Duration</Label>
@@ -392,57 +390,41 @@ export function VideoEditingEstimator() {
                 )}
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Revision Buckets</Label>
-                <div className="flex items-center gap-4">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={state.revisionBuckets}
-                    onChange={(e) =>
-                      setState(prev => ({
-                        ...prev,
-                        revisionBuckets: Math.max(1, parseInt(e.target.value) || 1),
-                      }))
-                    }
-                    className="w-24"
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    × 1-hour buckets
-                  </span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Each bucket includes up to 1 hour of revision time
-              </p>
-            </div>
           )}
 
-          {/* Revisions Add-on */}
+          {/* Base revision - always included */}
+          <div className="p-4 bg-muted/50 rounded-lg border">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">1 Revision Round Included</p>
+                <p className="text-sm text-muted-foreground">Base revision included with your package</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Extra Revisions Add-on */}
           <Card className="border-dashed">
             <CardContent className="pt-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <RefreshCw className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <Label className="text-sm font-medium">Add Revisions</Label>
+                    <Label className="text-sm font-medium">Add Extra Revisions</Label>
                     <p className="text-xs text-muted-foreground">
                       Additional revision rounds @ ${REVISIONS_PRICE}/each
                     </p>
                   </div>
                 </div>
                 <Switch
-                  checked={state.includeRevisions}
+                  checked={state.includeExtraRevisions}
                   onCheckedChange={(checked) =>
-                    setState(prev => ({ ...prev, includeRevisions: checked }))
+                    setState(prev => ({ ...prev, includeExtraRevisions: checked }))
                   }
                 />
               </div>
               
-              {state.includeRevisions && (
+              {state.includeExtraRevisions && (
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t">
                   <span className="text-sm text-muted-foreground">Quantity:</span>
                   <div className="flex items-center gap-2">
@@ -453,14 +435,14 @@ export function VideoEditingEstimator() {
                       onClick={() =>
                         setState(prev => ({
                           ...prev,
-                          revisionCount: Math.max(1, prev.revisionCount - 1),
+                          extraRevisionCount: Math.max(1, prev.extraRevisionCount - 1),
                         }))
                       }
-                      disabled={state.revisionCount <= 1}
+                      disabled={state.extraRevisionCount <= 1}
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
-                    <span className="w-8 text-center font-medium">{state.revisionCount}</span>
+                    <span className="w-8 text-center font-medium">{state.extraRevisionCount}</span>
                     <Button
                       variant="outline"
                       size="icon"
@@ -468,14 +450,14 @@ export function VideoEditingEstimator() {
                       onClick={() =>
                         setState(prev => ({
                           ...prev,
-                          revisionCount: prev.revisionCount + 1,
+                          extraRevisionCount: prev.extraRevisionCount + 1,
                         }))
                       }
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
-                  <span className="ml-auto font-medium">${revisionsTotal}</span>
+                  <span className="ml-auto font-medium">${extraRevisionsTotal}</span>
                 </div>
               )}
             </CardContent>
@@ -486,18 +468,18 @@ export function VideoEditingEstimator() {
             <CardContent className="pt-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Estimated Price</span>
-                <span className="text-2xl font-bold">${calculatePrice}</span>
+                <span className="text-2xl font-bold">${totalPrice}</span>
               </div>
-              {(selectedService.durationBased && state.duration > (selectedService.baseDuration || 30)) || state.includeRevisions ? (
+              {(calculateBasePrice > (selectedService.customer_price || selectedService.base_price) || state.includeExtraRevisions) && (
                 <div className="text-xs text-muted-foreground mt-2 space-y-1">
-                  {selectedService.durationBased && state.duration > (selectedService.baseDuration || 30) && (
-                    <p>Base (${selectedService.basePrice}) + extra duration (+${calculateBasePrice - selectedService.basePrice})</p>
+                  {calculateBasePrice > (selectedService.customer_price || selectedService.base_price) && (
+                    <p>Base (${selectedService.customer_price || selectedService.base_price}) + extra duration (+${calculateBasePrice - (selectedService.customer_price || selectedService.base_price)})</p>
                   )}
-                  {state.includeRevisions && (
-                    <p>+ {state.revisionCount} revision{state.revisionCount > 1 ? 's' : ''} (+${revisionsTotal})</p>
+                  {state.includeExtraRevisions && (
+                    <p>+ {state.extraRevisionCount} extra revision{state.extraRevisionCount > 1 ? 's' : ''} (+${extraRevisionsTotal})</p>
                   )}
                 </div>
-              ) : null}
+              )}
             </CardContent>
           </Card>
 
@@ -520,6 +502,8 @@ export function VideoEditingEstimator() {
   const renderStep3 = () => {
     if (!selectedService) return null;
 
+    const basePrice = selectedService.customer_price || selectedService.base_price;
+
     return (
       <Card>
         <CardHeader>
@@ -535,34 +519,32 @@ export function VideoEditingEstimator() {
               <span className="text-muted-foreground">Service</span>
               <span className="font-medium">{selectedService.name}</span>
             </div>
-            <div className="flex justify-between py-2 border-b">
-              <span className="text-muted-foreground">
-                {selectedService.durationBased ? 'Duration' : 'Revision Buckets'}
-              </span>
-              <span className="font-medium">
-                {selectedService.durationBased
-                  ? formatDuration(state.duration)
-                  : `${state.revisionBuckets} bucket${state.revisionBuckets > 1 ? 's' : ''}`}
-              </span>
-            </div>
-            <div className="flex justify-between py-2 border-b">
-              <span className="text-muted-foreground">Base Price</span>
-              <span className="font-medium">${selectedService.basePrice}</span>
-            </div>
-            {calculateBasePrice > selectedService.basePrice && (
+            {isDurationBased && (
               <div className="flex justify-between py-2 border-b">
-                <span className="text-muted-foreground">Duration Add-on</span>
-                <span className="font-medium">
-                  +${calculateBasePrice - selectedService.basePrice}
-                </span>
+                <span className="text-muted-foreground">Duration</span>
+                <span className="font-medium">{formatDuration(state.duration)}</span>
               </div>
             )}
-            {state.includeRevisions && (
+            <div className="flex justify-between py-2 border-b">
+              <span className="text-muted-foreground">Base Price</span>
+              <span className="font-medium">${basePrice}</span>
+            </div>
+            {calculateBasePrice > basePrice && (
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-muted-foreground">Duration Add-on</span>
+                <span className="font-medium">+${calculateBasePrice - basePrice}</span>
+              </div>
+            )}
+            <div className="flex justify-between py-2 border-b">
+              <span className="text-muted-foreground">Included Revisions</span>
+              <span className="font-medium">1 round</span>
+            </div>
+            {state.includeExtraRevisions && (
               <div className="flex justify-between py-2 border-b">
                 <span className="text-muted-foreground">
-                  Revisions ({state.revisionCount}x)
+                  Extra Revisions ({state.extraRevisionCount}x)
                 </span>
-                <span className="font-medium">+${revisionsTotal}</span>
+                <span className="font-medium">+${extraRevisionsTotal}</span>
               </div>
             )}
           </div>
@@ -571,7 +553,7 @@ export function VideoEditingEstimator() {
             <CardContent className="pt-4">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Estimate</span>
-                <span className="text-3xl font-bold">${calculatePrice}</span>
+                <span className="text-3xl font-bold">${totalPrice}</span>
               </div>
             </CardContent>
           </Card>
