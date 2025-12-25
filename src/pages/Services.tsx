@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Film, Camera, Scissors } from 'lucide-react';
+import { ArrowLeft, Scissors, Film, Camera } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VideoEditingEstimator } from '@/components/services/VideoEditingEstimator';
+import { PhotoEditingEstimator } from '@/components/services/PhotoEditingEstimator';
 
 export default function Services() {
   return (
@@ -38,10 +39,27 @@ export default function Services() {
         </p>
       </section>
 
-      {/* Video Editing Estimator */}
+      {/* Estimator Tabs */}
       <section className="container pb-16">
         <div className="max-w-2xl mx-auto">
-          <VideoEditingEstimator />
+          <Tabs defaultValue="video" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="video" className="flex items-center gap-2">
+                <Film className="h-4 w-4" />
+                Video Editing
+              </TabsTrigger>
+              <TabsTrigger value="photo" className="flex items-center gap-2">
+                <Camera className="h-4 w-4" />
+                Photo Editing
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="video">
+              <VideoEditingEstimator />
+            </TabsContent>
+            <TabsContent value="photo">
+              <PhotoEditingEstimator />
+            </TabsContent>
+          </Tabs>
         </div>
       </section>
     </div>
