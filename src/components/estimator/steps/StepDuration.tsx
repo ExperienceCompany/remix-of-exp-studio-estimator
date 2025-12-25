@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CrewAllocation } from '@/types/estimator';
 import { Slider } from '@/components/ui/slider';
-import { ArrowLeft, ArrowRight, Clock, Camera, Users, Minus, Plus, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Camera, Users, Minus, Plus, AlertCircle, DollarSign } from 'lucide-react';
 
 // Format hours as "Xh Ym"
 function formatDuration(hours: number): string {
@@ -75,6 +75,15 @@ export function StepDuration() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Duration</span>
             <span className="text-2xl font-bold">{formatDuration(selection.hours)}</span>
+          </div>
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-sm flex items-center gap-1">
+              <DollarSign className="h-3 w-3" />
+              Studio Estimate
+            </span>
+            <span className="text-lg font-semibold text-foreground">
+              ${totals.studioTotal.toFixed(0)}
+            </span>
           </div>
           <Slider
             value={[selection.hours]}
