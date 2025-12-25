@@ -104,6 +104,7 @@ export const STEP_LABELS = [
   'Day & Time',
   'Duration',
   'Add-ons',
+  'Configure',
   'Summary',
 ] as const;
 
@@ -113,6 +114,7 @@ export const DIY_STEP_LABELS = [
   'Day & Time',
   'Duration',
   'Add-ons',
+  'Configure',
   'Summary',
 ] as const;
 

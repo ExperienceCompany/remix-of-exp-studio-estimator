@@ -8,6 +8,7 @@ import { StepService } from './steps/StepService';
 import { StepTimeSlot } from './steps/StepTimeSlot';
 import { StepDuration } from './steps/StepDuration';
 import { StepAddons } from './steps/StepAddons';
+import { StepConfigure } from './steps/StepConfigure';
 import { StepSummary } from './steps/StepSummary';
 import { SelectionSummary } from './SelectionSummary';
 
@@ -18,6 +19,7 @@ const STEPS = [
   StepTimeSlot,
   StepDuration,
   StepAddons,
+  StepConfigure,
   StepSummary,
 ];
 
