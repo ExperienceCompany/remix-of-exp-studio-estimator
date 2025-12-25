@@ -79,7 +79,7 @@ export function StepConfigure() {
     const baseDuration = config.baseDuration;
     if (duration <= baseDuration) return baseCustomerPrice;
     
-    const customerIncrementPrice = (incrementPrice || 0) * 2;
+    const customerIncrementPrice = incrementPrice || 0;
     const additionalIncrements = Math.ceil((duration - baseDuration) / config.incrementDuration);
     return baseCustomerPrice + (additionalIncrements * customerIncrementPrice);
   };
