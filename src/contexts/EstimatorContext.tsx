@@ -278,8 +278,19 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       }
       
       editingTotal += itemTotal;
+      
+      // Build crew assignment string for display
+      let crewStr = '';
+      if (item.assignedCrew) {
+        const crewParts: string[] = [];
+        if (item.assignedCrew.lv1) crewParts.push(item.assignedCrew.lv1 > 1 ? `Lv1 ×${item.assignedCrew.lv1}` : 'Lv1');
+        if (item.assignedCrew.lv2) crewParts.push(item.assignedCrew.lv2 > 1 ? `Lv2 ×${item.assignedCrew.lv2}` : 'Lv2');
+        if (item.assignedCrew.lv3) crewParts.push(item.assignedCrew.lv3 > 1 ? `Lv3 ×${item.assignedCrew.lv3}` : 'Lv3');
+        if (crewParts.length > 0) crewStr = ` • ${crewParts.join(', ')}`;
+      }
+      
       lineItems.push({
-        label: `${item.name} (${labelDetails})`,
+        label: `${item.name} (${labelDetails})${crewStr}`,
         amount: itemTotal,
         type: 'editing',
       });
