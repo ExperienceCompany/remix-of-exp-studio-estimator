@@ -85,6 +85,11 @@ export function StepAddons() {
   const totalAssignedCrew = assignedCrew.lv1 + assignedCrew.lv2 + assignedCrew.lv3;
   const totalUnassignedCrew = totalAllocatedCrew - totalAssignedCrew;
 
+  // Check if crew assignment is required and complete
+  const hasVideoEditingSelected = selection.editingItems.some(e => e.category !== 'photo_editing');
+  const crewAssignmentRequired = hasVideoEditingSelected && totalAllocatedCrew > 0;
+  const canProceed = !crewAssignmentRequired || totalUnassignedCrew === 0;
+
   const toggleEditingItem = (item: any, defaultDuration?: number) => {
     const existing = selection.editingItems.find(e => e.id === item.id);
     if (existing) {
@@ -610,12 +615,20 @@ export function StepAddons() {
         </CardContent>
       </Card>
 
+      {/* Crew Assignment Warning */}
+      {crewAssignmentRequired && totalUnassignedCrew > 0 && (
+        <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>Please assign all production crew ({totalUnassignedCrew} remaining) to editing tasks before continuing.</span>
+        </div>
+      )}
+
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => setCurrentStep(4)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <Button onClick={handleNext}>
+        <Button onClick={handleNext} disabled={!canProceed}>
           Next
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>

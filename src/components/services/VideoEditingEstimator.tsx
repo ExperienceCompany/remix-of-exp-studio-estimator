@@ -28,7 +28,7 @@ const VIDEO_SERVICES: Record<string, VideoService> = {
     id: 'social_template',
     name: 'Social Template Edit',
     description: 'Quick turnaround for social media clips',
-    basePrice: 120,
+    basePrice: 75,
     incrementPrice: 75,
     incrementUnit: '1-hour revision bucket',
     baseDuration: 0, // No duration limit, uses revision buckets
