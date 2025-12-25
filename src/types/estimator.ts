@@ -47,6 +47,7 @@ export interface SessionAddon {
   flatAmount: number;
   isHourly?: boolean;
   hours?: number;  // For revisions bucket
+  isAutoIncluded?: boolean;  // Non-removable auto-included addons
 }
 
 export interface EditingItem {
