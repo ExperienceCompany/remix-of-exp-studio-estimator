@@ -244,16 +244,25 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    // Session add-ons (flat or hourly)
+    // Session add-ons (flat, hourly, or revision buckets)
     selection.sessionAddons.forEach(addon => {
-      const addonAmount = addon.isHourly 
-        ? addon.flatAmount * selection.hours 
-        : addon.flatAmount;
+      let addonAmount: number;
+      let labelText: string;
+      
+      if (addon.name === 'Revisions' && addon.hours) {
+        addonAmount = addon.flatAmount * addon.hours;
+        labelText = `${addon.name} (${addon.hours}hr × $${addon.flatAmount}/hr)`;
+      } else if (addon.isHourly) {
+        addonAmount = addon.flatAmount * selection.hours;
+        labelText = `${addon.name} (${selection.hours}hr × $${addon.flatAmount}/hr)`;
+      } else {
+        addonAmount = addon.flatAmount;
+        labelText = addon.name;
+      }
+      
       sessionAddonTotal += addonAmount;
       lineItems.push({
-        label: addon.isHourly 
-          ? `${addon.name} (${selection.hours}hr × $${addon.flatAmount}/hr)` 
-          : addon.name,
+        label: labelText,
         amount: addonAmount,
         type: 'session_addon',
       });

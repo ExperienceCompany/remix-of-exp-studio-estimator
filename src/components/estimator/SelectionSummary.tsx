@@ -117,23 +117,26 @@ export function SelectionSummary() {
   };
 
   selection.editingItems.forEach(item => {
+    const durationStr = formatEditDuration(item.quantity, item.category);
+    const crewStr = item.crewCount && item.crewCount > 1 ? ` • ${item.crewCount} crew` : '';
     items.push({
       icon: <Film className="h-3 w-3" />,
       label: item.name.split(' ')[0],
-      value: formatEditDuration(item.quantity, item.category)
+      value: `${durationStr}${crewStr}`
     });
   });
 
   // Session Add-ons
   selection.sessionAddons.forEach(addon => {
+    const valueStr = addon.hours ? `${addon.hours}hr` : addon.name;
     items.push({
       icon: <Package className="h-3 w-3" />,
-      label: 'Add-on',
-      value: addon.name
+      label: addon.name === 'Revisions' ? 'Revisions' : 'Add-on',
+      value: valueStr
+    });
   });
 
   if (items.length === 0) return null;
-  });
 
   return (
     <div className="flex flex-wrap gap-2 justify-center mb-6 px-4">
