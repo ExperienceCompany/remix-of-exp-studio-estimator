@@ -18,11 +18,20 @@ export interface QuotePdfData {
 export async function generateQuotePdf(data: QuotePdfData): Promise<void> {
   const doc = new jsPDF();
   
-  // Generate QR code as data URL
-  const qrDataUrl = await QRCode.toDataURL(
-    `https://expstudio.com/quote/${data.quoteNumber}`,
-    { width: 80, margin: 1 }
-  );
+  // Generate QR code with error handling
+  let qrDataUrl: string | null = null;
+  try {
+    qrDataUrl = await QRCode.toDataURL(
+      `https://expstudio.com/quote/${data.quoteNumber}`,
+      { 
+        width: 80, 
+        margin: 1,
+        type: 'image/png'
+      }
+    );
+  } catch (e) {
+    console.warn('QR Code generation failed, continuing without it', e);
+  }
   
   // Header
   doc.setFontSize(28);
@@ -33,8 +42,14 @@ export async function generateQuotePdf(data: QuotePdfData): Promise<void> {
   doc.setFont('helvetica', 'normal');
   doc.text('Quote', 20, 35);
   
-  // QR Code (top right)
-  doc.addImage(qrDataUrl, 'PNG', 150, 10, 40, 40);
+  // QR Code (top right) - only if generated successfully
+  if (qrDataUrl) {
+    try {
+      doc.addImage(qrDataUrl, 'PNG', 150, 10, 40, 40);
+    } catch (e) {
+      console.warn('Failed to add QR code to PDF', e);
+    }
+  }
   
   // Quote details
   doc.setFontSize(10);
@@ -130,6 +145,14 @@ export async function generateQuotePdf(data: QuotePdfData): Promise<void> {
   doc.text('EXP Studio | expstudio.com', 105, 280, { align: 'center' });
   doc.text('This quote is valid for 30 days from the date above.', 105, 286, { align: 'center' });
   
-  // Download
-  doc.save(`EXP-Quote-${data.quoteNumber}.pdf`);
+  // Use blob-based download for better browser compatibility
+  const pdfBlob = doc.output('blob');
+  const blobUrl = URL.createObjectURL(pdfBlob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = `EXP-Quote-${data.quoteNumber}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(blobUrl);
 }
