@@ -22,7 +22,7 @@ export async function generateQuotePdf(data: QuotePdfData): Promise<void> {
   let qrDataUrl: string | null = null;
   try {
     qrDataUrl = await QRCode.toDataURL(
-      `https://expstudio.com/quote/${data.quoteNumber}`,
+      `https://expquotes.lovable.app/quote/${data.quoteNumber}`,
       { 
         width: 80, 
         margin: 1,

@@ -16,6 +16,8 @@ import { ArrowLeft, Copy, FileText, RotateCcw, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuotePdf } from '@/lib/generateQuotePdf';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
 export function StepSummary() {
   const { selection, totals, setCurrentStep, resetSelection } = useEstimator();
@@ -42,19 +44,36 @@ export function StepSummary() {
   };
 
   const handleDownloadQuote = async () => {
-    // Generate unique quote number (timestamp-based)
-    const quoteNumber = `EXP-${Date.now().toString(36).toUpperCase()}`;
-    
-    // Build crew display string
-    const { lv1, lv2, lv3 } = selection.crewAllocation;
-    const crewParts: string[] = [];
-    if (lv1 > 0) crewParts.push(lv1 > 1 ? `Lv1 ×${lv1}` : 'Lv1');
-    if (lv2 > 0) crewParts.push(lv2 > 1 ? `Lv2 ×${lv2}` : 'Lv2');
-    if (lv3 > 0) crewParts.push(lv3 > 1 ? `Lv3 ×${lv3}` : 'Lv3');
-    
     try {
+      // Save quote to database first
+      const insertData = {
+        session_type: selection.sessionType as 'diy' | 'serviced',
+        hours: selection.hours,
+        camera_count: selection.cameraCount,
+        selections_json: JSON.parse(JSON.stringify(selection)) as Json,
+        totals_json: JSON.parse(JSON.stringify(totals)) as Json,
+        customer_total: totals.customerTotal,
+        status: 'draft' as const
+      };
+      
+      const { data: quote, error } = await supabase
+        .from('quotes')
+        .insert(insertData)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Build crew display string
+      const { lv1, lv2, lv3 } = selection.crewAllocation;
+      const crewParts: string[] = [];
+      if (lv1 > 0) crewParts.push(lv1 > 1 ? `Lv1 ×${lv1}` : 'Lv1');
+      if (lv2 > 0) crewParts.push(lv2 > 1 ? `Lv2 ×${lv2}` : 'Lv2');
+      if (lv3 > 0) crewParts.push(lv3 > 1 ? `Lv3 ×${lv3}` : 'Lv3');
+    
+      // Generate PDF with the saved quote ID
       await generateQuotePdf({
-        quoteNumber,
+        quoteNumber: quote.id,
         date: format(new Date(), 'MMMM d, yyyy'),
         sessionType: selection.sessionType === 'diy' ? 'DIY' : 'EXP Session',
         studio: selection.studioType ? STUDIO_LABELS[selection.studioType] : 'Not selected',
@@ -67,9 +86,10 @@ export function StepSummary() {
         total: totals.customerTotal,
       });
       
-      toast({ title: 'Quote downloaded!' });
+      toast({ title: 'Quote saved and downloaded!' });
     } catch (error) {
-      toast({ title: 'Failed to generate PDF', variant: 'destructive' });
+      console.error('Failed to save/generate quote:', error);
+      toast({ title: 'Failed to generate quote', variant: 'destructive' });
     }
   };
 
