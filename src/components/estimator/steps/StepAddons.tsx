@@ -62,7 +62,19 @@ export function StepAddons() {
       // For Enhance Edit, enforce 10 edit minimum
       const isEnhance = item.name === 'Enhance Edit';
       const config = VIDEO_EDITING_CONFIG[item.category];
-      const defaultQuantity = isEnhance ? 10 : (defaultDuration || config?.baseDuration || 1);
+      
+      // For vodcast/audio_podcast, start video editing at session duration
+      let defaultQuantity = isEnhance ? 10 : (defaultDuration || config?.baseDuration || 1);
+      
+      if (
+        (selection.serviceType === 'vodcast' || selection.serviceType === 'audio_podcast') &&
+        config &&
+        (item.category === 'general_basic' || item.category === 'general_advanced' || 
+         item.category === 'long_form_simple' || item.category === 'long_form_advanced')
+      ) {
+        const sessionDurationSeconds = selection.hours * 3600;
+        defaultQuantity = Math.max(defaultQuantity, sessionDurationSeconds);
+      }
       
       updateSelection({
         editingItems: [
