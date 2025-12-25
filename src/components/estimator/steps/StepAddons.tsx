@@ -343,6 +343,7 @@ export function StepAddons() {
             const isSelected = !!selectedItem;
             const customerPrice = Number(item.customer_price);
             const itemAssignedCrew = selectedItem?.assignedCrew || { lv1: 0, lv2: 0, lv3: 0 };
+            const isLongForm = item.category.startsWith('long_form');
             
             return (
               <div key={item.id} className="space-y-2">
@@ -353,7 +354,14 @@ export function StepAddons() {
                       onCheckedChange={() => toggleEditingItem(item, VIDEO_EDITING_CONFIG[item.category]?.baseDuration)}
                     />
                     <div>
-                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        {item.name}
+                        {isLongForm && (
+                          <Badge className="bg-amber-400 text-amber-900 border-amber-500 hover:bg-amber-400">
+                            Recommended
+                          </Badge>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground">{item.description}</p>
                     </div>
                   </div>
