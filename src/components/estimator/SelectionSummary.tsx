@@ -123,8 +123,17 @@ export function SelectionSummary() {
 
   selection.editingItems.forEach(item => {
     const durationStr = formatEditDuration(item.quantity, item.category);
-    const totalAssigned = (item.assignedCrew?.lv1 || 0) + (item.assignedCrew?.lv2 || 0) + (item.assignedCrew?.lv3 || 0);
-    const crewStr = totalAssigned > 0 ? ` • ${totalAssigned} crew` : '';
+    const crewParts: string[] = [];
+    if (item.assignedCrew?.lv1) {
+      crewParts.push(item.assignedCrew.lv1 > 1 ? `Lv1 x${item.assignedCrew.lv1}` : 'Lv1');
+    }
+    if (item.assignedCrew?.lv2) {
+      crewParts.push(item.assignedCrew.lv2 > 1 ? `Lv2 x${item.assignedCrew.lv2}` : 'Lv2');
+    }
+    if (item.assignedCrew?.lv3) {
+      crewParts.push(item.assignedCrew.lv3 > 1 ? `Lv3 x${item.assignedCrew.lv3}` : 'Lv3');
+    }
+    const crewStr = crewParts.length > 0 ? ` • ${crewParts.join(', ')}` : '';
     items.push({
       icon: <Film className="h-3 w-3" />,
       label: item.name.split(' ')[0],
