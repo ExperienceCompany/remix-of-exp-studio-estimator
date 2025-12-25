@@ -35,10 +35,16 @@ export function StepAddons() {
   // Filter for photo editing only
   const photoEditingItems = editingMenu?.filter(item => item.category === 'photo_editing') || [];
 
-  // Filter for video editing (non-photo categories)
+  // Filter for video editing (non-photo categories) and sort so long-form is at bottom
   const videoEditingItems = editingMenu?.filter(item => 
     item.category !== 'photo_editing'
-  ) || [];
+  ).sort((a, b) => {
+    const aIsLongForm = a.category.startsWith('long_form');
+    const bIsLongForm = b.category.startsWith('long_form');
+    if (aIsLongForm && !bIsLongForm) return 1;
+    if (!aIsLongForm && bIsLongForm) return -1;
+    return 0;
+  }) || [];
 
   // Show photo editing only for photoshoot
   const showPhotoEditing = selection.serviceType === 'photoshoot';
