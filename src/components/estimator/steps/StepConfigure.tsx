@@ -72,6 +72,20 @@ export function StepConfigure() {
     return menuItem && menuItem.category !== 'photo_editing';
   });
 
+  // Calculate effective minimum duration based on service type
+  const getEffectiveMinDuration = (category: string, baseMin: number): number => {
+    // For vodcast/audio_podcast services, use session duration as minimum for general/long-form editing
+    if (
+      (selection.serviceType === 'vodcast' || selection.serviceType === 'audio_podcast') &&
+      (category === 'general_basic' || category === 'general_advanced' || 
+       category === 'long_form_simple' || category === 'long_form_advanced')
+    ) {
+      const sessionDurationSeconds = selection.hours * 3600; // Convert hours to seconds
+      return Math.max(baseMin, sessionDurationSeconds);
+    }
+    return baseMin;
+  };
+
   const calculateVideoEditPrice = (category: string, baseCustomerPrice: number, incrementPrice: number | null, duration: number): number => {
     const config = VIDEO_EDITING_CONFIG[category];
     if (!config) return baseCustomerPrice;
@@ -86,8 +100,8 @@ export function StepConfigure() {
 
   const updateEditingQuantity = (itemId: string, newQuantity: number, category: string) => {
     const config = VIDEO_EDITING_CONFIG[category];
-    const minQuantity = config?.minDuration || 1;
-    const quantity = Math.max(minQuantity, newQuantity);
+    const effectiveMin = getEffectiveMinDuration(category, config?.minDuration || 1);
+    const quantity = Math.max(effectiveMin, newQuantity);
     
     updateSelection({
       editingItems: selection.editingItems.map(e => 
@@ -151,7 +165,9 @@ export function StepConfigure() {
             const config = VIDEO_EDITING_CONFIG[menuItem.category];
             if (!config) return null;
             
-            const duration = item.quantity;
+            const effectiveMin = getEffectiveMinDuration(menuItem.category, config.minDuration);
+            const effectiveMax = Math.max(effectiveMin, config.maxDuration);
+            const duration = Math.max(item.quantity, effectiveMin);
             const itemTotal = calculateVideoEditPrice(
               menuItem.category,
               item.customerPrice,
@@ -176,15 +192,15 @@ export function StepConfigure() {
                   </div>
                   <Slider
                     value={[duration]}
-                    min={config.minDuration}
-                    max={config.maxDuration}
+                    min={effectiveMin}
+                    max={effectiveMax}
                     step={config.incrementDuration}
                     onValueChange={([val]) => updateEditingQuantity(item.id, val, menuItem.category)}
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{config.formatDuration(config.minDuration)}</span>
-                    <span>{config.formatDuration(config.maxDuration)}</span>
+                    <span>{config.formatDuration(effectiveMin)}</span>
+                    <span>{config.formatDuration(effectiveMax)}</span>
                   </div>
                 </div>
               </div>
