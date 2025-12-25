@@ -4,7 +4,65 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus, Video } from 'lucide-react';
+
+// Video editing config with duration-based pricing
+const VIDEO_EDITING_CONFIG: Record<string, {
+  minDuration: number;
+  maxDuration: number;
+  baseDuration: number;
+  incrementDuration: number;
+  formatDuration: (seconds: number) => string;
+}> = {
+  social: {
+    minDuration: 1, // 1 revision bucket
+    maxDuration: 10,
+    baseDuration: 1,
+    incrementDuration: 1,
+    formatDuration: (buckets: number) => `${buckets} revision bucket${buckets > 1 ? 's' : ''}`,
+  },
+  general_basic: {
+    minDuration: 15, // 15 seconds
+    maxDuration: 360, // 6 min max
+    baseDuration: 15,
+    incrementDuration: 15,
+    formatDuration: (seconds: number) => seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`,
+  },
+  general_advanced: {
+    minDuration: 15,
+    maxDuration: 360,
+    baseDuration: 15,
+    incrementDuration: 15,
+    formatDuration: (seconds: number) => seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`,
+  },
+  long_form_simple: {
+    minDuration: 360, // 6 min minimum
+    maxDuration: 14400, // 4 hours max (in seconds)
+    baseDuration: 900, // 15 min base
+    incrementDuration: 900, // 15 min increments
+    formatDuration: (seconds: number) => {
+      const mins = Math.floor(seconds / 60);
+      if (mins < 60) return `${mins} min`;
+      const hours = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
+      return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+    },
+  },
+  long_form_advanced: {
+    minDuration: 360,
+    maxDuration: 14400,
+    baseDuration: 900,
+    incrementDuration: 900,
+    formatDuration: (seconds: number) => {
+      const mins = Math.floor(seconds / 60);
+      if (mins < 60) return `${mins} min`;
+      const hours = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
+      return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+    },
+  },
+};
 
 export function StepAddons() {
   const { selection, updateSelection, setCurrentStep, totals } = useEstimator();
@@ -31,13 +89,21 @@ export function StepAddons() {
     return true;
   }) || [];
 
-  // Filter for photo editing only (video editing moved to Post-Production Services)
+  // Filter for photo editing only
   const photoEditingItems = editingMenu?.filter(item => item.category === 'photo_editing') || [];
 
-  // Show photo editing only for photoshoot package
+  // Filter for video editing (non-photo categories)
+  const videoEditingItems = editingMenu?.filter(item => 
+    item.category !== 'photo_editing'
+  ) || [];
+
+  // Show photo editing only for photoshoot
   const showPhotoEditing = selection.serviceType === 'photoshoot';
 
-  const toggleEditingItem = (item: any) => {
+  // Show video editing for vodcast (both DIY and Serviced)
+  const showVideoEditing = selection.serviceType === 'vodcast';
+
+  const toggleEditingItem = (item: any, defaultDuration?: number) => {
     const existing = selection.editingItems.find(e => e.id === item.id);
     if (existing) {
       updateSelection({
@@ -46,7 +112,8 @@ export function StepAddons() {
     } else {
       // For Enhance Edit, enforce 10 edit minimum
       const isEnhance = item.name === 'Enhance Edit';
-      const defaultQuantity = isEnhance ? 10 : 1;
+      const config = VIDEO_EDITING_CONFIG[item.category];
+      const defaultQuantity = isEnhance ? 10 : (defaultDuration || config?.baseDuration || 1);
       
       updateSelection({
         editingItems: [
@@ -64,14 +131,15 @@ export function StepAddons() {
     }
   };
 
-  const updateEditingQuantity = (itemId: string, newQuantity: number) => {
+  const updateEditingQuantity = (itemId: string, newQuantity: number, category?: string) => {
     updateSelection({
       editingItems: selection.editingItems.map(e => {
         if (e.id !== itemId) return e;
         
-        // Enforce 10 minimum for Enhance Edit
+        // Enforce minimums based on type
         const isEnhance = e.name === 'Enhance Edit';
-        const minQuantity = isEnhance ? 10 : 1;
+        const config = category ? VIDEO_EDITING_CONFIG[category] : null;
+        const minQuantity = isEnhance ? 10 : (config?.minDuration || 1);
         const quantity = Math.max(minQuantity, newQuantity);
         
         return { ...e, quantity };
@@ -98,6 +166,20 @@ export function StepAddons() {
         ],
       });
     }
+  };
+
+  const calculateVideoEditPrice = (item: any, duration: number): number => {
+    const config = VIDEO_EDITING_CONFIG[item.category];
+    if (!config) return Number(item.customer_price);
+    
+    const basePrice = Number(item.customer_price);
+    const incrementPrice = Number(item.increment_price) * 2; // Customer price is 2x base
+    const baseDuration = config.baseDuration;
+    
+    if (duration <= baseDuration) return basePrice;
+    
+    const additionalIncrements = Math.ceil((duration - baseDuration) / config.incrementDuration);
+    return basePrice + (additionalIncrements * incrementPrice);
   };
 
   const handleNext = () => {
@@ -197,6 +279,83 @@ export function StepAddons() {
     );
   };
 
+  const renderVideoEditingOptions = () => {
+    if (!showVideoEditing || videoEditingItems.length === 0) return null;
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Video className="h-4 w-4" />
+            Video Editing (Optional)
+          </CardTitle>
+          <CardDescription>
+            Add post-production editing to your vodcast recording
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {videoEditingItems.map(item => {
+            const selectedItem = selection.editingItems.find(e => e.id === item.id);
+            const isSelected = !!selectedItem;
+            const config = VIDEO_EDITING_CONFIG[item.category];
+            const duration = selectedItem?.quantity || config?.baseDuration || 1;
+            const customerPrice = Number(item.customer_price);
+            const itemTotal = isSelected ? calculateVideoEditPrice(item, duration) : customerPrice;
+            
+            return (
+              <div 
+                key={item.id} 
+                className="space-y-3 py-3 border-b last:border-0"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={isSelected}
+                      onCheckedChange={() => toggleEditingItem(item, config?.baseDuration)}
+                    />
+                    <div>
+                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-medium">
+                    ${customerPrice} base
+                  </span>
+                </div>
+                
+                {isSelected && config && (
+                  <div className="pl-12 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Duration:</span>
+                      <span className="font-medium">{config.formatDuration(duration)}</span>
+                    </div>
+                    <Slider
+                      value={[duration]}
+                      min={config.minDuration}
+                      max={config.maxDuration}
+                      step={config.incrementDuration}
+                      onValueChange={([val]) => updateEditingQuantity(item.id, val, item.category)}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{config.formatDuration(config.minDuration)}</span>
+                      <span>{config.formatDuration(config.maxDuration)}</span>
+                    </div>
+                    <div className="flex justify-end">
+                      <span className="text-sm font-bold">
+                        = ${itemTotal}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    );
+  };
+
 
   return (
     <div className="space-y-6">
@@ -246,6 +405,9 @@ export function StepAddons() {
 
       {/* Photo Editing Services (only for photoshoot) */}
       {renderPhotoEditingWithQuantity()}
+
+      {/* Video Editing Services (only for vodcast) */}
+      {renderVideoEditingOptions()}
 
       {/* Running Total */}
       <Card className="bg-muted/50">

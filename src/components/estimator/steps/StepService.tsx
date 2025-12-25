@@ -99,26 +99,30 @@ export function StepService() {
           const Icon = SERVICE_ICONS[service.type as ServiceType] || Mic;
           
           return (
-            <Card 
-              key={service.id}
-              className={cn(
-                "cursor-pointer transition-all hover:shadow-md",
-                selection.serviceId === service.id && "ring-2 ring-primary"
-              )}
-              onClick={() => handleSelect(service)}
-            >
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{service.name}</CardTitle>
-                    <CardDescription className="text-sm">{service.description}</CardDescription>
-                  </div>
+          <Card 
+            key={service.id}
+            className={cn(
+              "cursor-pointer transition-all hover:shadow-md",
+              selection.serviceId === service.id && "ring-2 ring-primary"
+            )}
+            onClick={() => handleSelect(service)}
+          >
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-5 w-5" />
                 </div>
-              </CardHeader>
-            </Card>
+                <div>
+                  <CardTitle className="text-base">{service.name}</CardTitle>
+                  <CardDescription className="text-sm">
+                    {service.type === 'vodcast' 
+                      ? 'Recording only – editing available as add-on'
+                      : service.description}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
           );
         })}
       </div>

@@ -126,7 +126,7 @@ export const STUDIO_LABELS: Record<StudioType, string> = {
 
 export const SERVICE_LABELS: Record<ServiceType, string> = {
   audio_podcast: 'Audio Podcast',
-  vodcast: 'Vodcast',
+  vodcast: 'Vodcast (Recording)',
   recording_session: 'Recording Session',
   photoshoot: 'Photoshoot',
 };
