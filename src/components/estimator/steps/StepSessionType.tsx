@@ -12,7 +12,10 @@ export function StepSessionType() {
   const handleSelect = (type: 'diy' | 'serviced') => {
     updateSelection({
       sessionType: type,
-      providerLevel: type === 'serviced' ? 'lv2' : null
+      providerLevel: type === 'serviced' ? 'lv2' : null,
+      crewAllocation: type === 'serviced' 
+        ? { lv1: 0, lv2: 1, lv3: 0 }
+        : { lv1: 0, lv2: 0, lv3: 0 },
     });
     setCurrentStep(1);
   };
