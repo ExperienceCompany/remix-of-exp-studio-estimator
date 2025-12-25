@@ -1,12 +1,10 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { useProviderLevels } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CrewAllocation } from '@/types/estimator';
 import { Slider } from '@/components/ui/slider';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ProviderLevel } from '@/types/estimator';
-import { ArrowLeft, ArrowRight, Clock, Camera } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Camera, Users, Minus, Plus } from 'lucide-react';
 
 // Format hours as "Xh Ym"
 function formatDuration(hours: number): string {
@@ -25,8 +23,15 @@ export function StepDuration() {
     updateSelection({ hours: value[0] });
   };
 
-  const handleProviderChange = (value: string) => {
-    updateSelection({ providerLevel: value as ProviderLevel });
+  const updateCrewLevel = (level: keyof CrewAllocation, delta: number) => {
+    const current = selection.crewAllocation[level];
+    const newValue = Math.max(0, current + delta);
+    updateSelection({
+      crewAllocation: {
+        ...selection.crewAllocation,
+        [level]: newValue,
+      },
+    });
   };
 
   const handleCameraChange = (count: number) => {
@@ -39,6 +44,14 @@ export function StepDuration() {
 
   // Quick select buttons for common durations
   const quickDurations = [1, 2, 3, 4];
+
+  // Calculate crew costs
+  const { lv1, lv2, lv3 } = selection.crewAllocation;
+  const totalCrew = lv1 + lv2 + lv3;
+  const lv1Rate = providerLevels?.find(p => p.level === 'lv1')?.hourly_rate || 20;
+  const lv2Rate = providerLevels?.find(p => p.level === 'lv2')?.hourly_rate || 30;
+  const lv3Rate = providerLevels?.find(p => p.level === 'lv3')?.hourly_rate || 40;
+  const totalCrewCostPerHour = lv1 * Number(lv1Rate) + lv2 * Number(lv2Rate) + lv3 * Number(lv3Rate);
 
   return (
     <div className="space-y-6">
@@ -84,30 +97,110 @@ export function StepDuration() {
         </CardContent>
       </Card>
 
-      {/* Provider Level (for serviced sessions) */}
+      {/* Production Crew Level (for serviced sessions) */}
       {selection.sessionType === 'serviced' && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Production Crew Level</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4" />
+              Production Crew Level
+            </CardTitle>
+            <CardDescription>
+              Select the number of crew members at each level
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <RadioGroup
-              value={selection.providerLevel || 'lv2'}
-              onValueChange={handleProviderChange}
-              className="space-y-2"
-            >
-              {providerLevels?.map(level => (
-                <div key={level.id} className="flex items-center space-x-3">
-                  <RadioGroupItem value={level.level} id={level.level} />
-                  <Label htmlFor={level.level} className="flex-1 cursor-pointer">
-                    <span className="font-medium">{level.display_name}</span>
-                    <span className="text-muted-foreground ml-2">
-                      +${Number(level.hourly_rate)}/hr
-                    </span>
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
+          <CardContent className="space-y-4">
+            {/* Level 1 */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Level 1 - Entry</p>
+                <p className="text-xs text-muted-foreground">+${lv1Rate}/hr per crew</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv1', -1)}
+                  disabled={lv1 <= 0}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-8 text-center font-medium">{lv1}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv1', 1)}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Level 2 */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Level 2 - Experienced</p>
+                <p className="text-xs text-muted-foreground">+${lv2Rate}/hr per crew</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv2', -1)}
+                  disabled={lv2 <= 0}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-8 text-center font-medium">{lv2}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv2', 1)}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Level 3 */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-medium">Level 3 - Expert</p>
+                <p className="text-xs text-muted-foreground">+${lv3Rate}/hr per crew</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv3', -1)}
+                  disabled={lv3 <= 0}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <span className="w-8 text-center font-medium">{lv3}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateCrewLevel('lv3', 1)}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Summary */}
+            {totalCrew > 0 && (
+              <div className="pt-3 border-t flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Total Crew: {totalCrew}</span>
+                <span className="text-sm font-medium">+${totalCrewCostPerHour}/hr</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
