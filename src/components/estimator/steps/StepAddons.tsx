@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus, Video } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus, Video, Users } from 'lucide-react';
 import { VIDEO_EDITING_CONFIG } from './StepConfigure';
 
 export function StepAddons() {
@@ -87,6 +87,7 @@ export function StepAddons() {
             basePrice: Number(item.base_price),
             customerPrice: Number(item.customer_price || item.base_price * 2),
             incrementPrice: item.increment_price ? Number(item.increment_price) : null,
+            crewCount: 1,  // Default to 1 crew
           },
         ],
       });
@@ -109,6 +110,14 @@ export function StepAddons() {
     });
   };
 
+  const updateEditingCrewCount = (itemId: string, newCrewCount: number) => {
+    updateSelection({
+      editingItems: selection.editingItems.map(e => 
+        e.id === itemId ? { ...e, crewCount: Math.max(1, newCrewCount) } : e
+      ),
+    });
+  };
+
   const toggleSessionAddon = (addon: any) => {
     const existing = selection.sessionAddons.find(a => a.id === addon.id);
     if (existing) {
@@ -116,6 +125,7 @@ export function StepAddons() {
         sessionAddons: selection.sessionAddons.filter(a => a.id !== addon.id),
       });
     } else {
+      const isRevisions = addon.name === 'Revisions';
       updateSelection({
         sessionAddons: [
           ...selection.sessionAddons,
@@ -124,10 +134,19 @@ export function StepAddons() {
             name: addon.name,
             flatAmount: Number(addon.flat_amount),
             isHourly: addon.is_hourly ?? false,
+            hours: isRevisions ? 1 : undefined,  // Start revisions at 1 hour
           },
         ],
       });
     }
+  };
+
+  const updateRevisionHours = (addonId: string, newHours: number) => {
+    updateSelection({
+      sessionAddons: selection.sessionAddons.map(a => 
+        a.id === addonId ? { ...a, hours: Math.max(1, newHours) } : a
+      ),
+    });
   };
 
   const handleNext = () => {
@@ -256,25 +275,53 @@ export function StepAddons() {
             const selectedItem = selection.editingItems.find(e => e.id === item.id);
             const isSelected = !!selectedItem;
             const customerPrice = Number(item.customer_price);
+            const crewCount = selectedItem?.crewCount || 1;
             
             return (
-              <div 
-                key={item.id} 
-                className="flex items-center justify-between py-3 border-b last:border-0"
-              >
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={isSelected}
-                    onCheckedChange={() => toggleEditingItem(item, VIDEO_EDITING_CONFIG[item.category]?.baseDuration)}
-                  />
-                  <div>
-                    <p className="text-sm font-medium">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
+              <div key={item.id} className="space-y-2">
+                <div className="flex items-center justify-between py-3 border-b last:border-0">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={isSelected}
+                      onCheckedChange={() => toggleEditingItem(item, VIDEO_EDITING_CONFIG[item.category]?.baseDuration)}
+                    />
+                    <div>
+                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                    </div>
                   </div>
+                  <span className="text-sm font-medium">
+                    from ${customerPrice}
+                  </span>
                 </div>
-                <span className="text-sm font-medium">
-                  from ${customerPrice}
-                </span>
+                
+                {/* Crew count selector */}
+                {isSelected && (
+                  <div className="flex items-center justify-between pl-12 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground"># Production Crew:</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => updateEditingCrewCount(item.id, crewCount - 1)}
+                        disabled={crewCount <= 1}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="w-6 text-center text-sm font-medium">{crewCount}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => updateEditingCrewCount(item.id, crewCount + 1)}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -300,29 +347,71 @@ export function StepAddons() {
           </CardHeader>
           <CardContent className="space-y-3">
             {availableSessionAddons.map(addon => {
-              const isSelected = selection.sessionAddons.some(a => a.id === addon.id);
+              const selectedAddon = selection.sessionAddons.find(a => a.id === addon.id);
+              const isSelected = !!selectedAddon;
               const isHourly = addon.is_hourly;
-              const displayPrice = isHourly 
-                ? `+$${Number(addon.flat_amount)}/hr` 
-                : `+$${Number(addon.flat_amount)}`;
+              const isRevisions = addon.name === 'Revisions';
+              const revisionHours = selectedAddon?.hours || 1;
+              
+              const displayPrice = isRevisions
+                ? `+$${Number(addon.flat_amount)}/hr`
+                : isHourly 
+                  ? `+$${Number(addon.flat_amount)}/hr` 
+                  : `+$${Number(addon.flat_amount)}`;
+                  
               return (
-                <div 
-                  key={addon.id} 
-                  className="flex items-center justify-between py-2 border-b last:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      checked={isSelected}
-                      onCheckedChange={() => toggleSessionAddon(addon)}
-                    />
-                    <div>
-                      <p className="text-sm font-medium">{addon.name}</p>
-                      <p className="text-xs text-muted-foreground">{addon.description}</p>
+                <div key={addon.id} className="space-y-2">
+                  <div className="flex items-center justify-between py-2 border-b last:border-0">
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSessionAddon(addon)}
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{addon.name}</p>
+                        <p className="text-xs text-muted-foreground">{addon.description}</p>
+                      </div>
                     </div>
+                    <span className="text-sm font-medium">
+                      {displayPrice}
+                    </span>
                   </div>
-                  <span className="text-sm font-medium">
-                    {displayPrice}
-                  </span>
+                  
+                  {/* Revisions hour selector */}
+                  {isSelected && isRevisions && (
+                    <div className="flex items-center justify-between pl-12 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => updateRevisionHours(addon.id, revisionHours - 1)}
+                          disabled={revisionHours <= 1}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <Input
+                          type="number"
+                          value={revisionHours}
+                          onChange={(e) => updateRevisionHours(addon.id, parseInt(e.target.value) || 1)}
+                          className="w-16 h-8 text-center"
+                          min={1}
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => updateRevisionHours(addon.id, revisionHours + 1)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <span className="text-xs text-muted-foreground">hours</span>
+                      </div>
+                      <span className="text-sm font-bold">
+                        = ${revisionHours * Number(addon.flat_amount)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}

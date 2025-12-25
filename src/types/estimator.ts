@@ -38,6 +38,7 @@ export interface SessionAddon {
   name: string;
   flatAmount: number;
   isHourly?: boolean;
+  hours?: number;  // For revisions bucket
 }
 
 export interface EditingItem {
@@ -48,6 +49,7 @@ export interface EditingItem {
   basePrice: number;      // Internal payout rate
   customerPrice: number;  // Customer-facing price (base price)
   incrementPrice: number | null;  // Customer-facing increment price
+  crewCount?: number;     // Number of production crew
 }
 
 export interface LineItem {
