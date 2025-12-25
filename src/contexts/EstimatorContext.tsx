@@ -93,13 +93,15 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       };
     }
     
+    const isServiced = preset.session_type === 'serviced';
+    
     setSelection({
       ...initialSelection,
       sessionType: preset.session_type || 'diy',
       studioType,
       serviceType: preset.service_type || null,
-      providerLevel: preset.provider_level || null,
-      crewAllocation: initialCrewAllocation,
+      providerLevel: preset.provider_level || (isServiced ? 'lv2' : null),
+      crewAllocation: isServiced ? { lv1: 0, lv2: 1, lv3: 0 } : initialCrewAllocation,
       cameraCount: preset.camera_count || 1,
       packagePricing,
     });
