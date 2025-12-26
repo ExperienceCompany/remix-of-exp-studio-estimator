@@ -1,12 +1,16 @@
 import { PhaseTotals, TASK_POINTS } from "@/types/teamProject";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Users, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Building2, Users, TrendingUp, FileDown } from "lucide-react";
+import { generateProjectPayoutPdf } from "@/lib/generateProjectPayoutPdf";
+import { format } from "date-fns";
 
 interface PayoutDashboardProps {
   phaseTotals: PhaseTotals;
+  projectName?: string;
 }
 
-export function PayoutDashboard({ phaseTotals }: PayoutDashboardProps) {
+export function PayoutDashboard({ phaseTotals, projectName = "" }: PayoutDashboardProps) {
   const {
     phaseName,
     phaseRevenue,
@@ -138,6 +142,24 @@ export function PayoutDashboard({ phaseTotals }: PayoutDashboardProps) {
               <span>Margin %</span>
               <span>50%</span>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-3 gap-2"
+              onClick={() => generateProjectPayoutPdf({
+                projectName: projectName || phaseName,
+                reportDate: format(new Date(), 'MMMM d, yyyy'),
+                phases: [phaseTotals],
+                grandTotals: {
+                  revenue: phaseRevenue,
+                  studioShare,
+                  teamPool
+                }
+              })}
+            >
+              <FileDown className="h-4 w-4" />
+              Download Phase PDF
+            </Button>
           </CardContent>
         </Card>
       )}
