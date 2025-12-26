@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns';
+import { useMemo } from 'react';
+import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,9 @@ interface ListViewProps {
   bookings: StudioBooking[];
   studios: { id: string; name: string }[];
   onBookingClick?: (booking: StudioBooking) => void;
+  startDate: Date;
+  endDate: Date;
+  onDateRangeChange: (start: Date, end: Date) => void;
 }
 
 const formatTime = (time: string) => {
@@ -41,9 +44,10 @@ export function ListView({
   bookings,
   studios,
   onBookingClick,
+  startDate,
+  endDate,
+  onDateRangeChange,
 }: ListViewProps) {
-  const [startDate, setStartDate] = useState<Date>(startOfDay(currentDate));
-  const [endDate, setEndDate] = useState<Date>(addDays(startOfDay(currentDate), 14));
 
   const getStudioName = (studioId: string) => {
     return studios.find((s) => s.id === studioId)?.name || 'Unknown';
@@ -104,7 +108,7 @@ export function ListView({
               <Calendar
                 mode="single"
                 selected={startDate}
-                onSelect={(date) => date && setStartDate(date)}
+                onSelect={(date) => date && onDateRangeChange(date, endDate)}
                 initialFocus
                 className="pointer-events-auto"
               />
@@ -131,7 +135,7 @@ export function ListView({
               <Calendar
                 mode="single"
                 selected={endDate}
-                onSelect={(date) => date && setEndDate(date)}
+                onSelect={(date) => date && onDateRangeChange(startDate, date)}
                 disabled={(date) => date < startDate}
                 initialFocus
                 className="pointer-events-auto"
