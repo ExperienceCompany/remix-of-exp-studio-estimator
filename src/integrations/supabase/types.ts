@@ -347,27 +347,42 @@ export type Database = {
           affiliate_code: string | null
           created_at: string | null
           email: string | null
+          first_name: string | null
           full_name: string | null
           id: string
+          last_name: string | null
           lead_count: number
+          organization: string | null
+          phone: string | null
+          tags: string[] | null
           updated_at: string | null
         }
         Insert: {
           affiliate_code?: string | null
           created_at?: string | null
           email?: string | null
+          first_name?: string | null
           full_name?: string | null
           id: string
+          last_name?: string | null
           lead_count?: number
+          organization?: string | null
+          phone?: string | null
+          tags?: string[] | null
           updated_at?: string | null
         }
         Update: {
           affiliate_code?: string | null
           created_at?: string | null
           email?: string | null
+          first_name?: string | null
           full_name?: string | null
           id?: string
+          last_name?: string | null
           lead_count?: number
+          organization?: string | null
+          phone?: string | null
+          tags?: string[] | null
           updated_at?: string | null
         }
         Relationships: []

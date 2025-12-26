@@ -50,12 +50,18 @@ import {
   Check,
   Save,
   RotateCcw,
+  Search,
+  UserPlus,
+  Building2,
+  ChevronsUpDown,
 } from 'lucide-react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons } from '@/hooks/useEstimatorData';
 import { useCreateBooking, useUpdateBooking, StudioBooking } from '@/hooks/useStudioBookings';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RepeatOptions, RepeatConfig, createDefaultRepeatConfig, calculateRepeatDates } from './RepeatOptions';
+import { useProfiles, useCreateProfile, Profile } from '@/hooks/useProfiles';
 import type { TimeSlotType, ServiceType, CrewAllocation, SessionAddon } from '@/types/estimator';
 
 type BookingType = 'customer' | 'internal' | 'unavailable';
@@ -193,6 +199,11 @@ const SERVICED_STEPS: { key: BookingStep; label: string }[] = [
   { key: 'summary', label: 'Summary' },
 ];
 
+const DIY_STEPS: { key: BookingStep; label: string }[] = [
+  { key: 'basic', label: 'Details' },
+  { key: 'addons', label: 'Add-ons' },
+];
+
 // Convert 24-hour time to 12-hour format
 function to12Hour(time24: string): string {
   const [hours, minutes] = time24.split(':').map(Number);
@@ -223,6 +234,11 @@ export function NewBookingModal({
   const { data: vodcastCameraAddons = [] } = useVodcastCameraAddons();
   const { data: sessionAddonsData = [] } = useSessionAddons();
   
+  // Profiles hook for user search
+  const [profileSearch, setProfileSearch] = useState('');
+  const { data: profiles = [] } = useProfiles(profileSearch);
+  const createProfile = useCreateProfile();
+  
   const isEditing = !!existingBooking;
   
   // Multi-step state
@@ -237,9 +253,15 @@ export function NewBookingModal({
   const [repeatConfig, setRepeatConfig] = useState<RepeatConfig>(() => createDefaultRepeatConfig(defaultDate || new Date()));
   const [selectedStudios, setSelectedStudios] = useState<string[]>([]);
   const [holderType, setHolderType] = useState<HolderType>('casual');
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [isCreatingNewUser, setIsCreatingNewUser] = useState(false);
+  const [holderPopoverOpen, setHolderPopoverOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [newUserFirstName, setNewUserFirstName] = useState('');
+  const [newUserLastName, setNewUserLastName] = useState('');
+  const [newUserOrganization, setNewUserOrganization] = useState('');
   const [manualPrice, setManualPrice] = useState<string>('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('not_applicable');
   const [notes, setNotes] = useState('');
@@ -258,6 +280,13 @@ export function NewBookingModal({
   useEffect(() => {
     if (open) {
       setStep('basic');
+      setProfileSearch('');
+      setSelectedProfile(null);
+      setIsCreatingNewUser(false);
+      setHolderPopoverOpen(false);
+      setNewUserFirstName('');
+      setNewUserLastName('');
+      setNewUserOrganization('');
       
       if (existingBooking) {
         // Pre-populate for editing
@@ -437,16 +466,12 @@ export function NewBookingModal({
     );
   };
 
-  // Get current step index
-  const currentStepIndex = SERVICED_STEPS.findIndex(s => s.key === step);
+  // Get current step index based on session type
+  const activeSteps = sessionType === 'diy' ? DIY_STEPS : SERVICED_STEPS;
+  const currentStepIndex = activeSteps.findIndex(s => s.key === step);
 
   const handleNext = () => {
-    if (sessionType === 'diy') {
-      handleSubmit();
-      return;
-    }
-    
-    // Validate current step before proceeding
+    // Validate basic step for all session types
     if (step === 'basic') {
       if (!date) {
         toast({ title: 'Please select a date', variant: 'destructive' });
@@ -460,6 +485,14 @@ export function NewBookingModal({
         toast({ title: 'End time must be after start time', variant: 'destructive' });
         return;
       }
+      
+      // DIY goes to addons step
+      if (sessionType === 'diy') {
+        setStep('addons');
+        return;
+      }
+      
+      // Serviced goes to service step
       setStep('service');
     } else if (step === 'service') {
       if (!serviceType) {
@@ -474,14 +507,26 @@ export function NewBookingModal({
       }
       setStep('addons');
     } else if (step === 'addons') {
+      // DIY confirms from addons, serviced goes to summary
+      if (sessionType === 'diy') {
+        handleSubmit();
+        return;
+      }
       setStep('summary');
     }
   };
 
   const handleBack = () => {
-    const idx = SERVICED_STEPS.findIndex(s => s.key === step);
-    if (idx > 0) {
-      setStep(SERVICED_STEPS[idx - 1].key);
+    if (sessionType === 'diy') {
+      const idx = DIY_STEPS.findIndex(s => s.key === step);
+      if (idx > 0) {
+        setStep(DIY_STEPS[idx - 1].key);
+      }
+    } else {
+      const idx = SERVICED_STEPS.findIndex(s => s.key === step);
+      if (idx > 0) {
+        setStep(SERVICED_STEPS[idx - 1].key);
+      }
     }
   };
 
@@ -699,12 +744,21 @@ export function NewBookingModal({
   };
 
   // Determine if we should show the multi-step flow
-  const isMultiStep = bookingType === 'customer' && sessionType === 'serviced' && !isEditing;
+  // Both DIY and Serviced customer bookings are now multi-step
+  const isMultiStep = bookingType === 'customer' && !isEditing;
+  const isDiyMultiStep = isMultiStep && sessionType === 'diy';
 
   // Get dialog title based on step
   const getDialogTitle = () => {
     if (isEditing) return 'Edit booking';
     if (!isMultiStep) return 'New booking';
+    if (isDiyMultiStep) {
+      switch (step) {
+        case 'basic': return 'New DIY booking';
+        case 'addons': return 'Add-ons';
+        default: return 'New booking';
+      }
+    }
     switch (step) {
       case 'basic': return 'New booking';
       case 'service': return 'Select service';
@@ -713,6 +767,45 @@ export function NewBookingModal({
       case 'summary': return 'Booking summary';
       default: return 'New booking';
     }
+  };
+
+  // Select a profile from the list
+  const handleSelectProfile = (profile: Profile) => {
+    setSelectedProfile(profile);
+    setHolderType('customer');
+    setCustomerName(profile.full_name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || '');
+    setCustomerEmail(profile.email || '');
+    setCustomerPhone(profile.phone || '');
+    setIsCreatingNewUser(false);
+    setHolderPopoverOpen(false);
+  };
+
+  // Select casual user
+  const handleSelectCasual = () => {
+    setSelectedProfile(null);
+    setHolderType('casual');
+    setCustomerName('');
+    setCustomerEmail('');
+    setCustomerPhone('');
+    setIsCreatingNewUser(false);
+    setHolderPopoverOpen(false);
+  };
+
+  // Start creating new user
+  const handleStartCreateUser = () => {
+    setIsCreatingNewUser(true);
+    setSelectedProfile(null);
+    setHolderType('customer');
+  };
+
+  // Get display text for holder button
+  const getHolderDisplayText = () => {
+    if (isCreatingNewUser) return 'Creating new user...';
+    if (selectedProfile) {
+      return selectedProfile.full_name || selectedProfile.email || 'Selected user';
+    }
+    if (holderType === 'internal') return 'Internal team member';
+    return 'Casual user (no details needed)';
   };
 
   // Handle update booking
@@ -773,7 +866,7 @@ export function NewBookingModal({
           {/* Stepper for multi-step flow */}
           {isMultiStep && (
             <div className="flex items-center justify-center gap-1 pt-4">
-              {SERVICED_STEPS.map((s, idx) => {
+              {activeSteps.map((s, idx) => {
                 const isActive = s.key === step;
                 const isCompleted = idx < currentStepIndex;
                 return (
@@ -788,7 +881,7 @@ export function NewBookingModal({
                     >
                       {isCompleted ? <Check className="h-4 w-4" /> : idx + 1}
                     </div>
-                    {idx < SERVICED_STEPS.length - 1 && (
+                    {idx < activeSteps.length - 1 && (
                       <div 
                         className={cn(
                           "w-8 h-0.5 mx-1",
@@ -996,34 +1089,107 @@ export function NewBookingModal({
               {bookingType !== 'unavailable' && (
                 <div className="space-y-2">
                   <Label>Holder *</Label>
-                  <Select value={holderType} onValueChange={(v: HolderType) => setHolderType(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="casual">Casual user (no details needed)</SelectItem>
-                      <SelectItem value="customer">Customer (with details)</SelectItem>
-                      <SelectItem value="internal">Internal team member</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  {holderType === 'customer' && (
-                    <div className="space-y-3 mt-3 p-3 border rounded-md bg-muted/30">
-                      <div>
-                        <Label className="text-sm">Name</Label>
-                        <Input
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          placeholder="Customer name"
+                  <Popover open={holderPopoverOpen} onOpenChange={setHolderPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                      >
+                        <span className="flex items-center gap-2">
+                          {selectedProfile ? (
+                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                              {(selectedProfile.full_name || selectedProfile.email || '?')[0].toUpperCase()}
+                            </div>
+                          ) : isCreatingNewUser ? (
+                            <UserPlus className="h-4 w-4" />
+                          ) : (
+                            <Home className="h-4 w-4" />
+                          )}
+                          {getHolderDisplayText()}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[350px] p-0" align="start">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Search users..." 
+                          value={profileSearch}
+                          onValueChange={setProfileSearch}
                         />
+                        <CommandList>
+                          <CommandEmpty>No users found.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem onSelect={handleStartCreateUser} className="gap-2">
+                              <UserPlus className="h-4 w-4" />
+                              Create a new user
+                            </CommandItem>
+                            <CommandItem onSelect={handleSelectCasual} className="gap-2">
+                              <Home className="h-4 w-4" />
+                              Casual user (no details needed)
+                            </CommandItem>
+                          </CommandGroup>
+                          <CommandSeparator />
+                          <CommandGroup heading="Platform users">
+                            {profiles.map(profile => (
+                              <CommandItem
+                                key={profile.id}
+                                onSelect={() => handleSelectProfile(profile)}
+                                className="gap-2"
+                              >
+                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium shrink-0">
+                                  {(profile.full_name || profile.email || '?')[0].toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{profile.full_name || 'Unnamed'}</div>
+                                  {profile.organization && (
+                                    <div className="text-xs text-muted-foreground truncate">{profile.organization}</div>
+                                  )}
+                                </div>
+                                {selectedProfile?.id === profile.id && <Check className="h-4 w-4" />}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {/* New user form */}
+                  {isCreatingNewUser && (
+                    <div className="space-y-3 mt-3 p-3 border rounded-md bg-muted/30">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-sm">First name *</Label>
+                          <Input
+                            value={newUserFirstName}
+                            onChange={(e) => {
+                              setNewUserFirstName(e.target.value);
+                              setCustomerName(`${e.target.value} ${newUserLastName}`.trim());
+                            }}
+                            placeholder="First name"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm">Last name *</Label>
+                          <Input
+                            value={newUserLastName}
+                            onChange={(e) => {
+                              setNewUserLastName(e.target.value);
+                              setCustomerName(`${newUserFirstName} ${e.target.value}`.trim());
+                            }}
+                            placeholder="Last name"
+                          />
+                        </div>
                       </div>
                       <div>
-                        <Label className="text-sm">Email</Label>
+                        <Label className="text-sm">Email *</Label>
                         <Input
                           type="email"
                           value={customerEmail}
                           onChange={(e) => setCustomerEmail(e.target.value)}
-                          placeholder="customer@example.com"
+                          placeholder="email@example.com"
                         />
                       </div>
                       <div>
@@ -1035,6 +1201,22 @@ export function NewBookingModal({
                           placeholder="(555) 123-4567"
                         />
                       </div>
+                      <div>
+                        <Label className="text-sm">Organization</Label>
+                        <Input
+                          value={newUserOrganization}
+                          onChange={(e) => setNewUserOrganization(e.target.value)}
+                          placeholder="Company or organization"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Show selected profile details (non-editable preview) */}
+                  {selectedProfile && !isCreatingNewUser && (
+                    <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                      {selectedProfile.email && <div>{selectedProfile.email}</div>}
+                      {selectedProfile.phone && <div>{selectedProfile.phone}</div>}
                     </div>
                   )}
                 </div>
