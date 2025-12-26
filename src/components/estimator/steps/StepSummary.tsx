@@ -131,6 +131,65 @@ export function StepSummary() {
     }
   };
 
+  const handleBook = async () => {
+    setIsBooking(true);
+    try {
+      // 1. Create quote first
+      const quoteInsertData = {
+        session_type: selection.sessionType as 'diy' | 'serviced',
+        hours: selection.hours,
+        camera_count: selection.cameraCount,
+        selections_json: JSON.parse(JSON.stringify(selection)) as Json,
+        totals_json: JSON.parse(JSON.stringify(totals)) as Json,
+        customer_total: totals.customerTotal,
+        provider_payout: internalTotals.providerPayout,
+        gross_margin: internalTotals.grossMargin,
+        status: 'approved' as const,
+        affiliate_code: affiliateCode || null,
+      };
+      
+      const { data: quote, error: quoteError } = await supabase
+        .from('quotes')
+        .insert(quoteInsertData)
+        .select('id')
+        .single();
+
+      if (quoteError) throw quoteError;
+
+      // 2. Create session from quote
+      const sessionInsertData = {
+        quote_id: quote.id,
+        session_type: selection.sessionType,
+        selections_json: JSON.parse(JSON.stringify({
+          ...selection,
+          totals,
+          internalTotals,
+        })) as Json,
+        original_total: totals.customerTotal,
+        affiliate_code: affiliateCode || null,
+        status: 'pending',
+      };
+
+      const { data: session, error: sessionError } = await supabase
+        .from('sessions')
+        .insert(sessionInsertData)
+        .select('id')
+        .single();
+
+      if (sessionError) throw sessionError;
+
+      toast({ title: 'Session created! Starting timer...' });
+      
+      // 3. Navigate to timer page
+      navigate(`/session/${session.id}`);
+    } catch (error) {
+      console.error('Failed to create session:', error);
+      toast({ title: 'Failed to create session', variant: 'destructive' });
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary Card */}
@@ -252,9 +311,9 @@ export function StepSummary() {
             {createLog.isPending ? 'Saving...' : 'Save to Logs'}
           </Button>
         )}
-        <Button>
-          <FileText className="h-4 w-4 mr-2" />
-          Book This
+        <Button onClick={handleBook} disabled={isBooking}>
+          <Timer className="h-4 w-4 mr-2" />
+          {isBooking ? 'Creating...' : 'Book This'}
         </Button>
       </div>
 
