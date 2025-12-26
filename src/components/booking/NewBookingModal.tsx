@@ -328,6 +328,7 @@ export function NewBookingModal({
         setAffiliateCode('');
         setEditingItems([]);
         setAddonHours({});
+      } else {
         // New booking - use prefill data or defaults
         setBookingType('customer');
         setSessionType('diy');
