@@ -3,8 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ArrowLeft, ArrowRight, Camera, Image, CheckCircle2, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Image, CheckCircle2, Minus, Plus, Save } from 'lucide-react';
 import { useEditingMenu } from '@/hooks/useEstimatorData';
+import { useCreateAdminLog } from '@/hooks/useAdminLogs';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 // Minimum edits for Enhance tier
 const ENHANCE_MINIMUM = 10;
@@ -18,7 +21,9 @@ interface EstimatorState {
 
 export function PhotoEditingEstimator() {
   const { data: editingMenu, isLoading } = useEditingMenu();
-  
+  const { isAdmin } = useAuth();
+  const createLog = useCreateAdminLog();
+  const { toast } = useToast();
   const [state, setState] = useState<EstimatorState>({
     step: 1,
     serviceId: null,
@@ -277,11 +282,39 @@ export function PhotoEditingEstimator() {
             </div>
           </div>
 
-          <div className="flex justify-between mt-6">
+          <div className="flex flex-wrap gap-2 justify-between mt-6">
             <Button variant="outline" onClick={handleBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    await createLog.mutateAsync({
+                      log_type: 'photo_editing',
+                      log_name: `${selectedService.name} - ${state.quantity} photos`,
+                      customer_total: calculateTotal,
+                      provider_payout: state.quantity * selectedService.base_price,
+                      gross_margin: calculateTotal - (state.quantity * selectedService.base_price),
+                      data_json: {
+                        service: selectedService,
+                        quantity: state.quantity,
+                        total: calculateTotal,
+                      },
+                    });
+                    toast({ title: 'Saved to Admin Logs!' });
+                  } catch {
+                    toast({ title: 'Failed to save', variant: 'destructive' });
+                  }
+                }}
+                disabled={createLog.isPending}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {createLog.isPending ? 'Saving...' : 'Save to Logs'}
+              </Button>
+            )}
             <Button variant="outline" onClick={handleReset}>
               Start Over
             </Button>

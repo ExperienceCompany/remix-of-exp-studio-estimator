@@ -5,8 +5,11 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { ArrowLeft, ArrowRight, Film, Clock, RefreshCw, Minus, Plus, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Film, Clock, RefreshCw, Minus, Plus, CheckCircle, Save } from 'lucide-react';
 import { useEditingMenu } from '@/hooks/useEstimatorData';
+import { useCreateAdminLog } from '@/hooks/useAdminLogs';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 // Revisions add-on pricing
 const REVISIONS_PRICE = 60; // $60 per additional revision
@@ -76,7 +79,9 @@ interface EstimatorState {
 
 export function VideoEditingEstimator() {
   const { data: editingMenu, isLoading } = useEditingMenu();
-  
+  const { isAdmin } = useAuth();
+  const createLog = useCreateAdminLog();
+  const { toast } = useToast();
   const [state, setState] = useState<EstimatorState>({
     step: 1,
     serviceId: null,
@@ -457,11 +462,43 @@ export function VideoEditingEstimator() {
             This is an estimate. Final pricing may vary based on project specifics.
           </p>
 
-          <div className="flex justify-between">
+          <div className="flex flex-wrap gap-2 justify-between">
             <Button variant="outline" onClick={handleBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    await createLog.mutateAsync({
+                      log_type: 'video_editing',
+                      log_name: `${selectedService?.name || 'Video Edit'} - ${formatDuration(state.duration)}`,
+                      customer_total: totalPrice,
+                      provider_payout: calculateBasePrice,
+                      gross_margin: totalPrice - calculateBasePrice,
+                      hours: state.duration / 3600,
+                      data_json: {
+                        service: selectedService,
+                        duration: state.duration,
+                        extraRevisions: state.includeExtraRevisions ? state.extraRevisionCount : 0,
+                        basePrice: calculateBasePrice,
+                        revisionsTotal: extraRevisionsTotal,
+                        total: totalPrice,
+                      },
+                    });
+                    toast({ title: 'Saved to Admin Logs!' });
+                  } catch {
+                    toast({ title: 'Failed to save', variant: 'destructive' });
+                  }
+                }}
+                disabled={createLog.isPending}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {createLog.isPending ? 'Saving...' : 'Save to Logs'}
+              </Button>
+            )}
             <Button onClick={handleReset}>Start New Estimate</Button>
           </div>
         </CardContent>
