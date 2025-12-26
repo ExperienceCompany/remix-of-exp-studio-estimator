@@ -27,6 +27,7 @@ export interface CreateLogInput {
   gross_margin?: number;
   net_profit?: number;
   hours?: number;
+  affiliate_code?: string | null;
   data_json: Record<string, unknown>;
 }
 
@@ -63,6 +64,7 @@ export function useCreateAdminLog() {
         gross_margin: input.gross_margin || null,
         net_profit: input.net_profit || null,
         hours: input.hours || null,
+        affiliate_code: input.affiliate_code || null,
         data_json: input.data_json as unknown as import('@/integrations/supabase/types').Json,
       };
 

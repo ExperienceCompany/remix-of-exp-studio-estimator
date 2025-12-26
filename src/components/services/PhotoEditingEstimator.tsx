@@ -9,6 +9,7 @@ import { useCreateAdminLog } from '@/hooks/useAdminLogs';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { AffiliateEarningsCard } from '@/components/AffiliateEarningsCard';
+import { AffiliateCodeInput } from '@/components/AffiliateCodeInput';
 
 // Minimum edits for Enhance tier
 const ENHANCE_MINIMUM = 10;
@@ -18,6 +19,8 @@ interface EstimatorState {
   step: number;
   serviceId: string | null;
   quantity: number;
+  affiliateCode: string;
+  affiliateName: string | null;
 }
 
 export function PhotoEditingEstimator() {
@@ -29,6 +32,8 @@ export function PhotoEditingEstimator() {
     step: 1,
     serviceId: null,
     quantity: 10,
+    affiliateCode: '',
+    affiliateName: null,
   });
 
   // Filter to photo editing services only
@@ -79,6 +84,8 @@ export function PhotoEditingEstimator() {
       step: 1,
       serviceId: null,
       quantity: 10,
+      affiliateCode: '',
+      affiliateName: null,
     });
   };
 
@@ -283,6 +290,12 @@ export function PhotoEditingEstimator() {
             </div>
           </div>
 
+          {/* Affiliate Code Input */}
+          <AffiliateCodeInput 
+            value={state.affiliateCode} 
+            onChange={(code, name) => setState(prev => ({ ...prev, affiliateCode: code, affiliateName: name }))} 
+          />
+
           {/* Affiliate Earnings Card */}
           <AffiliateEarningsCard customerTotal={calculateTotal} />
 
@@ -302,10 +315,13 @@ export function PhotoEditingEstimator() {
                       customer_total: calculateTotal,
                       provider_payout: state.quantity * selectedService.base_price,
                       gross_margin: calculateTotal - (state.quantity * selectedService.base_price),
+                      affiliate_code: state.affiliateCode || null,
                       data_json: {
                         service: selectedService,
                         quantity: state.quantity,
                         total: calculateTotal,
+                        affiliateCode: state.affiliateCode || null,
+                        affiliateName: state.affiliateName || null,
                       },
                     });
                     toast({ title: 'Saved to Admin Logs!' });

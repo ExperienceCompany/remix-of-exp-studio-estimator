@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       admin_logs: {
         Row: {
+          affiliate_code: string | null
           created_at: string
           created_by: string | null
           customer_total: number | null
@@ -31,6 +32,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          affiliate_code?: string | null
           created_at?: string
           created_by?: string | null
           customer_total?: number | null
@@ -46,6 +48,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          affiliate_code?: string | null
           created_at?: string
           created_by?: string | null
           customer_total?: number | null
@@ -256,6 +259,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          affiliate_code: string | null
           created_at: string | null
           email: string | null
           full_name: string | null
@@ -263,6 +267,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          affiliate_code?: string | null
           created_at?: string | null
           email?: string | null
           full_name?: string | null
@@ -270,6 +275,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          affiliate_code?: string | null
           created_at?: string | null
           email?: string | null
           full_name?: string | null
@@ -304,6 +310,7 @@ export type Database = {
       }
       quotes: {
         Row: {
+          affiliate_code: string | null
           camera_count: number | null
           created_at: string | null
           created_by: string | null
@@ -325,6 +332,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          affiliate_code?: string | null
           camera_count?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -346,6 +354,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          affiliate_code?: string | null
           camera_count?: number | null
           created_at?: string | null
           created_by?: string | null

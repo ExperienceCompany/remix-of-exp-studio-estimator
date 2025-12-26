@@ -11,6 +11,7 @@ import { useCreateAdminLog } from '@/hooks/useAdminLogs';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { AffiliateEarningsCard } from '@/components/AffiliateEarningsCard';
+import { AffiliateCodeInput } from '@/components/AffiliateCodeInput';
 
 // Revisions add-on pricing
 const REVISIONS_PRICE = 60; // $60 per additional revision
@@ -73,9 +74,11 @@ const VIDEO_EDITING_CONFIG: Record<string, {
 interface EstimatorState {
   step: number;
   serviceId: string | null;
-  duration: number; // in seconds for duration-based, or revision buckets for social
+  duration: number;
   includeExtraRevisions: boolean;
   extraRevisionCount: number;
+  affiliateCode: string;
+  affiliateName: string | null;
 }
 
 export function VideoEditingEstimator() {
@@ -89,6 +92,8 @@ export function VideoEditingEstimator() {
     duration: 15,
     includeExtraRevisions: false,
     extraRevisionCount: 1,
+    affiliateCode: '',
+    affiliateName: null,
   });
 
   // Filter to video editing services only (exclude photo_editing)
@@ -176,6 +181,8 @@ export function VideoEditingEstimator() {
       duration: 15,
       includeExtraRevisions: false,
       extraRevisionCount: 1,
+      affiliateCode: '',
+      affiliateName: null,
     });
   };
 
@@ -458,6 +465,12 @@ export function VideoEditingEstimator() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Affiliate Code Input */}
+          <AffiliateCodeInput 
+            value={state.affiliateCode} 
+            onChange={(code, name) => setState(prev => ({ ...prev, affiliateCode: code, affiliateName: name }))} 
+          />
 
           {/* Affiliate Earnings Card */}
           <AffiliateEarningsCard customerTotal={totalPrice} />

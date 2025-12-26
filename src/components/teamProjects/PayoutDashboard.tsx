@@ -8,6 +8,7 @@ import { useCreateAdminLog } from "@/hooks/useAdminLogs";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AffiliateEarningsCard } from "@/components/AffiliateEarningsCard";
+import { AffiliateCodeInput } from "@/components/AffiliateCodeInput";
 
 interface PayoutDashboardProps {
   phaseTotals: PhaseTotals;
