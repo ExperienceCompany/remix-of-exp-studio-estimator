@@ -25,8 +25,13 @@ export function TimeSlotGrid({
   // Generate time slots based on settings
   const timeSlots = useMemo(() => {
     const slots: string[] = [];
-    const [startHour, startMin] = settings.operating_start_time.split(':').map(Number);
-    const [endHour, endMin] = settings.operating_end_time.split(':').map(Number);
+    // Handle time strings with or without seconds (e.g., "10:00" or "10:00:00")
+    const startParts = settings.operating_start_time.split(':').map(Number);
+    const endParts = settings.operating_end_time.split(':').map(Number);
+    const startHour = startParts[0];
+    const startMin = startParts[1] || 0;
+    const endHour = endParts[0];
+    const endMin = endParts[1] || 0;
     
     let currentMinutes = startHour * 60 + startMin;
     const endMinutes = endHour * 60 + endMin;
