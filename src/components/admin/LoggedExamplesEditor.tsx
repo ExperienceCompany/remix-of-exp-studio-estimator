@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +38,8 @@ import {
   Video,
   Camera,
   Layers,
-  Building
+  Building,
+  ExternalLink
 } from 'lucide-react';
 import { useAdminLogs, useArchiveAdminLog, useDeleteAdminLog, useAdminLogStats, LogType } from '@/hooks/useAdminLogs';
 import { useToast } from '@/hooks/use-toast';
@@ -60,12 +62,19 @@ const LOG_TYPE_ICONS: Record<LogType, React.ReactNode> = {
 };
 
 export function LoggedExamplesEditor() {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<LogType | 'all'>('all');
   const { data: logs, isLoading } = useAdminLogs(filter);
   const stats = useAdminLogStats();
   const archiveMutation = useArchiveAdminLog();
   const deleteMutation = useDeleteAdminLog();
   const { toast } = useToast();
+
+  const handleOpenInEditor = (logId: string, logType: LogType) => {
+    if (logType === 'team_project') {
+      navigate(`/projects?logId=${logId}`);
+    }
+  };
 
   const handleArchive = async (id: string) => {
     try {
@@ -219,6 +228,17 @@ export function LoggedExamplesEditor() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
+                        {log.log_type === 'team_project' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleOpenInEditor(log.id, log.log_type)}
+                            title="Open in Editor"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">

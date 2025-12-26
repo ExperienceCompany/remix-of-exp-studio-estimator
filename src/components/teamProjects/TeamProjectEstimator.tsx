@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   TeamMember, 
   ProjectPhase,
@@ -24,18 +24,47 @@ import { format } from "date-fns";
 
 type ViewMode = 'team' | 'tasks';
 
-export function TeamProjectEstimator() {
-  const [projectName, setProjectName] = useState("");
-  const [phases, setPhases] = useState<ProjectPhase[]>([
-    {
+interface InitialData {
+  projectName: string;
+  projectType?: string;
+  budget?: number;
+  description?: string;
+  allocationMode?: 'flexible' | 'balanced';
+  phases: ProjectPhase[];
+}
+
+interface TeamProjectEstimatorProps {
+  initialData?: InitialData;
+  onProjectUpdate?: (phases: ProjectPhase[], projectName: string) => void;
+}
+
+export function TeamProjectEstimator({ initialData, onProjectUpdate }: TeamProjectEstimatorProps) {
+  const [projectName, setProjectName] = useState(initialData?.projectName || "");
+  const [phases, setPhases] = useState<ProjectPhase[]>(
+    initialData?.phases || [{
       id: crypto.randomUUID(),
       name: "Phase 1",
       revenue: 5000,
       teamMembers: [],
       tasks: []
-    }
-  ]);
+    }]
+  );
   const [viewMode, setViewMode] = useState<ViewMode>('team');
+
+  // Sync with initialData when it changes
+  useEffect(() => {
+    if (initialData) {
+      setProjectName(initialData.projectName);
+      setPhases(initialData.phases);
+    }
+  }, [initialData]);
+
+  // Notify parent of changes
+  useEffect(() => {
+    if (onProjectUpdate) {
+      onProjectUpdate(phases, projectName);
+    }
+  }, [phases, projectName]);
 
   const addPhase = () => {
     setPhases([
