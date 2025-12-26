@@ -324,7 +324,7 @@ export default function BookStudio() {
         )}
 
         {/* Step 3: Booking Form */}
-        {step === 'booking-form' && primaryStudio && selectedDate && selectedStartTime && selectedEndTime && (
+        {step === 'booking-form' && selectedStudioIds.length > 0 && selectedDate && selectedStartTime && selectedEndTime && (
           <div className="max-w-3xl mx-auto">
             {/* Show multi-studio info if applicable */}
             {selectedStudios.length > 1 && (

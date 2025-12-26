@@ -678,10 +678,9 @@ export function DayView({
                         {isInPending && !isBooked && (
                           <div 
                             className={cn(
-                              "absolute inset-x-0 -inset-y-[1px] z-20 border-l-4 border-primary bg-card shadow-sm",
-                              isStartOfPending && "rounded-t-md border-t-2 -top-[1px]",
-                              isEndOfPending && "rounded-b-md border-b-2 -bottom-[1px]",
-                              !isStartOfPending && !isEndOfPending && "border-r-2",
+                              "absolute inset-x-0 -inset-y-[1px] z-20 border-l-4 border-r-2 border-primary bg-card shadow-sm",
+                              isStartOfPending && "rounded-t-md rounded-tr-md border-t-2 -top-[1px]",
+                              isEndOfPending && "rounded-b-md rounded-br-md border-b-2 -bottom-[1px]",
                               !resizeMode && !moveMode && "cursor-grab",
                               moveMode && "cursor-grabbing"
                             )}
