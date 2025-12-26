@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Minus, Plus, TrendingUp, Info } from 'lucide-react';
+import { TrendingUp, Info, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AffiliateEarningsCardProps {
   customerTotal: number;
@@ -32,18 +30,30 @@ const getNextTier = (leads: number): { leadsNeeded: number; nextRate: number } |
 };
 
 export function AffiliateEarningsCard({ customerTotal }: AffiliateEarningsCardProps) {
-  const { isAffiliate } = useAuth();
-  const [leadCount, setLeadCount] = useState(0);
+  const { isAffiliate, user } = useAuth();
+
+  // Fetch user's lead count from their profile
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['user-profile-lead-count', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('lead_count')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id && isAffiliate,
+  });
 
   if (!isAffiliate) return null;
 
+  const leadCount = profile?.lead_count ?? 0;
   const { rate, tier } = getCommissionTier(leadCount);
   const earnings = customerTotal * rate;
   const nextTier = getNextTier(leadCount);
-
-  const handleLeadChange = (value: number) => {
-    setLeadCount(Math.max(0, Math.min(50, value)));
-  };
 
   return (
     <Card className="border-green-500/30 bg-green-500/5">
@@ -54,61 +64,40 @@ export function AffiliateEarningsCard({ customerTotal }: AffiliateEarningsCardPr
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label className="text-sm text-muted-foreground">Your Current Lead Count</Label>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9"
-              onClick={() => handleLeadChange(leadCount - 1)}
-              disabled={leadCount <= 0}
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-            <Input
-              type="number"
-              value={leadCount}
-              onChange={(e) => handleLeadChange(parseInt(e.target.value) || 0)}
-              className="w-20 text-center"
-              min={0}
-              max={50}
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9"
-              onClick={() => handleLeadChange(leadCount + 1)}
-              disabled={leadCount >= 50}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-muted-foreground">leads</span>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="p-3 rounded-lg bg-background border space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Your Lead Count:</span>
+                <span className="font-medium">{leadCount} leads</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Your Tier:</span>
+                <span className="font-medium">{tier} ({(rate * 100).toFixed(0)}%)</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Session Value:</span>
+                <span className="font-medium">${customerTotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t">
+                <span className="font-medium">Potential Earnings:</span>
+                <span className="text-xl font-bold text-green-600">${earnings.toFixed(2)}</span>
+              </div>
+            </div>
 
-        <div className="p-3 rounded-lg bg-background border space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Your Tier:</span>
-            <span className="font-medium">{tier} ({(rate * 100).toFixed(0)}%)</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Session Value:</span>
-            <span className="font-medium">${customerTotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between items-center pt-2 border-t">
-            <span className="font-medium">Potential Earnings:</span>
-            <span className="text-xl font-bold text-green-600">${earnings.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {nextTier && (
-          <div className="flex items-start gap-2 p-2 rounded bg-muted/50 text-xs text-muted-foreground">
-            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            <span>
-              Complete {nextTier.leadsNeeded} more lead{nextTier.leadsNeeded > 1 ? 's' : ''} to reach {(nextTier.nextRate * 100).toFixed(0)}% tier
-            </span>
-          </div>
+            {nextTier && (
+              <div className="flex items-start gap-2 p-2 rounded bg-muted/50 text-xs text-muted-foreground">
+                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  Complete {nextTier.leadsNeeded} more lead{nextTier.leadsNeeded > 1 ? 's' : ''} to reach {(nextTier.nextRate * 100).toFixed(0)}% tier
+                </span>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

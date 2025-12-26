@@ -31,6 +31,7 @@ interface UserWithRole {
   email: string | null;
   full_name: string | null;
   affiliate_code: string | null;
+  lead_count: number;
   role: AppRole | null;
   role_id: string | null;
 }
@@ -55,6 +56,7 @@ export function UsersEditor() {
   const queryClient = useQueryClient();
   const [editedRoles, setEditedRoles] = useState<Record<string, AppRole | 'none'>>({});
   const [editedAffiliateCodes, setEditedAffiliateCodes] = useState<Record<string, string>>({});
+  const [editedLeadCounts, setEditedLeadCounts] = useState<Record<string, number>>({});
 
   // Fetch all profiles with their roles
   const { data: users, isLoading } = useQuery({
@@ -63,7 +65,7 @@ export function UsersEditor() {
       // Get all profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, affiliate_code')
+        .select('id, email, full_name, affiliate_code, lead_count')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -83,6 +85,7 @@ export function UsersEditor() {
           email: profile.email,
           full_name: profile.full_name,
           affiliate_code: profile.affiliate_code,
+          lead_count: profile.lead_count ?? 0,
           role: userRole?.role || null,
           role_id: userRole?.id || null,
         };
@@ -146,12 +149,34 @@ export function UsersEditor() {
     },
   });
 
+  // Mutation to update lead count
+  const updateLeadCount = useMutation({
+    mutationFn: async ({ userId, leadCount }: { userId: string; leadCount: number }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ lead_count: leadCount })
+        .eq('id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      toast({ title: 'Lead count updated!' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error updating lead count', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const handleRoleChange = (userId: string, role: AppRole | 'none') => {
     setEditedRoles(prev => ({ ...prev, [userId]: role }));
   };
 
   const handleAffiliateCodeChange = (userId: string, code: string) => {
     setEditedAffiliateCodes(prev => ({ ...prev, [userId]: code.toUpperCase() }));
+  };
+
+  const handleLeadCountChange = (userId: string, count: number) => {
+    setEditedLeadCounts(prev => ({ ...prev, [userId]: Math.max(0, count) }));
   };
 
   const handleSaveRole = (user: UserWithRole) => {
@@ -181,6 +206,22 @@ export function UsersEditor() {
     });
 
     setEditedAffiliateCodes(prev => {
+      const next = { ...prev };
+      delete next[user.id];
+      return next;
+    });
+  };
+
+  const handleSaveLeadCount = (user: UserWithRole) => {
+    const newCount = editedLeadCounts[user.id];
+    if (newCount === undefined) return;
+
+    updateLeadCount.mutate({
+      userId: user.id,
+      leadCount: newCount,
+    });
+
+    setEditedLeadCounts(prev => {
       const next = { ...prev };
       delete next[user.id];
       return next;
@@ -223,6 +264,7 @@ export function UsersEditor() {
               <TableHead>Email</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Affiliate Code</TableHead>
+              <TableHead>Lead Count</TableHead>
               <TableHead>Current Role</TableHead>
               <TableHead>Assign Role</TableHead>
               <TableHead className="w-40">Actions</TableHead>
@@ -231,7 +273,7 @@ export function UsersEditor() {
           <TableBody>
             {users?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   No users found
                 </TableCell>
               </TableRow>
@@ -239,10 +281,13 @@ export function UsersEditor() {
               users?.map(user => {
                 const editedRole = editedRoles[user.id];
                 const editedAffiliateCode = editedAffiliateCodes[user.id];
+                const editedLeadCount = editedLeadCounts[user.id];
                 const hasRoleChanges = editedRole !== undefined;
                 const hasAffiliateCodeChanges = editedAffiliateCode !== undefined;
+                const hasLeadCountChanges = editedLeadCount !== undefined;
                 const currentRole = user.role;
                 const currentAffiliateCode = user.affiliate_code || '';
+                const currentLeadCount = user.lead_count ?? 0;
 
                 return (
                   <TableRow key={user.id}>
@@ -263,6 +308,28 @@ export function UsersEditor() {
                             variant="outline"
                             onClick={() => handleSaveAffiliateCode(user)}
                             disabled={updateAffiliateCode.isPending}
+                            className="h-8 px-2"
+                          >
+                            <Save className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={editedLeadCount ?? currentLeadCount}
+                          onChange={(e) => handleLeadCountChange(user.id, parseInt(e.target.value) || 0)}
+                          className="w-20 h-8 text-xs"
+                          min={0}
+                        />
+                        {hasLeadCountChanges && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSaveLeadCount(user)}
+                            disabled={updateLeadCount.isPending}
                             className="h-8 px-2"
                           >
                             <Save className="h-3 w-3" />
