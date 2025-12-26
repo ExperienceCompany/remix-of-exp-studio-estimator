@@ -185,7 +185,7 @@ export async function generateProjectPayoutPdf(data: ProjectPayoutPdfData): Prom
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
-      doc.text('📊 Revenue by Status', leftMargin, y);
+      doc.text('REVENUE BY STATUS', leftMargin, y);
       y += 8;
       
       // Table header
@@ -265,13 +265,13 @@ export async function generateProjectPayoutPdf(data: ProjectPayoutPdfData): Prom
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
-      doc.text('📋 Task Board Detail', leftMargin, y);
+      doc.text('TASK BOARD DETAIL', leftMargin, y);
       y += 10;
       
       const statusGroups: { status: TaskStatus; label: string; icon: string }[] = [
-        { status: 'done', label: 'DONE', icon: '✓' },
-        { status: 'in_progress', label: 'IN PROGRESS', icon: '⏳' },
-        { status: 'todo', label: 'TO DO', icon: '○' }
+        { status: 'done', label: 'DONE', icon: '[x]' },
+        { status: 'in_progress', label: 'IN PROGRESS', icon: '[~]' },
+        { status: 'todo', label: 'TO DO', icon: '[ ]' }
       ];
       
       statusGroups.forEach(({ status, label, icon }) => {
@@ -375,7 +375,7 @@ export async function generateProjectPayoutPdf(data: ProjectPayoutPdfData): Prom
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(120, 120, 120);
-  doc.text('EXP Studio | expstudio.com', 105, 276, { align: 'center' });
+  doc.text('EXP Studio | expstudio.org', 105, 276, { align: 'center' });
   doc.text(`Points System: Lv1 = ${TASK_POINTS.lv1} pts | Lv2 = ${TASK_POINTS.lv2} pts | Lv3 = ${TASK_POINTS.lv3} pts`, 105, 282, { align: 'center' });
 
   // Download
