@@ -1,4 +1,4 @@
-import { ProjectTask, TeamMember, TASK_POINTS, TaskLevel, TaskStatus } from "@/types/teamProject";
+import { ProjectTask, TeamMember, TASK_POINTS, TaskLevel, TaskStatus, areDependenciesMet, getBlockingTasks } from "@/types/teamProject";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,15 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Trash2, User, X, CalendarIcon } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Trash2, User, X, CalendarIcon, Link2, AlertTriangle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface TaskRowProps {
   task: ProjectTask;
   taskValue: number;
   assignee?: TeamMember;
   teamMembers: TeamMember[];
+  allTasks: ProjectTask[];
   projectStartDate?: Date | null;
   projectEndDate?: Date | null;
   onUpdate: (updates: Partial<ProjectTask>) => void;
@@ -37,14 +40,22 @@ export function TaskRow({
   task, 
   taskValue, 
   assignee, 
-  teamMembers, 
+  teamMembers,
+  allTasks,
   projectStartDate,
   projectEndDate,
   onUpdate, 
   onRemove 
 }: TaskRowProps) {
+  const [depPopoverOpen, setDepPopoverOpen] = useState(false);
   const levelBadge = LEVEL_BADGES[task.level];
   const dueDate = task.dueDate ? parseISO(task.dueDate) : undefined;
+  
+  // Dependency logic
+  const dependsOn = task.dependsOn || [];
+  const blockingTasks = getBlockingTasks(task, allTasks);
+  const isBlocked = blockingTasks.length > 0;
+  const otherTasks = allTasks.filter(t => t.id !== task.id);
 
   const handleDateSelect = (date: Date | undefined) => {
     onUpdate({ dueDate: date ? format(date, 'yyyy-MM-dd') : null });
@@ -56,10 +67,30 @@ export function TaskRow({
     return false;
   };
 
+  const toggleDependency = (depTaskId: string) => {
+    const current = task.dependsOn || [];
+    if (current.includes(depTaskId)) {
+      onUpdate({ dependsOn: current.filter(id => id !== depTaskId) });
+    } else {
+      onUpdate({ dependsOn: [...current, depTaskId] });
+    }
+  };
+
+  const getTaskDisplayName = (t: ProjectTask) => {
+    return t.title || 'Untitled task';
+  };
+
   return (
-    <Card className="border-border">
+    <Card className={cn("border-border", isBlocked && "border-amber-500/50 bg-amber-500/5")}>
       <CardContent className="py-3 px-4">
         <div className="flex items-center gap-3 flex-wrap">
+          {/* Blocked indicator */}
+          {isBlocked && (
+            <div className="flex items-center gap-1 text-amber-600">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+          )}
+
           {/* Task Title */}
           <Input
             value={task.title}
@@ -89,6 +120,85 @@ export function TaskRow({
           <div className="text-sm font-medium text-primary min-w-[80px] text-right">
             ${taskValue.toFixed(2)}
           </div>
+
+          {/* Dependencies Selector */}
+          <Popover open={depPopoverOpen} onOpenChange={setDepPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "h-8 gap-1",
+                  dependsOn.length > 0 && "border-primary/50 text-primary"
+                )}
+              >
+                <Link2 className="h-3 w-3" />
+                {dependsOn.length > 0 ? `${dependsOn.length} dep` : "Deps"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72" align="start">
+              <div className="space-y-3">
+                <div className="font-medium text-sm">Dependencies</div>
+                <p className="text-xs text-muted-foreground">
+                  Select tasks that must be completed before this one can start.
+                </p>
+                
+                {otherTasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">No other tasks available</p>
+                ) : (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {otherTasks.map(t => {
+                      const isChecked = dependsOn.includes(t.id);
+                      const isDone = t.status === 'done';
+                      const member = teamMembers.find(m => m.id === t.assigneeId);
+                      
+                      return (
+                        <div 
+                          key={t.id} 
+                          className="flex items-start gap-2 p-2 rounded-md hover:bg-muted/50"
+                        >
+                          <Checkbox
+                            id={`dep-${t.id}`}
+                            checked={isChecked}
+                            onCheckedChange={() => toggleDependency(t.id)}
+                          />
+                          <label 
+                            htmlFor={`dep-${t.id}`}
+                            className="flex-1 text-sm cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={cn(isDone && "line-through text-muted-foreground")}>
+                                {getTaskDisplayName(t)}
+                              </span>
+                              {isDone && (
+                                <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-600">
+                                  Done
+                                </Badge>
+                              )}
+                            </div>
+                            {member && (
+                              <span className="text-xs text-muted-foreground">{member.name}</span>
+                            )}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {dependsOn.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-muted-foreground"
+                    onClick={() => onUpdate({ dependsOn: [] })}
+                  >
+                    Clear all dependencies
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* Due Date Picker */}
           <Popover>
@@ -195,10 +305,20 @@ export function TaskRow({
           </Button>
         </div>
 
-        {/* Assignee Role Display */}
-        {assignee?.role && (
-          <div className="mt-2 text-xs text-muted-foreground">
-            Assigned to: {assignee.name} ({assignee.role})
+        {/* Dependencies & blocking info */}
+        {(isBlocked || (assignee?.role && !isBlocked)) && (
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {isBlocked && (
+              <div className="flex items-center gap-1 text-amber-600">
+                <AlertTriangle className="h-3 w-3" />
+                <span>Blocked by: {blockingTasks.map(t => getTaskDisplayName(t)).join(', ')}</span>
+              </div>
+            )}
+            {assignee?.role && !isBlocked && (
+              <span className="text-muted-foreground">
+                Assigned to: {assignee.name} ({assignee.role})
+              </span>
+            )}
           </div>
         )}
       </CardContent>

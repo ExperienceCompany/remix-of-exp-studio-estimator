@@ -218,6 +218,7 @@ export function TaskBoardView({
                               taskValue={taskValue}
                               assignee={member}
                               teamMembers={phase.teamMembers}
+                              allTasks={tasks}
                               projectStartDate={projectStartDate}
                               projectEndDate={projectEndDate}
                               onUpdate={(updates) => onUpdateTask(task.id, updates)}
