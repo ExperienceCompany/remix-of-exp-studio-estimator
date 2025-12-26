@@ -282,6 +282,7 @@ export function NewBookingModal({
   const [manualPrice, setManualPrice] = useState<string>('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('not_applicable');
   const [notes, setNotes] = useState('');
+  const [details, setDetails] = useState('');
   const [title, setTitle] = useState('');
   const [peopleCount, setPeopleCount] = useState<number>(1);
   
@@ -327,6 +328,7 @@ export function NewBookingModal({
         setManualPrice('');
         setPaymentStatus('not_applicable');
         setNotes(existingBooking.notes || '');
+        setDetails(existingBooking.details || '');
         setTitle(existingBooking.title || '');
         setPeopleCount(existingBooking.people_count || 1);
         setServiceType(null);
@@ -353,6 +355,7 @@ export function NewBookingModal({
         setManualPrice('');
         setPaymentStatus('not_applicable');
         setNotes('');
+        setDetails('');
         setTitle('');
         setPeopleCount(1);
         setServiceType(null);
@@ -942,6 +945,7 @@ export function NewBookingModal({
           customer_phone: holderType === 'customer' ? customerPhone : null,
           session_type: bookingType === 'customer' ? sessionType : null,
           notes: notes || null,
+          details: details || null,
           quote_id: null,
           created_by: null,
           title: title || null,
@@ -969,6 +973,7 @@ export function NewBookingModal({
                 customer_phone: holderType === 'customer' ? customerPhone : null,
                 session_type: bookingType === 'customer' ? sessionType : null,
                 notes: notes || null,
+                details: details || null,
                 quote_id: null,
                 created_by: null,
                 title: title || null,
@@ -1049,6 +1054,7 @@ export function NewBookingModal({
           customer_phone: holderType === 'customer' ? customerPhone : null,
           session_type: 'serviced',
           notes: notes || null,
+          details: details || null,
           quote_id: quote.id,
           created_by: null,
           title: title || null,
@@ -1210,6 +1216,7 @@ export function NewBookingModal({
         customer_phone: holderType === 'customer' ? customerPhone : null,
         session_type: bookingType === 'customer' ? sessionType : null,
         notes: notes || null,
+        details: details || null,
         title: title || null,
         people_count: peopleCount || 1,
       });
@@ -1323,14 +1330,14 @@ export function NewBookingModal({
                 />
               </div>
 
-              {/* Details / Notes */}
+              {/* Details */}
               <div className="space-y-2">
                 <Label htmlFor="booking-details">Details</Label>
                 <Textarea
                   id="booking-details"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Additional notes or description"
+                  value={details}
+                  onChange={(e) => setDetails(e.target.value)}
+                  placeholder="Additional description for this booking"
                   rows={2}
                 />
               </div>
