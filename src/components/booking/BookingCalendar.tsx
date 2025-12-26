@@ -29,6 +29,13 @@ import { GridView } from './views/GridView';
 import { ListView } from './views/ListView';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
+interface ModalPrefill {
+  date: Date;
+  studioIds: string[];
+  startTime?: string;
+  endTime?: string;
+}
+
 type ViewMode = 'month' | 'day' | 'grid' | 'list';
 
 interface BookingCalendarProps {
@@ -50,6 +57,8 @@ export function BookingCalendar({
   const [currentDate, setCurrentDate] = useState(initialDate || new Date());
   const [filterStudioId, setFilterStudioId] = useState<string>(selectedStudioId || 'all');
   const [showNewBookingModal, setShowNewBookingModal] = useState(false);
+  const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
+  const [editingBooking, setEditingBooking] = useState<StudioBooking | null>(null);
 
   const { isStaff } = useAuth();
   const { data: studios = [] } = useStudios();
@@ -144,6 +153,44 @@ export function BookingCalendar({
       setViewMode('day');
     }
     onDateSelect?.(date, studioId);
+  };
+
+  // Open modal from slot click (Month/Grid views)
+  const handleOpenModalFromSlot = (date: Date, studioId?: string) => {
+    setModalPrefill({
+      date,
+      studioIds: studioId ? [studioId] : [],
+    });
+    setEditingBooking(null);
+    setShowNewBookingModal(true);
+  };
+
+  // Open modal for editing existing booking (admin only)
+  const handleBookingClickForEdit = (booking: StudioBooking) => {
+    if (isStaff) {
+      setEditingBooking(booking);
+      setModalPrefill(null);
+      setShowNewBookingModal(true);
+    }
+    onBookingClick?.(booking);
+  };
+
+  // Open modal from DayView with prefilled data
+  const handleOpenModalFromDayView = (studioIds: string[], startTime: string, endTime: string) => {
+    setModalPrefill({
+      date: currentDate,
+      studioIds,
+      startTime,
+      endTime,
+    });
+    setEditingBooking(null);
+    setShowNewBookingModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowNewBookingModal(false);
+    setEditingBooking(null);
+    setModalPrefill(null);
   };
 
   return (
@@ -244,7 +291,8 @@ export function BookingCalendar({
               bookings={allBookings}
               studios={activeStudios}
               onDateClick={handleDateClick}
-              onBookingClick={onBookingClick}
+              onSlotClick={handleOpenModalFromSlot}
+              onBookingClick={handleBookingClickForEdit}
             />
           )}
           {viewMode === 'day' && (
@@ -257,10 +305,8 @@ export function BookingCalendar({
               bufferMinutes={defaultSettings.bufferMinutes}
               diyRates={diyRates}
               onSlotClick={(studioId, time) => onDateSelect?.(currentDate, studioId)}
-              onBookingClick={onBookingClick}
-              onBookingCreate={(studioIds, startTime, endTime, cost) => 
-                onBookingCreate?.(currentDate, studioIds, startTime, endTime, cost)
-              }
+              onBookingClick={handleBookingClickForEdit}
+              onOpenBookingModal={handleOpenModalFromDayView}
             />
           )}
           {viewMode === 'grid' && (
@@ -269,7 +315,8 @@ export function BookingCalendar({
               bookings={allBookings}
               studios={filterStudioId === 'all' ? activeStudios : activeStudios.filter(s => s.id === filterStudioId)}
               onDateClick={handleDateClick}
-              onBookingClick={onBookingClick}
+              onSlotClick={handleOpenModalFromSlot}
+              onBookingClick={handleBookingClickForEdit}
             />
           )}
           {viewMode === 'list' && (
@@ -287,7 +334,11 @@ export function BookingCalendar({
       {isStaff && (
         <>
           <Button
-            onClick={() => setShowNewBookingModal(true)}
+            onClick={() => {
+              setModalPrefill(null);
+              setEditingBooking(null);
+              setShowNewBookingModal(true);
+            }}
             className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
             size="icon"
           >
@@ -297,13 +348,17 @@ export function BookingCalendar({
           {/* New Booking Modal */}
           <NewBookingModal
             open={showNewBookingModal}
-            onClose={() => setShowNewBookingModal(false)}
+            onClose={handleCloseModal}
             studios={activeStudios}
             diyRates={diyRates}
-            defaultDate={currentDate}
+            defaultDate={modalPrefill?.date || currentDate}
+            defaultStudioIds={modalPrefill?.studioIds}
+            defaultStartTime={modalPrefill?.startTime}
+            defaultEndTime={modalPrefill?.endTime}
+            existingBooking={editingBooking}
             operatingStart={defaultSettings.operatingStart}
             operatingEnd={defaultSettings.operatingEnd}
-            onBookingCreated={() => setShowNewBookingModal(false)}
+            onBookingCreated={handleCloseModal}
           />
         </>
       )}

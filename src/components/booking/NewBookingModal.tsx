@@ -51,7 +51,7 @@ import {
   Save,
 } from 'lucide-react';
 import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons } from '@/hooks/useEstimatorData';
-import { useCreateBooking } from '@/hooks/useStudioBookings';
+import { useCreateBooking, useUpdateBooking, StudioBooking } from '@/hooks/useStudioBookings';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RepeatOptions, RepeatConfig, createDefaultRepeatConfig, calculateRepeatDates } from './RepeatOptions';
@@ -86,6 +86,10 @@ interface NewBookingModalProps {
   studios: Studio[];
   diyRates: DiyRate[];
   defaultDate?: Date;
+  defaultStudioIds?: string[];
+  defaultStartTime?: string;
+  defaultEndTime?: string;
+  existingBooking?: StudioBooking | null;
   operatingStart: string;
   operatingEnd: string;
   onBookingCreated?: () => void;
@@ -188,22 +192,37 @@ const SERVICED_STEPS: { key: BookingStep; label: string }[] = [
   { key: 'summary', label: 'Summary' },
 ];
 
+// Convert 24-hour time to 12-hour format
+function to12Hour(time24: string): string {
+  const [hours, minutes] = time24.split(':').map(Number);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+}
+
 export function NewBookingModal({
   open,
   onClose,
   studios,
   diyRates,
   defaultDate,
+  defaultStudioIds,
+  defaultStartTime,
+  defaultEndTime,
+  existingBooking,
   operatingStart,
   operatingEnd,
   onBookingCreated,
 }: NewBookingModalProps) {
   const { toast } = useToast();
   const createBooking = useCreateBooking();
+  const updateBooking = useUpdateBooking();
   const { data: providerLevels = [] } = useProviderLevels();
   const { data: services = [] } = useServices();
   const { data: vodcastCameraAddons = [] } = useVodcastCameraAddons();
   const { data: sessionAddonsData = [] } = useSessionAddons();
+  
+  const isEditing = !!existingBooking;
   
   // Multi-step state
   const [step, setStep] = useState<BookingStep>('basic');
@@ -234,39 +253,58 @@ export function NewBookingModal({
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset form when opened
+  // Reset form when opened - or pre-fill with existing booking or prefill data
   useEffect(() => {
     if (open) {
       setStep('basic');
-      setBookingType('customer');
-      setSessionType('diy');
-      setDate(defaultDate || new Date());
-      setStartTime('10:00 AM');
-      setEndTime('11:00 AM');
-      setRepeatConfig(createDefaultRepeatConfig(defaultDate || new Date()));
-      setSelectedStudios([]);
-      setHolderType('casual');
-      setCustomerName('');
-      setCustomerEmail('');
-      setCustomerPhone('');
-      setManualPrice('');
-      setPaymentStatus('not_applicable');
-      setNotes('');
-      setServiceType(null);
-      setSessionDuration(1);
-      setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
-      setCameraCount(1);
-      setSelectedAddons([]);
-      setAffiliateCode('');
+      
+      if (existingBooking) {
+        // Pre-populate for editing
+        setBookingType(existingBooking.booking_type);
+        setSessionType((existingBooking.session_type as SessionType) || 'diy');
+        setDate(new Date(existingBooking.booking_date));
+        setStartTime(to12Hour(existingBooking.start_time));
+        setEndTime(to12Hour(existingBooking.end_time));
+        setRepeatConfig(createDefaultRepeatConfig(new Date(existingBooking.booking_date)));
+        setSelectedStudios([existingBooking.studio_id]);
+        setHolderType(existingBooking.customer_name ? 'customer' : 'casual');
+        setCustomerName(existingBooking.customer_name || '');
+        setCustomerEmail(existingBooking.customer_email || '');
+        setCustomerPhone(existingBooking.customer_phone || '');
+        setManualPrice('');
+        setPaymentStatus('not_applicable');
+        setNotes(existingBooking.notes || '');
+        setServiceType(null);
+        setSessionDuration(1);
+        setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
+        setCameraCount(1);
+        setSelectedAddons([]);
+        setAffiliateCode('');
+      } else {
+        // New booking - use prefill data or defaults
+        setBookingType('customer');
+        setSessionType('diy');
+        setDate(defaultDate || new Date());
+        setStartTime(defaultStartTime ? to12Hour(defaultStartTime) : '10:00 AM');
+        setEndTime(defaultEndTime ? to12Hour(defaultEndTime) : '11:00 AM');
+        setRepeatConfig(createDefaultRepeatConfig(defaultDate || new Date()));
+        setSelectedStudios(defaultStudioIds || []);
+        setHolderType('casual');
+        setCustomerName('');
+        setCustomerEmail('');
+        setCustomerPhone('');
+        setManualPrice('');
+        setPaymentStatus('not_applicable');
+        setNotes('');
+        setServiceType(null);
+        setSessionDuration(1);
+        setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
+        setCameraCount(1);
+        setSelectedAddons([]);
+        setAffiliateCode('');
+      }
     }
-  }, [open, defaultDate]);
-
-  // Update repeat config when date changes to reflect correct weekday defaults
-  useEffect(() => {
-    if (date && repeatConfig.frequency === 'none') {
-      setRepeatConfig(createDefaultRepeatConfig(date));
-    }
-  }, [date]);
+  }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking]);
 
   const timeSlots = useMemo(() => {
     return generateTimeSlots(operatingStart, operatingEnd);
@@ -660,10 +698,11 @@ export function NewBookingModal({
   };
 
   // Determine if we should show the multi-step flow
-  const isMultiStep = bookingType === 'customer' && sessionType === 'serviced';
+  const isMultiStep = bookingType === 'customer' && sessionType === 'serviced' && !isEditing;
 
   // Get dialog title based on step
   const getDialogTitle = () => {
+    if (isEditing) return 'Edit booking';
     if (!isMultiStep) return 'New booking';
     switch (step) {
       case 'basic': return 'New booking';
@@ -672,6 +711,52 @@ export function NewBookingModal({
       case 'addons': return 'Add-ons';
       case 'summary': return 'Booking summary';
       default: return 'New booking';
+    }
+  };
+
+  // Handle update booking
+  const handleUpdateBooking = async () => {
+    if (!existingBooking || !date) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Calculate end time based on duration for serviced sessions
+      let bookingEndTime = endTime;
+      if (sessionType === 'serviced') {
+        const startTime24 = to24Hour(startTime);
+        const [startH, startM] = startTime24.split(':').map(Number);
+        const endMinutes = startH * 60 + startM + sessionDuration * 60;
+        const endH = Math.floor(endMinutes / 60);
+        const endM = endMinutes % 60;
+        bookingEndTime = `${endH % 12 || 12}:${endM.toString().padStart(2, '0')} ${endH >= 12 ? 'PM' : 'AM'}`;
+      }
+      
+      await updateBooking.mutateAsync({
+        id: existingBooking.id,
+        booking_date: format(date, 'yyyy-MM-dd'),
+        start_time: to24Hour(startTime),
+        end_time: to24Hour(bookingEndTime),
+        booking_type: bookingType,
+        customer_name: holderType === 'customer' ? customerName : null,
+        customer_email: holderType === 'customer' ? customerEmail : null,
+        customer_phone: holderType === 'customer' ? customerPhone : null,
+        session_type: bookingType === 'customer' ? sessionType : null,
+        notes: notes || null,
+      });
+      
+      toast({ title: 'Booking updated successfully' });
+      onBookingCreated?.();
+      onClose();
+    } catch (error) {
+      console.error('Failed to update booking:', error);
+      toast({ 
+        title: 'Failed to update booking', 
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1275,8 +1360,28 @@ export function NewBookingModal({
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
-          {/* DIY or non-customer booking: single-step */}
-          {!isMultiStep && (
+          {/* Edit mode: single Save Changes button */}
+          {isEditing && (
+            <>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button onClick={handleUpdateBooking} disabled={isSubmitting}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </Button>
+                <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+              </div>
+              {bookingType === 'customer' && (
+                <div className="text-lg font-semibold">
+                  Total: ${displayPrice.toFixed(2)}
+                </div>
+              )}
+            </>
+          )}
+          
+          {/* DIY or non-customer booking: single-step (not editing) */}
+          {!isMultiStep && !isEditing && (
             <>
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button onClick={handleSubmit} disabled={isSubmitting}>

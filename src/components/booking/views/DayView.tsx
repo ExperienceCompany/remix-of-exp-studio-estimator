@@ -24,7 +24,7 @@ interface DayViewProps {
   diyRates?: DiyRate[];
   onSlotClick?: (studioId: string, time: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
-  onBookingCreate?: (studioIds: string[], startTime: string, endTime: string, estimatedCost: number) => void;
+  onOpenBookingModal?: (studioIds: string[], startTime: string, endTime: string, estimatedCost: number) => void;
 }
 
 interface PendingBooking {
@@ -97,7 +97,7 @@ export function DayView({
   diyRates = [],
   onSlotClick,
   onBookingClick,
-  onBookingCreate,
+  onOpenBookingModal,
 }: DayViewProps) {
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
   const [hoveredSlot, setHoveredSlot] = useState<{ studioId: string; time: string } | null>(null);
@@ -445,7 +445,8 @@ export function DayView({
     const startTime = minutesToTime(pendingRange.minSlot);
     const endTime = minutesToTime(pendingRange.maxSlot + 15);
     
-    onBookingCreate?.(pendingBooking.studioIds, startTime, endTime, estimatedCost);
+    // Open modal with prefilled data instead of direct booking creation
+    onOpenBookingModal?.(pendingBooking.studioIds, startTime, endTime, estimatedCost);
     setPendingBooking(null);
   };
 

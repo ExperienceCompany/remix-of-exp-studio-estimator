@@ -19,6 +19,7 @@ interface MonthViewProps {
   bookings: StudioBooking[];
   studios: { id: string; name: string }[];
   onDateClick?: (date: Date) => void;
+  onSlotClick?: (date: Date) => void;
   onBookingClick?: (booking: StudioBooking) => void;
 }
 
@@ -27,6 +28,7 @@ export function MonthView({
   bookings,
   studios,
   onDateClick,
+  onSlotClick,
   onBookingClick,
 }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate);
@@ -76,7 +78,7 @@ export function MonthView({
                 !isCurrentMonth && 'bg-muted/30',
                 idx % 7 === 0 && 'border-l'
               )}
-              onClick={() => onDateClick?.(day)}
+              onClick={() => onSlotClick?.(day)}
             >
               <div
                 className={cn(
