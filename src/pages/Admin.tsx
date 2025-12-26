@@ -13,9 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, AlertCircle, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Save, RefreshCw, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useDiyRates, useProviderLevels, useStudios, useTimeSlots } from '@/hooks/useEstimatorData';
+import { useOpsSettings } from '@/hooks/useOpsSettings';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -230,6 +231,123 @@ function ProvidersEditor() {
   );
 }
 
+function OpsSettingsEditor() {
+  const { settings, totalMonthlyExpenses, hourlyOverheadRate, isLoading, updateAllSettings, isUpdating } = useOpsSettings();
+  const { toast } = useToast();
+  const [editedSettings, setEditedSettings] = useState({
+    monthly_rent: '',
+    monthly_utilities: '',
+    monthly_insurance: '',
+    monthly_other: '',
+    operating_hours_per_month: '',
+  });
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (settings && !hasChanges) {
+      setEditedSettings({
+        monthly_rent: settings.monthly_rent.toString(),
+        monthly_utilities: settings.monthly_utilities.toString(),
+        monthly_insurance: settings.monthly_insurance.toString(),
+        monthly_other: settings.monthly_other.toString(),
+        operating_hours_per_month: settings.operating_hours_per_month.toString(),
+      });
+    }
+  }, [settings, hasChanges]);
+
+  const handleChange = (key: string, value: string) => {
+    setEditedSettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const handleSaveAll = async () => {
+    try {
+      await updateAllSettings({
+        monthly_rent: parseFloat(editedSettings.monthly_rent) || 0,
+        monthly_utilities: parseFloat(editedSettings.monthly_utilities) || 0,
+        monthly_insurance: parseFloat(editedSettings.monthly_insurance) || 0,
+        monthly_other: parseFloat(editedSettings.monthly_other) || 0,
+        operating_hours_per_month: parseFloat(editedSettings.operating_hours_per_month) || 240,
+      });
+      toast({ title: 'Settings saved!' });
+      setHasChanges(false);
+    } catch (error) {
+      toast({ title: 'Error saving settings', variant: 'destructive' });
+    }
+  };
+
+  if (isLoading) {
+    return <div className="text-center py-8 text-muted-foreground">Loading settings...</div>;
+  }
+
+  const settingsFields = [
+    { key: 'monthly_rent', label: 'Monthly Rent', prefix: '$' },
+    { key: 'monthly_utilities', label: 'Monthly Utilities', prefix: '$' },
+    { key: 'monthly_insurance', label: 'Monthly Insurance', prefix: '$' },
+    { key: 'monthly_other', label: 'Monthly Other Expenses', prefix: '$' },
+    { key: 'operating_hours_per_month', label: 'Operating Hours/Month', prefix: '' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Operating Expenses
+          </CardTitle>
+          <CardDescription>
+            Set monthly expenses to calculate overhead rate for net profit analysis
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {settingsFields.map(({ key, label, prefix }) => (
+              <div key={key} className="space-y-2">
+                <Label htmlFor={key}>{label}</Label>
+                <div className="relative">
+                  {prefix && (
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      {prefix}
+                    </span>
+                  )}
+                  <Input
+                    id={key}
+                    type="number"
+                    value={editedSettings[key as keyof typeof editedSettings]}
+                    onChange={(e) => handleChange(key, e.target.value)}
+                    className={prefix ? 'pl-7' : ''}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t pt-4 mt-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total Monthly Expenses:</span>
+              <span className="font-semibold">${totalMonthlyExpenses.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Hourly Overhead Rate:</span>
+              <span className="font-semibold">${hourlyOverheadRate.toFixed(2)}/hr</span>
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleSaveAll} 
+            disabled={!hasChanges || isUpdating}
+            className="w-full mt-4"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isUpdating ? 'Saving...' : 'Save All Settings'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { isAdmin, isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -294,6 +412,7 @@ export default function Admin() {
           <TabsList className="mb-6">
             <TabsTrigger value="rates">DIY Rates</TabsTrigger>
             <TabsTrigger value="providers">Provider Levels</TabsTrigger>
+            <TabsTrigger value="ops">Ops Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="rates">
@@ -302,6 +421,10 @@ export default function Admin() {
 
           <TabsContent value="providers">
             <ProvidersEditor />
+          </TabsContent>
+
+          <TabsContent value="ops">
+            <OpsSettingsEditor />
           </TabsContent>
         </Tabs>
       </section>

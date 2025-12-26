@@ -3,14 +3,24 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, TrendingUp, DollarSign, Percent, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, TrendingUp, DollarSign, Percent, Clock, AlertCircle, Building } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useOpsSettings } from '@/hooks/useOpsSettings';
 import { EstimatorProvider, useEstimator } from '@/contexts/EstimatorContext';
 import { PackageShortcuts } from '@/components/estimator/PackageShortcuts';
 import { EstimatorStepper } from '@/components/estimator/EstimatorStepper';
 
-function InternalDashboard() {
+function InternalDashboard({ isAdmin }: { isAdmin: boolean }) {
   const { internalTotals, selection } = useEstimator();
+  const { hourlyOverheadRate, totalMonthlyExpenses, settings } = useOpsSettings();
+
+  // Net profit calculations (admin only)
+  const overheadAllocation = hourlyOverheadRate * selection.hours;
+  const netProfit = internalTotals.grossMargin - overheadAllocation;
+  const netMarginPercent = internalTotals.customerTotal > 0 
+    ? (netProfit / internalTotals.customerTotal) * 100 
+    : 0;
+  const netMarginPerHour = selection.hours > 0 ? netProfit / selection.hours : 0;
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
@@ -125,6 +135,43 @@ function InternalDashboard() {
                 </span>
               </div>
             </div>
+
+            {/* Net Profit Section - Admin Only */}
+            {isAdmin && totalMonthlyExpenses > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Building className="h-4 w-4" />
+                    Net Profit (Admin Only)
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">
+                      Overhead ({selection.hours}hr × ${hourlyOverheadRate.toFixed(2)})
+                    </span>
+                    <span className="text-destructive">-${overheadAllocation.toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Net Profit</span>
+                    <span className={`font-bold ${netProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
+                      ${netProfit.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Net Margin/Hour</span>
+                    <span className="font-medium">${netMarginPerHour.toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Net Margin %</span>
+                    <span className="font-medium">{netMarginPercent.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -137,7 +184,10 @@ function InternalDashboard() {
                 <p className="font-medium mb-1">Ops Notes</p>
                 <ul className="space-y-1">
                   <li>• EXP Sessions include buffer time (not billed separately)</li>
-                  <li>• Fixed costs (rent/overhead) not included in margin</li>
+                  {!isAdmin && <li>• Fixed costs (rent/overhead) not included in margin</li>}
+                  {isAdmin && totalMonthlyExpenses === 0 && (
+                    <li>• Configure expenses in Admin Panel → Ops Settings to see net profit</li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -149,7 +199,7 @@ function InternalDashboard() {
 }
 
 export default function Internal() {
-  const { isStaff, isLoading, isAuthenticated } = useAuth();
+  const { isStaff, isAdmin, isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -204,7 +254,7 @@ export default function Internal() {
 
         {/* Content */}
         <section className="container py-6">
-          <InternalDashboard />
+          <InternalDashboard isAdmin={isAdmin} />
         </section>
       </div>
     </EstimatorProvider>
