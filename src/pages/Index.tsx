@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calculator, Users, Settings, LogIn, Scissors, DollarSign } from 'lucide-react';
+import { Calculator, Users, Settings, LogIn, Scissors, DollarSign, Layers } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Index() {
@@ -86,6 +86,26 @@ export default function Index() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Team Projects */}
+          {isStaff && (
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
+                  <Layers className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle>Team Projects</CardTitle>
+                <CardDescription>
+                  Points-based payout calculator for team projects
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="secondary" className="w-full">
+                  <Link to="/projects">Calculate Payouts</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Team Payouts - Admin only */}
           {isAdmin && (

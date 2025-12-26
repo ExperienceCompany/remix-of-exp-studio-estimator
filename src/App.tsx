@@ -11,6 +11,7 @@ import Internal from "./pages/Internal";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import QuoteView from "./pages/QuoteView";
+import TeamProjects from "./pages/TeamProjects";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/internal" element={<Internal />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/quote/:id" element={<QuoteView />} />
+          <Route path="/projects" element={<TeamProjects />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
