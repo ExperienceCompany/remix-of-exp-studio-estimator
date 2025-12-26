@@ -449,7 +449,7 @@ export function DayView({
       className="border rounded-lg overflow-hidden select-none flex flex-col"
     >
       {/* Sticky top bar when pending booking exists */}
-      {pendingBooking && !isDragging && pendingBookingDisplay && (
+      {pendingBooking && pendingBookingDisplay && (
         <div className="sticky top-0 z-20 bg-card border-b p-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span className="flex items-center gap-1.5">
@@ -607,28 +607,34 @@ export function DayView({
                             )}
                             onMouseDown={handleMoveStart}
                           >
-                            {/* Single Up Arrow at top */}
-                            {isStartOfPending && !isDragging && (
+                            {/* Single Up Arrow at top - hide during bottom resize or move */}
+                            {isStartOfPending && resizeMode !== 'bottom' && !moveMode && (
                               <div 
                                 className="absolute -top-3 left-1/2 -translate-x-1/2 z-10"
                                 onMouseDown={(e) => handleResizeStart('top', e)}
                               >
                                 <button
-                                  className="w-6 h-6 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg flex items-center justify-center shadow cursor-n-resize"
+                                  className={cn(
+                                    "w-6 h-6 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg flex items-center justify-center shadow cursor-n-resize",
+                                    resizeMode === 'top' && "ring-2 ring-primary-foreground"
+                                  )}
                                 >
                                   <ChevronUp className="h-4 w-4" />
                                 </button>
                               </div>
                             )}
                             
-                            {/* Single Down Arrow at bottom */}
-                            {isEndOfPending && !isDragging && (
+                            {/* Single Down Arrow at bottom - hide during top resize or move */}
+                            {isEndOfPending && resizeMode !== 'top' && !moveMode && (
                               <div 
                                 className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10"
                                 onMouseDown={(e) => handleResizeStart('bottom', e)}
                               >
                                 <button
-                                  className="w-6 h-6 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg flex items-center justify-center shadow cursor-s-resize"
+                                  className={cn(
+                                    "w-6 h-6 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg flex items-center justify-center shadow cursor-s-resize",
+                                    resizeMode === 'bottom' && "ring-2 ring-primary-foreground"
+                                  )}
                                 >
                                   <ChevronDown className="h-4 w-4" />
                                 </button>
