@@ -135,7 +135,9 @@ export function StepService() {
                   <CardDescription className="text-sm">
                     {service.type === 'vodcast' 
                       ? 'Recording only – editing available as add-on'
-                      : service.description}
+                      : service.type === 'photoshoot'
+                        ? 'Unedited photos only – editing add-on sold separately'
+                        : service.description}
                   </CardDescription>
                 </div>
               </div>
