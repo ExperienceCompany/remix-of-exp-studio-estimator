@@ -4,10 +4,12 @@ import { TeamProjectEstimator } from "@/components/teamProjects/TeamProjectEstim
 import { TaskBoardGenerator, GeneratorOutput } from "@/components/teamProjects/TaskBoardGenerator";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Wand2, Calculator, Save, Check } from "lucide-react";
+import { ArrowLeft, Wand2, Calculator, Save, Check, FileDown } from "lucide-react";
 import { useAdminLogById, useCreateAdminLog, useUpdateAdminLog } from "@/hooks/useAdminLogs";
 import { useToast } from "@/hooks/use-toast";
-import { ProjectPhase } from "@/types/teamProject";
+import { ProjectPhase, calculatePhaseTotals, calculateRevenueByStatus, TASK_POINTS } from "@/types/teamProject";
+import { generateProjectPayoutPdf, TaskPdfData, PhasePdfData } from "@/lib/generateProjectPayoutPdf";
+import { format } from "date-fns";
 
 export default function TeamProjects() {
   const navigate = useNavigate();
@@ -135,6 +137,56 @@ export default function TeamProjects() {
     setHasUnsavedChanges(false);
   };
 
+  const handleExportPdf = () => {
+    if (!generatedProject) return;
+    
+    const allPhaseTotals = generatedProject.phases.map(calculatePhaseTotals);
+    const grandTotals = {
+      revenue: allPhaseTotals.reduce((sum, p) => sum + p.phaseRevenue, 0),
+      studioShare: allPhaseTotals.reduce((sum, p) => sum + p.studioShare, 0),
+      teamPool: allPhaseTotals.reduce((sum, p) => sum + p.teamPool, 0)
+    };
+
+    const phasesWithTasks: PhasePdfData[] = generatedProject.phases.map((phase, i) => {
+      const phaseTotals = allPhaseTotals[i];
+      const tasks = phase.tasks || [];
+      
+      const taskPdfData: TaskPdfData[] = tasks.map(task => {
+        const taskPoints = TASK_POINTS[task.level];
+        const value = phaseTotals.totalPoints > 0 ? (taskPoints / phaseTotals.totalPoints) * phaseTotals.teamPool : 0;
+        const member = phase.teamMembers.find(m => m.id === task.assigneeId);
+        return {
+          id: task.id,
+          title: task.title,
+          level: task.level,
+          status: task.status,
+          assigneeName: member?.name || null,
+          value
+        };
+      });
+      
+      const revenueByStatus = calculateRevenueByStatus(tasks, phase.teamMembers, phaseTotals.teamPool, phaseTotals.totalPoints);
+      
+      return {
+        ...phaseTotals,
+        tasks: taskPdfData,
+        revenueByStatus
+      };
+    });
+    
+    generateProjectPayoutPdf({
+      projectName: generatedProject.projectName,
+      reportDate: format(new Date(), 'MMMM d, yyyy'),
+      phases: phasesWithTasks,
+      grandTotals
+    });
+    
+    toast({
+      title: "PDF exported",
+      description: "Your task board report has been downloaded."
+    });
+  };
+
   if (isLoadingLog && logId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -160,6 +212,12 @@ export default function TeamProjects() {
           </div>
           
           <div className="flex items-center gap-2">
+            {generatedProject && (
+              <Button variant="outline" onClick={handleExportPdf} className="gap-2">
+                <FileDown className="h-4 w-4" />
+                Export PDF
+              </Button>
+            )}
             {logId && hasUnsavedChanges && (
               <Button onClick={handleSaveChanges} className="gap-2">
                 <Save className="h-4 w-4" />
