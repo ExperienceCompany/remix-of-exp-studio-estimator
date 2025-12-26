@@ -106,11 +106,14 @@ export function DayView({
   const [resizeMode, setResizeMode] = useState<'top' | 'bottom' | null>(null);
   const [moveMode, setMoveMode] = useState<{
     startY: number;
+    startX: number;
     originalStartMins: number;
     durationMins: number;
+    draggedStudioId: string;
   } | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
 
   const timeSlots = useMemo(
     () => generateTimeSlots(operatingStart, operatingEnd),
@@ -297,7 +300,7 @@ export function DayView({
   };
 
   // Start move drag
-  const handleMoveStart = (e: React.MouseEvent) => {
+  const handleMoveStart = (studioId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     if (!pendingRange || !pendingBooking) return;
@@ -305,8 +308,10 @@ export function DayView({
     const durationMins = pendingRange.maxSlot - pendingRange.minSlot;
     setMoveMode({
       startY: e.clientY,
+      startX: e.clientX,
       originalStartMins: pendingRange.minSlot,
       durationMins,
+      draggedStudioId: studioId,
     });
   };
 
@@ -357,19 +362,64 @@ export function DayView({
           }
         }
       } else if (moveMode) {
-        // Calculate slot offset from mouse movement
+        // Calculate slot offset from mouse movement (vertical)
         const deltaY = e.clientY - moveMode.startY;
         const slotOffset = Math.round(deltaY / SLOT_HEIGHT);
         const newStartMins = moveMode.originalStartMins + (slotOffset * 15);
         const newEndMins = newStartMins + moveMode.durationMins;
         
-        // Check bounds and availability
-        if (isRangeAvailable(newStartMins, newEndMins, pendingBooking.studioIds)) {
-          setPendingBooking(prev => prev ? {
-            ...prev,
-            startSlot: minutesToTime(newStartMins),
-            endSlot: minutesToTime(newEndMins),
-          } : null);
+        // Calculate horizontal movement to detect target studio
+        const table = tableRef.current;
+        let targetStudioId = moveMode.draggedStudioId;
+        
+        if (table) {
+          const headerCells = table.querySelectorAll('thead th');
+          // Skip first header cell (time column)
+          for (let i = 1; i < headerCells.length; i++) {
+            const cell = headerCells[i];
+            const rect = cell.getBoundingClientRect();
+            if (e.clientX >= rect.left && e.clientX < rect.right) {
+              targetStudioId = studios[i - 1]?.id || moveMode.draggedStudioId;
+              break;
+            }
+          }
+        }
+        
+        // Check if we're changing studios
+        const isChangingStudio = targetStudioId !== moveMode.draggedStudioId;
+        
+        if (isChangingStudio && pendingBooking.studioIds.length === 1) {
+          // Single studio booking: move to new studio if available
+          if (isRangeAvailable(newStartMins, newEndMins, [targetStudioId])) {
+            setPendingBooking(prev => prev ? {
+              ...prev,
+              studioIds: [targetStudioId],
+              startSlot: minutesToTime(newStartMins),
+              endSlot: minutesToTime(newEndMins),
+            } : null);
+          }
+        } else if (isChangingStudio && pendingBooking.studioIds.length > 1) {
+          // Multi-studio booking: swap just the dragged studio
+          const otherStudios = pendingBooking.studioIds.filter(id => id !== moveMode.draggedStudioId);
+          if (!otherStudios.includes(targetStudioId) && isRangeAvailable(newStartMins, newEndMins, [targetStudioId])) {
+            setPendingBooking(prev => prev ? {
+              ...prev,
+              studioIds: [...otherStudios, targetStudioId],
+              startSlot: minutesToTime(newStartMins),
+              endSlot: minutesToTime(newEndMins),
+            } : null);
+            // Update the dragged studio id to the new one
+            setMoveMode(prev => prev ? { ...prev, draggedStudioId: targetStudioId, startX: e.clientX } : null);
+          }
+        } else {
+          // Just vertical movement
+          if (isRangeAvailable(newStartMins, newEndMins, pendingBooking.studioIds)) {
+            setPendingBooking(prev => prev ? {
+              ...prev,
+              startSlot: minutesToTime(newStartMins),
+              endSlot: minutesToTime(newEndMins),
+            } : null);
+          }
         }
       }
     };
@@ -387,7 +437,7 @@ export function DayView({
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [resizeMode, moveMode, pendingBooking, pendingRange, operatingStart, operatingEnd, isRangeAvailable]);
+  }, [resizeMode, moveMode, pendingBooking, pendingRange, operatingStart, operatingEnd, isRangeAvailable, studios]);
 
   const handleConfirmBooking = () => {
     if (!pendingBooking || !pendingRange) return;
@@ -503,7 +553,7 @@ export function DayView({
       )}
 
       <div className="overflow-x-auto flex-1" ref={containerRef}>
-        <table className="w-full min-w-[800px]">
+        <table className="w-full min-w-[800px]" ref={tableRef}>
           <thead>
             <tr className="bg-muted">
               <th className="w-20 py-3 px-2 text-left text-sm font-medium text-muted-foreground border-b border-r sticky left-0 bg-muted z-10">
@@ -567,19 +617,19 @@ export function DayView({
                     // Only show + on the first slot of the range
                     const isFirstSlotOfRange = pendingRange && timeToMinutes(time) === pendingRange.minSlot;
                     
-                    return (
-                      <td
-                        key={studio.id}
-                        className={cn(
-                          "py-0.5 px-1 border-r min-h-[28px] h-7 relative transition-colors",
-                          !isUnavailable && !isInPending && !pendingBooking && "cursor-pointer",
-                          isBooked && "bg-muted/30",
-                          isBuffer && "bg-amber-500/10",
-                          isBlockedByBuyout && "bg-destructive/10",
-                          isInPending && "bg-primary/10",
-                          isInPendingBuffer && !isBooked && !isBuffer && "bg-muted/50",
-                          showHoverState && "bg-primary"
-                        )}
+                      return (
+                        <td
+                          key={studio.id}
+                          className={cn(
+                            "py-0.5 px-1 border-r min-h-[28px] h-7 relative transition-colors",
+                            !isUnavailable && !isInPending && !pendingBooking && "cursor-pointer",
+                            isBooked && "bg-muted/30",
+                            isBuffer && "bg-amber-500/10",
+                            isBlockedByBuyout && "bg-destructive/10",
+                            isInPending && "border-transparent", // Hide cell borders within pending
+                            isInPendingBuffer && !isBooked && !isBuffer && "bg-muted",
+                            showHoverState && "bg-primary"
+                          )}
                         onClick={() => handleSlotClick(studio.id, time)}
                         onMouseEnter={() => setHoveredSlot({ studioId: studio.id, time })}
                         onMouseLeave={() => setHoveredSlot(null)}
@@ -619,8 +669,8 @@ export function DayView({
                         
                         {/* Pending buffer zone indicator */}
                         {isInPendingBuffer && !isBooked && !isBuffer && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-[10px] text-muted-foreground">buffer</span>
+                          <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                            <span className="text-[10px] text-muted-foreground font-medium">buffer</span>
                           </div>
                         )}
                         
@@ -628,14 +678,14 @@ export function DayView({
                         {isInPending && !isBooked && (
                           <div 
                             className={cn(
-                              "absolute inset-0 border-l-4 border-primary bg-card shadow-sm",
-                              isStartOfPending && "rounded-t-md border-t-2",
-                              isEndOfPending && "rounded-b-md border-b-2",
+                              "absolute inset-x-0 -inset-y-[1px] z-20 border-l-4 border-primary bg-card shadow-sm",
+                              isStartOfPending && "rounded-t-md border-t-2 -top-[1px]",
+                              isEndOfPending && "rounded-b-md border-b-2 -bottom-[1px]",
                               !isStartOfPending && !isEndOfPending && "border-r-2",
                               !resizeMode && !moveMode && "cursor-grab",
                               moveMode && "cursor-grabbing"
                             )}
-                            onMouseDown={handleMoveStart}
+                            onMouseDown={(e) => handleMoveStart(studio.id, e)}
                           >
                             {/* X remove button for multi-studio selection */}
                             {isStartOfPending && pendingBooking && pendingBooking.studioIds.length > 1 && (
