@@ -84,8 +84,12 @@ export function SessionEndScreen({ session, elapsedSeconds }: SessionEndScreenPr
         studioCost = firstHourRate + ((actualHours - 1) * afterFirstHourRate);
       }
       
+      const studioName = selection.studioType 
+        ? (STUDIO_LABELS[selection.studioType as StudioType] || 'Studio')
+        : 'Studio';
+      
       lineItems.push({
-        label: `Studio Rate (${formatDurationExact(elapsedSeconds)})`,
+        label: `${studioName} @ $${firstHourRate}/hr (${formatDurationExact(elapsedSeconds)})`,
         amount: studioCost,
       });
       total += studioCost;
@@ -101,7 +105,15 @@ export function SessionEndScreen({ session, elapsedSeconds }: SessionEndScreenPr
       const providerCost = actualHours * ((lv1 * lv1Rate) + (lv2 * lv2Rate) + (lv3 * lv3Rate));
       
       if (providerCost > 0) {
-        lineItems.push({ label: 'Provider', amount: providerCost });
+        const crewParts: string[] = [];
+        if (lv1 > 0) crewParts.push(`Lv1 ×${lv1} @ $${lv1Rate}/hr`);
+        if (lv2 > 0) crewParts.push(`Lv2 ×${lv2} @ $${lv2Rate}/hr`);
+        if (lv3 > 0) crewParts.push(`Lv3 ×${lv3} @ $${lv3Rate}/hr`);
+        
+        lineItems.push({ 
+          label: `Provider (${crewParts.join(', ')})`, 
+          amount: providerCost 
+        });
         total += providerCost;
       }
     }
