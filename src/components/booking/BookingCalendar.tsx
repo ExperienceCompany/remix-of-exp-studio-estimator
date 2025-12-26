@@ -17,8 +17,9 @@ import {
   Columns,
 } from 'lucide-react';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
-import { useStudios } from '@/hooks/useEstimatorData';
+import { useStudios, useDiyRates } from '@/hooks/useEstimatorData';
 import { useStudioBookings } from '@/hooks/useStudioBookings';
+import { useCalendarSettings } from '@/hooks/useCalendarSettings';
 import { MonthView } from './views/MonthView';
 import { DayView } from './views/DayView';
 import { GridView } from './views/GridView';
@@ -30,7 +31,7 @@ type ViewMode = 'month' | 'day' | 'grid' | 'list';
 interface BookingCalendarProps {
   onDateSelect?: (date: Date, studioId?: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
-  onBookingCreate?: (date: Date, studioId: string, startTime: string, endTime: string) => void;
+  onBookingCreate?: (date: Date, studioIds: string[], startTime: string, endTime: string, estimatedCost: number) => void;
   initialDate?: Date;
   selectedStudioId?: string;
 }
@@ -47,10 +48,23 @@ export function BookingCalendar({
   const [filterStudioId, setFilterStudioId] = useState<string>(selectedStudioId || 'all');
 
   const { data: studios = [] } = useStudios();
+  const { data: diyRates = [] } = useDiyRates();
+  const { data: calendarSettings = [] } = useCalendarSettings();
+  
   const activeStudios = useMemo(
     () => studios.filter((s) => s.is_active),
     [studios]
   );
+
+  // Get default operating hours from first active calendar setting
+  const defaultSettings = useMemo(() => {
+    const setting = calendarSettings.find(s => s.is_active);
+    return {
+      operatingStart: setting?.operating_start_time || '10:00',
+      operatingEnd: setting?.operating_end_time || '22:00',
+      bufferMinutes: setting?.buffer_minutes || 15,
+    };
+  }, [calendarSettings]);
 
   // Calculate date range for fetching bookings based on view
   const dateRange = useMemo(() => {
@@ -232,10 +246,14 @@ export function BookingCalendar({
             currentDate={currentDate}
             bookings={allBookings}
             studios={filterStudioId === 'all' ? activeStudios : activeStudios.filter(s => s.id === filterStudioId)}
+            operatingStart={defaultSettings.operatingStart}
+            operatingEnd={defaultSettings.operatingEnd}
+            bufferMinutes={defaultSettings.bufferMinutes}
+            diyRates={diyRates}
             onSlotClick={(studioId, time) => onDateSelect?.(currentDate, studioId)}
             onBookingClick={onBookingClick}
-            onBookingCreate={(studioId, startTime, endTime) => 
-              onBookingCreate?.(currentDate, studioId, startTime, endTime)
+            onBookingCreate={(studioIds, startTime, endTime, cost) => 
+              onBookingCreate?.(currentDate, studioIds, startTime, endTime, cost)
             }
           />
         )}

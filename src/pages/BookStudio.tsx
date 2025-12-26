@@ -11,7 +11,7 @@ import { TimeSlotGrid } from '@/components/booking/TimeSlotGrid';
 import { TimeInputFields } from '@/components/booking/TimeInputFields';
 import { BookingForm } from '@/components/booking/BookingForm';
 import { BookingCalendar } from '@/components/booking/BookingCalendar';
-import { format, isSameDay, addDays } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 
 type BookingStep = 'calendar-view' | 'select-time' | 'booking-form' | 'confirmation';
 
@@ -21,21 +21,24 @@ export default function BookStudio() {
   const { data: studios, isLoading: studiosLoading } = useStudios();
   
   const [step, setStep] = useState<BookingStep>('calendar-view');
-  const [selectedStudioId, setSelectedStudioId] = useState<string>('');
+  const [selectedStudioIds, setSelectedStudioIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedStartTime, setSelectedStartTime] = useState<string | null>(null);
   const [selectedEndTime, setSelectedEndTime] = useState<string | null>(null);
+  const [estimatedCost, setEstimatedCost] = useState<number>(0);
 
-  const { data: settings } = useCalendarSettingsByStudio(selectedStudioId);
+  // Use first selected studio for settings (they should be consistent)
+  const primaryStudioId = selectedStudioIds[0] || '';
+  const { data: settings } = useCalendarSettingsByStudio(primaryStudioId);
   
   // Calculate date range for bookings query
   const startDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined;
   const endDate = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined;
   
-  const { data: bookings = [] } = useStudioBookings(selectedStudioId, startDate, endDate);
-  const { data: blockedDates = [] } = useBlockedDates(selectedStudioId);
+  const { data: bookings = [] } = useStudioBookings(primaryStudioId, startDate, endDate);
+  const { data: blockedDates = [] } = useBlockedDates(primaryStudioId);
 
-  const selectedStudio = studios?.find(s => s.id === selectedStudioId);
+  const selectedStudios = studios?.filter(s => selectedStudioIds.includes(s.id)) || [];
   const activeStudios = studios?.filter(s => s.is_active) || [];
 
   // Check if a date is blocked
@@ -49,23 +52,30 @@ export default function BookStudio() {
   const handleCalendarSelect = (date: Date, studioId?: string) => {
     setSelectedDate(date);
     if (studioId) {
-      setSelectedStudioId(studioId);
+      setSelectedStudioIds([studioId]);
     }
     setSelectedStartTime(null);
     setSelectedEndTime(null);
     
     // If we have both date and studio, move to time selection
-    if (studioId || selectedStudioId) {
+    if (studioId || selectedStudioIds.length > 0) {
       setStep('select-time');
     }
   };
 
-  // Handle inline booking creation from Day View
-  const handleInlineBookingCreate = (date: Date, studioId: string, startTime: string, endTime: string) => {
+  // Handle inline booking creation from Day View (with multi-studio support)
+  const handleInlineBookingCreate = (
+    date: Date, 
+    studioIds: string[], 
+    startTime: string, 
+    endTime: string,
+    cost: number
+  ) => {
     setSelectedDate(date);
-    setSelectedStudioId(studioId);
+    setSelectedStudioIds(studioIds);
     setSelectedStartTime(startTime);
     setSelectedEndTime(endTime);
+    setEstimatedCost(cost);
     setStep('booking-form');
   };
 
@@ -151,9 +161,10 @@ export default function BookStudio() {
   const handleBackToCalendar = () => {
     setStep('calendar-view');
     setSelectedDate(undefined);
-    setSelectedStudioId('');
+    setSelectedStudioIds([]);
     setSelectedStartTime(null);
     setSelectedEndTime(null);
+    setEstimatedCost(0);
   };
 
   if (studiosLoading) {
@@ -163,6 +174,8 @@ export default function BookStudio() {
       </div>
     );
   }
+
+  const primaryStudio = selectedStudios[0];
 
   return (
     <div className="min-h-screen bg-background">
@@ -200,7 +213,7 @@ export default function BookStudio() {
             <div className="mb-4">
               <h2 className="text-xl font-semibold">Select a Date & Studio</h2>
               <p className="text-muted-foreground text-sm">
-                Browse availability across all studios. Click a date to select a time slot.
+                Browse availability across all studios. Click a date to select a time slot, or use Day view to book directly.
               </p>
             </div>
             <BookingCalendar
@@ -213,7 +226,7 @@ export default function BookStudio() {
             />
             
             {/* Quick Studio Selection */}
-            {selectedDate && !selectedStudioId && (
+            {selectedDate && selectedStudioIds.length === 0 && (
               <Card className="mt-4 max-w-md mx-auto">
                 <CardHeader>
                   <CardTitle className="text-lg">Select a Studio</CardTitle>
@@ -228,7 +241,7 @@ export default function BookStudio() {
                       variant="outline"
                       className="w-full justify-start"
                       onClick={() => {
-                        setSelectedStudioId(studio.id);
+                        setSelectedStudioIds([studio.id]);
                         setStep('select-time');
                       }}
                     >
@@ -242,12 +255,12 @@ export default function BookStudio() {
         )}
 
         {/* Step 2: Select Time */}
-        {step === 'select-time' && selectedStudio && selectedDate && settings && (
+        {step === 'select-time' && primaryStudio && selectedDate && settings && (
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle>Select Time</CardTitle>
               <CardDescription>
-                {selectedStudio.name} • {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                {selectedStudios.map(s => s.name).join(', ')} • {format(selectedDate, 'EEEE, MMMM d, yyyy')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -311,11 +324,27 @@ export default function BookStudio() {
         )}
 
         {/* Step 3: Booking Form */}
-        {step === 'booking-form' && selectedStudio && selectedDate && selectedStartTime && selectedEndTime && (
+        {step === 'booking-form' && primaryStudio && selectedDate && selectedStartTime && selectedEndTime && (
           <div className="max-w-3xl mx-auto">
+            {/* Show multi-studio info if applicable */}
+            {selectedStudios.length > 1 && (
+              <Card className="mb-4">
+                <CardContent className="pt-4">
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <span className="text-muted-foreground">Selected studios:</span>
+                    {selectedStudios.map(s => (
+                      <Badge key={s.id} variant="secondary">{s.name}</Badge>
+                    ))}
+                    {estimatedCost > 0 && (
+                      <span className="ml-auto font-semibold">Est. ${estimatedCost.toFixed(2)}</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <BookingForm
-              studioId={selectedStudioId}
-              studioName={selectedStudio.name}
+              studioId={primaryStudioId}
+              studioName={selectedStudios.map(s => s.name).join(', ')}
               date={selectedDate}
               startTime={selectedStartTime}
               endTime={selectedEndTime}
