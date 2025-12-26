@@ -43,22 +43,47 @@ function InternalDashboard() {
 
             <Separator />
 
-            {/* Provider Payout Breakdown */}
-            {selection.sessionType === 'serviced' && (
+            {/* Provider Payout Breakdown - Per Crew */}
+            {selection.sessionType === 'serviced' && internalTotals.crewPayoutBreakdown.length > 0 && (
               <>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <p className="text-sm font-medium text-muted-foreground">Provider Payout</p>
-                  {internalTotals.providerBasePay > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Base Pay</span>
-                      <span>${internalTotals.providerBasePay.toFixed(2)}</span>
+                  
+                  {/* Individual crew payouts */}
+                  {internalTotals.crewPayoutBreakdown.map((crew) => (
+                    <div key={crew.level} className="border rounded-lg p-3 space-y-1.5 bg-muted/30">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-sm">
+                          {crew.level.toUpperCase()} × {crew.count}
+                        </span>
+                        <span className="font-semibold">${crew.totalPayout.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Hourly ({selection.hours}hr × ${crew.hourlyRate})</span>
+                        <span>${crew.hourlyPayout.toFixed(2)}</span>
+                      </div>
+                      {crew.baseSplit > 0 && (
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Base Split ({crew.count}/{internalTotals.crewPayoutBreakdown.reduce((sum, c) => sum + c.count, 0)})</span>
+                          <span>${crew.baseSplit.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Editor payout if any */}
+                  {internalTotals.editorPayout > 0 && (
+                    <div className="border rounded-lg p-3 bg-muted/30">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-sm">Editor</span>
+                        <span className="font-semibold">${internalTotals.editorPayout.toFixed(2)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Editing items payout</p>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Hourly ({selection.hours}hr)</span>
-                    <span>${internalTotals.providerHourlyPay.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-medium">
+
+                  {/* Total payout */}
+                  <div className="flex justify-between font-medium pt-2 border-t">
                     <span>Total Payout</span>
                     <span className="text-destructive">-${internalTotals.providerPayout.toFixed(2)}</span>
                   </div>

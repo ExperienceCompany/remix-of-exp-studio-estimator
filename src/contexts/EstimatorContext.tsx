@@ -12,6 +12,7 @@ import {
   EditingItem,
   PackagePricing,
   CrewAllocation,
+  CrewPayoutDetail,
 } from '@/types/estimator';
 import { 
   useDiyRates, 
@@ -383,6 +384,55 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Calculate per-crew payout breakdown
+    const crewPayoutBreakdown: CrewPayoutDetail[] = [];
+    const { lv1, lv2, lv3 } = selection.crewAllocation;
+    const totalCrew = lv1 + lv2 + lv3;
+    const basePayPerCrew = totalCrew > 0 ? providerBasePay / totalCrew : 0;
+
+    if (selection.sessionType === 'serviced' && providerLevels && totalCrew > 0) {
+      const lv1Rate = Number(providerLevels.find(p => p.level === 'lv1')?.hourly_rate || 20);
+      const lv2Rate = Number(providerLevels.find(p => p.level === 'lv2')?.hourly_rate || 30);
+      const lv3Rate = Number(providerLevels.find(p => p.level === 'lv3')?.hourly_rate || 40);
+
+      if (lv1 > 0) {
+        const hourlyPayout = lv1 * lv1Rate * selection.hours;
+        const baseSplit = basePayPerCrew * lv1;
+        crewPayoutBreakdown.push({
+          level: 'lv1',
+          count: lv1,
+          hourlyRate: lv1Rate,
+          hourlyPayout,
+          baseSplit,
+          totalPayout: hourlyPayout + baseSplit,
+        });
+      }
+      if (lv2 > 0) {
+        const hourlyPayout = lv2 * lv2Rate * selection.hours;
+        const baseSplit = basePayPerCrew * lv2;
+        crewPayoutBreakdown.push({
+          level: 'lv2',
+          count: lv2,
+          hourlyRate: lv2Rate,
+          hourlyPayout,
+          baseSplit,
+          totalPayout: hourlyPayout + baseSplit,
+        });
+      }
+      if (lv3 > 0) {
+        const hourlyPayout = lv3 * lv3Rate * selection.hours;
+        const baseSplit = basePayPerCrew * lv3;
+        crewPayoutBreakdown.push({
+          level: 'lv3',
+          count: lv3,
+          hourlyRate: lv3Rate,
+          hourlyPayout,
+          baseSplit,
+          totalPayout: hourlyPayout + baseSplit,
+        });
+      }
+    }
+
     const providerPayout = providerBasePay + providerHourlyPay + editorPayout;
     const grossMargin = customerTotal - providerPayout;
     const marginPerHour = selection.hours > 0 ? grossMargin / selection.hours : 0;
@@ -414,6 +464,8 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
         grossMargin,
         marginPerHour,
         marginPercent,
+        crewPayoutBreakdown,
+        editorPayout,
       },
     };
   }, [selection, diyRates, providerLevels, cameraAddons]);

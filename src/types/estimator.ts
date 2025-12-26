@@ -80,6 +80,15 @@ export interface QuoteTotals {
   lineItems: LineItem[];
 }
 
+export interface CrewPayoutDetail {
+  level: ProviderLevel;
+  count: number;
+  hourlyRate: number;
+  hourlyPayout: number;  // hourlyRate × hours × count
+  baseSplit: number;     // basePay / totalCrew (split evenly per crew member)
+  totalPayout: number;   // hourlyPayout + baseSplit
+}
+
 export interface InternalTotals extends QuoteTotals {
   providerBasePay: number;
   providerHourlyPay: number;
@@ -87,6 +96,8 @@ export interface InternalTotals extends QuoteTotals {
   grossMargin: number;
   marginPerHour: number;
   marginPercent: number;
+  crewPayoutBreakdown: CrewPayoutDetail[];
+  editorPayout: number;
 }
 
 export interface Package {
