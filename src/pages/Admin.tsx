@@ -13,9 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, AlertCircle, Save, RefreshCw, Settings, FileText, Users } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Save, RefreshCw, Settings, FileText, Users, Calendar } from 'lucide-react';
 import { LoggedExamplesEditor } from '@/components/admin/LoggedExamplesEditor';
 import { UsersEditor } from '@/components/admin/UsersEditor';
+import { CalendarSettingsEditor } from '@/components/admin/CalendarSettingsEditor';
 import { useAuth } from '@/hooks/useAuth';
 import { useDiyRates, useProviderLevels, useStudios, useTimeSlots } from '@/hooks/useEstimatorData';
 import { useOpsSettings } from '@/hooks/useOpsSettings';
@@ -411,10 +412,14 @@ export default function Admin() {
       {/* Content */}
       <section className="container py-6">
         <Tabs defaultValue="rates">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 flex-wrap">
             <TabsTrigger value="rates">DIY Rates</TabsTrigger>
             <TabsTrigger value="providers">Provider Levels</TabsTrigger>
             <TabsTrigger value="ops">Ops Settings</TabsTrigger>
+            <TabsTrigger value="calendar" className="gap-1">
+              <Calendar className="h-4 w-4" />
+              Calendar
+            </TabsTrigger>
             <TabsTrigger value="logs" className="gap-1">
               <FileText className="h-4 w-4" />
               Logged Examples
@@ -435,6 +440,10 @@ export default function Admin() {
 
           <TabsContent value="ops">
             <OpsSettingsEditor />
+          </TabsContent>
+
+          <TabsContent value="calendar">
+            <CalendarSettingsEditor />
           </TabsContent>
 
           <TabsContent value="logs">

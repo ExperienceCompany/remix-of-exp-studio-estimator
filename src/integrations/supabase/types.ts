@@ -98,6 +98,91 @@ export type Database = {
         }
         Relationships: []
       }
+      blocked_dates: {
+        Row: {
+          blocked_date: string
+          created_at: string
+          id: string
+          reason: string | null
+          studio_id: string | null
+        }
+        Insert: {
+          blocked_date: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          studio_id?: string | null
+        }
+        Update: {
+          blocked_date?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          studio_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocked_dates_studio_id_fkey"
+            columns: ["studio_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_settings: {
+        Row: {
+          advance_booking_days: number
+          buffer_minutes: number
+          created_at: string
+          id: string
+          is_active: boolean
+          max_booking_hours: number
+          min_booking_hours: number
+          operating_end_time: string
+          operating_start_time: string
+          studio_id: string
+          time_increment_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          advance_booking_days?: number
+          buffer_minutes?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_booking_hours?: number
+          min_booking_hours?: number
+          operating_end_time?: string
+          operating_start_time?: string
+          studio_id: string
+          time_increment_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          advance_booking_days?: number
+          buffer_minutes?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_booking_hours?: number
+          min_booking_hours?: number
+          operating_end_time?: string
+          operating_start_time?: string
+          studio_id?: string
+          time_increment_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_settings_studio_id_fkey"
+            columns: ["studio_id"]
+            isOneToOne: true
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diy_rates: {
         Row: {
           after_first_hour_rate: number | null
@@ -542,6 +627,78 @@ export type Database = {
           },
         ]
       }
+      studio_bookings: {
+        Row: {
+          booking_date: string
+          booking_type: Database["public"]["Enums"]["booking_type"]
+          created_at: string
+          created_by: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          end_time: string
+          id: string
+          notes: string | null
+          quote_id: string | null
+          session_type: string | null
+          start_time: string
+          status: Database["public"]["Enums"]["booking_status"]
+          studio_id: string
+          updated_at: string
+        }
+        Insert: {
+          booking_date: string
+          booking_type?: Database["public"]["Enums"]["booking_type"]
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          end_time: string
+          id?: string
+          notes?: string | null
+          quote_id?: string | null
+          session_type?: string | null
+          start_time: string
+          status?: Database["public"]["Enums"]["booking_status"]
+          studio_id: string
+          updated_at?: string
+        }
+        Update: {
+          booking_date?: string
+          booking_type?: Database["public"]["Enums"]["booking_type"]
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          end_time?: string
+          id?: string
+          notes?: string | null
+          quote_id?: string | null
+          session_type?: string | null
+          start_time?: string
+          status?: Database["public"]["Enums"]["booking_status"]
+          studio_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_bookings_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_bookings_studio_id_fkey"
+            columns: ["studio_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       studios: {
         Row: {
           created_at: string | null
@@ -684,6 +841,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "staff" | "user" | "affiliate"
+      booking_status: "pending" | "confirmed" | "cancelled" | "completed"
+      booking_type: "customer" | "internal" | "unavailable"
       provider_level: "lv1" | "lv2" | "lv3"
       quote_status: "draft" | "sent" | "approved" | "completed"
       service_type:
@@ -833,6 +992,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "staff", "user", "affiliate"],
+      booking_status: ["pending", "confirmed", "cancelled", "completed"],
+      booking_type: ["customer", "internal", "unavailable"],
       provider_level: ["lv1", "lv2", "lv3"],
       quote_status: ["draft", "sent", "approved", "completed"],
       service_type: [
