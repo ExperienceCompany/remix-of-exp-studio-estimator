@@ -15,7 +15,9 @@ import {
   LayoutGrid,
   List,
   Columns,
+  Plus,
 } from 'lucide-react';
+import { NewBookingModal } from './NewBookingModal';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { useStudios, useDiyRates } from '@/hooks/useEstimatorData';
 import { useStudioBookings } from '@/hooks/useStudioBookings';
@@ -46,6 +48,7 @@ export function BookingCalendar({
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(initialDate || new Date());
   const [filterStudioId, setFilterStudioId] = useState<string>(selectedStudioId || 'all');
+  const [showNewBookingModal, setShowNewBookingModal] = useState(false);
 
   const { data: studios = [] } = useStudios();
   const { data: diyRates = [] } = useDiyRates();
@@ -142,139 +145,162 @@ export function BookingCalendar({
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          {/* View Switcher */}
-          <div className="flex items-center gap-1 border rounded-lg p-1">
-            <Button
-              variant={viewMode === 'day' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('day')}
-              className="h-8"
-            >
-              <Columns className="h-4 w-4 mr-1" />
-              Day
-            </Button>
-            <Button
-              variant={viewMode === 'month' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('month')}
-              className="h-8"
-            >
-              <Calendar className="h-4 w-4 mr-1" />
-              Month
-            </Button>
-            <Button
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-              className="h-8"
-            >
-              <LayoutGrid className="h-4 w-4 mr-1" />
-              Grid
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className="h-8"
-            >
-              <List className="h-4 w-4 mr-1" />
-              List
-            </Button>
-          </div>
-
-          {/* Navigation */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleNavigate('today')}
-            >
-              Today
-            </Button>
-            <div className="flex items-center gap-1">
+    <div className="relative">
+      <Card className="w-full">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* View Switcher */}
+            <div className="flex items-center gap-1 border rounded-lg p-1">
               <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleNavigate('prev')}
+                variant={viewMode === 'day' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('day')}
+                className="h-8"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <Columns className="h-4 w-4 mr-1" />
+                Day
               </Button>
               <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleNavigate('next')}
+                variant={viewMode === 'month' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('month')}
+                className="h-8"
               >
-                <ChevronRight className="h-4 w-4" />
+                <Calendar className="h-4 w-4 mr-1" />
+                Month
+              </Button>
+              <Button
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="h-8"
+              >
+                <LayoutGrid className="h-4 w-4 mr-1" />
+                Grid
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8"
+              >
+                <List className="h-4 w-4 mr-1" />
+                List
               </Button>
             </div>
-            <CardTitle className="text-lg min-w-[200px]">{getTitle()}</CardTitle>
-          </div>
 
-          {/* Studio Filter */}
-          <Select value={filterStudioId} onValueChange={setFilterStudioId}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All Studios" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Studios</SelectItem>
-              {activeStudios.map((studio) => (
-                <SelectItem key={studio.id} value={studio.id}>
-                  {studio.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {viewMode === 'month' && (
-          <MonthView
-            currentDate={currentDate}
-            bookings={allBookings}
-            studios={activeStudios}
-            onDateClick={handleDateClick}
-            onBookingClick={onBookingClick}
-          />
-        )}
-        {viewMode === 'day' && (
-          <DayView
-            currentDate={currentDate}
-            bookings={allBookings}
-            studios={filterStudioId === 'all' ? activeStudios : activeStudios.filter(s => s.id === filterStudioId)}
-            operatingStart={defaultSettings.operatingStart}
-            operatingEnd={defaultSettings.operatingEnd}
-            bufferMinutes={defaultSettings.bufferMinutes}
-            diyRates={diyRates}
-            onSlotClick={(studioId, time) => onDateSelect?.(currentDate, studioId)}
-            onBookingClick={onBookingClick}
-            onBookingCreate={(studioIds, startTime, endTime, cost) => 
-              onBookingCreate?.(currentDate, studioIds, startTime, endTime, cost)
-            }
-          />
-        )}
-        {viewMode === 'grid' && (
-          <GridView
-            currentDate={currentDate}
-            bookings={allBookings}
-            studios={filterStudioId === 'all' ? activeStudios : activeStudios.filter(s => s.id === filterStudioId)}
-            onDateClick={handleDateClick}
-            onBookingClick={onBookingClick}
-          />
-        )}
-        {viewMode === 'list' && (
-          <ListView
-            currentDate={currentDate}
-            bookings={allBookings}
-            studios={activeStudios}
-            onBookingClick={onBookingClick}
-          />
-        )}
-      </CardContent>
-    </Card>
+            {/* Navigation */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleNavigate('today')}
+              >
+                Today
+              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleNavigate('prev')}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleNavigate('next')}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardTitle className="text-lg min-w-[200px]">{getTitle()}</CardTitle>
+            </div>
+
+            {/* Studio Filter */}
+            <Select value={filterStudioId} onValueChange={setFilterStudioId}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Studios" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Studios</SelectItem>
+                {activeStudios.map((studio) => (
+                  <SelectItem key={studio.id} value={studio.id}>
+                    {studio.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {viewMode === 'month' && (
+            <MonthView
+              currentDate={currentDate}
+              bookings={allBookings}
+              studios={activeStudios}
+              onDateClick={handleDateClick}
+              onBookingClick={onBookingClick}
+            />
+          )}
+          {viewMode === 'day' && (
+            <DayView
+              currentDate={currentDate}
+              bookings={allBookings}
+              studios={filterStudioId === 'all' ? activeStudios : activeStudios.filter(s => s.id === filterStudioId)}
+              operatingStart={defaultSettings.operatingStart}
+              operatingEnd={defaultSettings.operatingEnd}
+              bufferMinutes={defaultSettings.bufferMinutes}
+              diyRates={diyRates}
+              onSlotClick={(studioId, time) => onDateSelect?.(currentDate, studioId)}
+              onBookingClick={onBookingClick}
+              onBookingCreate={(studioIds, startTime, endTime, cost) => 
+                onBookingCreate?.(currentDate, studioIds, startTime, endTime, cost)
+              }
+            />
+          )}
+          {viewMode === 'grid' && (
+            <GridView
+              currentDate={currentDate}
+              bookings={allBookings}
+              studios={filterStudioId === 'all' ? activeStudios : activeStudios.filter(s => s.id === filterStudioId)}
+              onDateClick={handleDateClick}
+              onBookingClick={onBookingClick}
+            />
+          )}
+          {viewMode === 'list' && (
+            <ListView
+              currentDate={currentDate}
+              bookings={allBookings}
+              studios={activeStudios}
+              onBookingClick={onBookingClick}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Floating Action Button */}
+      <Button
+        onClick={() => setShowNewBookingModal(true)}
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+        size="icon"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
+
+      {/* New Booking Modal */}
+      <NewBookingModal
+        open={showNewBookingModal}
+        onClose={() => setShowNewBookingModal(false)}
+        studios={activeStudios}
+        diyRates={diyRates}
+        defaultDate={currentDate}
+        operatingStart={defaultSettings.operatingStart}
+        operatingEnd={defaultSettings.operatingEnd}
+        onBookingCreated={() => setShowNewBookingModal(false)}
+      />
+    </div>
   );
 }
