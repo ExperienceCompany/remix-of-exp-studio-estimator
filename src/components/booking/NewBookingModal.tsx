@@ -49,6 +49,7 @@ import {
   Plus,
   Check,
   Save,
+  RotateCcw,
 } from 'lucide-react';
 import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons } from '@/hooks/useEstimatorData';
 import { useCreateBooking, useUpdateBooking, StudioBooking } from '@/hooks/useStudioBookings';
@@ -1059,6 +1060,16 @@ export function NewBookingModal({
                       </div>
                       {manualPrice === '' && calculatedPrice > 0 && (
                         <p className="text-xs text-muted-foreground mt-1">Auto-calculated</p>
+                      )}
+                      {manualPrice !== '' && calculatedPrice > 0 && parseFloat(manualPrice) !== calculatedPrice && (
+                        <button
+                          type="button"
+                          onClick={() => setManualPrice(calculatedPrice.toFixed(2))}
+                          className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 mt-1 transition-colors"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Original: ${calculatedPrice.toFixed(2)}
+                        </button>
                       )}
                     </div>
                     <div>
