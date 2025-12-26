@@ -1,8 +1,8 @@
-import { PhaseTotals, TASK_POINTS } from "@/types/teamProject";
+import { PhaseTotals, TASK_POINTS, ProjectTask, calculateRevenueByStatus, TeamMember, TASK_POINTS as TP } from "@/types/teamProject";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Building2, Users, TrendingUp, FileDown, Save } from "lucide-react";
-import { generateProjectPayoutPdf } from "@/lib/generateProjectPayoutPdf";
+import { generateProjectPayoutPdf, TaskPdfData } from "@/lib/generateProjectPayoutPdf";
 import { format } from "date-fns";
 import { useCreateAdminLog } from "@/hooks/useAdminLogs";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,9 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 interface PayoutDashboardProps {
   phaseTotals: PhaseTotals;
   projectName?: string;
+  tasks?: ProjectTask[];
+  teamMembers?: TeamMember[];
 }
 
-export function PayoutDashboard({ phaseTotals, projectName = "" }: PayoutDashboardProps) {
+export function PayoutDashboard({ phaseTotals, projectName = "", tasks = [], teamMembers = [] }: PayoutDashboardProps) {
   const { isAdmin } = useAuth();
   const createLog = useCreateAdminLog();
   const { toast } = useToast();
@@ -154,16 +156,39 @@ export function PayoutDashboard({ phaseTotals, projectName = "" }: PayoutDashboa
                 variant="outline"
                 size="sm"
                 className="flex-1 gap-2"
-                onClick={() => generateProjectPayoutPdf({
-                  projectName: projectName || phaseName,
-                  reportDate: format(new Date(), 'MMMM d, yyyy'),
-                  phases: [phaseTotals],
-                  grandTotals: {
-                    revenue: phaseRevenue,
-                    studioShare,
-                    teamPool
-                  }
-                })}
+                onClick={() => {
+                  // Build task data for PDF
+                  const taskPdfData: TaskPdfData[] = tasks.map(task => {
+                    const taskPoints = TP[task.level];
+                    const value = totalPoints > 0 ? (taskPoints / totalPoints) * teamPool : 0;
+                    const member = teamMembers.find(m => m.id === task.assigneeId);
+                    return {
+                      id: task.id,
+                      title: task.title,
+                      level: task.level,
+                      status: task.status,
+                      assigneeName: member?.name || null,
+                      value
+                    };
+                  });
+                  
+                  const revenueByStatus = calculateRevenueByStatus(tasks, teamMembers, teamPool, totalPoints);
+                  
+                  generateProjectPayoutPdf({
+                    projectName: projectName || phaseName,
+                    reportDate: format(new Date(), 'MMMM d, yyyy'),
+                    phases: [{
+                      ...phaseTotals,
+                      tasks: taskPdfData,
+                      revenueByStatus
+                    }],
+                    grandTotals: {
+                      revenue: phaseRevenue,
+                      studioShare,
+                      teamPool
+                    }
+                  });
+                }}
               >
                 <FileDown className="h-4 w-4" />
                 Download PDF

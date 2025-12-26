@@ -1,5 +1,6 @@
-import { ProjectTask, ProjectPhase, TeamMember, TASK_POINTS, TaskLevel, TaskStatus } from "@/types/teamProject";
+import { ProjectTask, ProjectPhase, TeamMember, TASK_POINTS, TaskLevel, TaskStatus, calculateRevenueByStatus } from "@/types/teamProject";
 import { TaskRow } from "./TaskRow";
+import { RevenueByStatusTable } from "./RevenueByStatusTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Circle, Clock, CheckCircle2 } from "lucide-react";
@@ -45,8 +46,14 @@ export function TaskBoardView({
     return phase.teamMembers.find(m => m.id === id);
   };
 
+  // Calculate revenue by status for display
+  const revenueByStatus = calculateRevenueByStatus(tasks, phase.teamMembers, teamPool, totalPoints);
+
   return (
     <div className="space-y-4">
+      {/* Revenue by Status Table */}
+      <RevenueByStatusTable revenueData={revenueByStatus} />
+
       {/* Header */}
       <Card>
         <CardContent className="pt-4">

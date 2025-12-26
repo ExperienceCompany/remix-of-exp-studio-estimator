@@ -61,6 +61,105 @@ export interface PhaseTotals {
   memberPayouts: MemberPayout[];
 }
 
+// Revenue by status breakdown
+export interface MemberStatusBreakdown {
+  memberId: string | null;
+  memberName: string;
+  role?: string;
+  doneValue: number;
+  inProgressValue: number;
+  todoValue: number;
+  totalValue: number;
+  taskCounts: {
+    done: number;
+    inProgress: number;
+    todo: number;
+  };
+}
+
+export interface RevenueByStatusResult {
+  members: MemberStatusBreakdown[];
+  unclaimed: MemberStatusBreakdown;
+  totals: MemberStatusBreakdown;
+}
+
+export function calculateRevenueByStatus(
+  tasks: ProjectTask[],
+  teamMembers: TeamMember[],
+  teamPool: number,
+  totalPoints: number
+): RevenueByStatusResult {
+  const getTaskValue = (level: TaskLevel): number => {
+    const taskPoints = TASK_POINTS[level];
+    return totalPoints > 0 ? (taskPoints / totalPoints) * teamPool : 0;
+  };
+
+  // Initialize member breakdowns
+  const memberMap = new Map<string, MemberStatusBreakdown>();
+  teamMembers.forEach(m => {
+    memberMap.set(m.id, {
+      memberId: m.id,
+      memberName: m.name,
+      role: m.role,
+      doneValue: 0,
+      inProgressValue: 0,
+      todoValue: 0,
+      totalValue: 0,
+      taskCounts: { done: 0, inProgress: 0, todo: 0 }
+    });
+  });
+
+  // Unclaimed tasks
+  const unclaimed: MemberStatusBreakdown = {
+    memberId: null,
+    memberName: 'Unclaimed',
+    doneValue: 0,
+    inProgressValue: 0,
+    todoValue: 0,
+    totalValue: 0,
+    taskCounts: { done: 0, inProgress: 0, todo: 0 }
+  };
+
+  // Process tasks
+  tasks.forEach(task => {
+    const value = getTaskValue(task.level);
+    const target = task.assigneeId && memberMap.has(task.assigneeId) 
+      ? memberMap.get(task.assigneeId)! 
+      : unclaimed;
+
+    if (task.status === 'done') {
+      target.doneValue += value;
+      target.taskCounts.done++;
+    } else if (task.status === 'in_progress') {
+      target.inProgressValue += value;
+      target.taskCounts.inProgress++;
+    } else {
+      target.todoValue += value;
+      target.taskCounts.todo++;
+    }
+    target.totalValue += value;
+  });
+
+  const members = Array.from(memberMap.values()).filter(m => m.totalValue > 0);
+
+  // Calculate totals
+  const totals: MemberStatusBreakdown = {
+    memberId: null,
+    memberName: 'TOTAL',
+    doneValue: members.reduce((s, m) => s + m.doneValue, 0) + unclaimed.doneValue,
+    inProgressValue: members.reduce((s, m) => s + m.inProgressValue, 0) + unclaimed.inProgressValue,
+    todoValue: members.reduce((s, m) => s + m.todoValue, 0) + unclaimed.todoValue,
+    totalValue: members.reduce((s, m) => s + m.totalValue, 0) + unclaimed.totalValue,
+    taskCounts: {
+      done: members.reduce((s, m) => s + m.taskCounts.done, 0) + unclaimed.taskCounts.done,
+      inProgress: members.reduce((s, m) => s + m.taskCounts.inProgress, 0) + unclaimed.taskCounts.inProgress,
+      todo: members.reduce((s, m) => s + m.taskCounts.todo, 0) + unclaimed.taskCounts.todo
+    }
+  };
+
+  return { members, unclaimed, totals };
+}
+
 export function calculateMemberPoints(member: TeamMember): number {
   return (
     member.tasksLv1 * TASK_POINTS.lv1 +
