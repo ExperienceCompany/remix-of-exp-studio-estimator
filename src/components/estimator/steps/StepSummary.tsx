@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useCreateAdminLog } from '@/hooks/useAdminLogs';
 import { useAuth } from '@/hooks/useAuth';
+import { AffiliateEarningsCard } from '@/components/AffiliateEarningsCard';
 
 export function StepSummary() {
   const { selection, totals, internalTotals, setCurrentStep, resetSelection } = useEstimator();
@@ -211,6 +212,9 @@ export function StepSummary() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Affiliate Earnings Card */}
+      <AffiliateEarningsCard customerTotal={totals.customerTotal} />
 
       {/* Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

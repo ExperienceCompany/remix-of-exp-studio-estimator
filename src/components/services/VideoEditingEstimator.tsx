@@ -10,6 +10,7 @@ import { useEditingMenu } from '@/hooks/useEstimatorData';
 import { useCreateAdminLog } from '@/hooks/useAdminLogs';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { AffiliateEarningsCard } from '@/components/AffiliateEarningsCard';
 
 // Revisions add-on pricing
 const REVISIONS_PRICE = 60; // $60 per additional revision
@@ -457,6 +458,9 @@ export function VideoEditingEstimator() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Affiliate Earnings Card */}
+          <AffiliateEarningsCard customerTotal={totalPrice} />
 
           <p className="text-xs text-muted-foreground text-center">
             This is an estimate. Final pricing may vary based on project specifics.
