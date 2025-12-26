@@ -9,6 +9,7 @@ interface GridViewProps {
   bookings: StudioBooking[];
   studios: { id: string; name: string; type: string }[];
   onDateClick?: (date: Date, studioId?: string) => void;
+  onSlotClick?: (date: Date, studioId?: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
 }
 
@@ -17,6 +18,7 @@ export function GridView({
   bookings,
   studios,
   onDateClick,
+  onSlotClick,
   onBookingClick,
 }: GridViewProps) {
   // Start from current date instead of week start
@@ -95,7 +97,7 @@ export function GridView({
                     <td
                       key={studio.id}
                       className="py-1 px-1 border-r align-top min-h-[80px] cursor-pointer hover:bg-muted/50"
-                      onClick={() => dayBookings.length === 0 && onDateClick?.(date, studio.id)}
+                      onClick={() => onSlotClick?.(date, studio.id)}
                     >
                       <div className="space-y-1">
                         {displayBookings.map((booking) => (
