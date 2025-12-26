@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign } from 'lucide-react';
 import type { EstimatorSelection } from '@/types/estimator';
+import { STUDIO_LABELS, StudioType } from '@/types/estimator';
 import { useDiyRates, useProviderLevels, useVodcastCameraAddons } from '@/hooks/useEstimatorData';
 
 interface LiveCostDisplayProps {
@@ -43,8 +44,12 @@ export function LiveCostDisplay({ selection, elapsedSeconds, originalTotal }: Li
         studioCost = firstHourRate + ((currentHours - 1) * afterFirstHourRate);
       }
       
+      const studioName = selection.studioType 
+        ? (STUDIO_LABELS[selection.studioType as StudioType] || 'Studio')
+        : 'Studio';
+      
       lineItems.push({
-        label: `Studio Rate (${currentHours.toFixed(2)} hrs)`,
+        label: `${studioName} @ $${firstHourRate}/hr`,
         amount: studioCost,
       });
       total += studioCost;
@@ -62,9 +67,9 @@ export function LiveCostDisplay({ selection, elapsedSeconds, originalTotal }: Li
       
       if (providerCost > 0) {
         const crewParts = [];
-        if (lv1 > 0) crewParts.push(`Lv1×${lv1}`);
-        if (lv2 > 0) crewParts.push(`Lv2×${lv2}`);
-        if (lv3 > 0) crewParts.push(`Lv3×${lv3}`);
+        if (lv1 > 0) crewParts.push(`Lv1 ×${lv1} @ $${lv1Rate}/hr`);
+        if (lv2 > 0) crewParts.push(`Lv2 ×${lv2} @ $${lv2Rate}/hr`);
+        if (lv3 > 0) crewParts.push(`Lv3 ×${lv3} @ $${lv3Rate}/hr`);
         
         lineItems.push({
           label: `Provider (${crewParts.join(', ')})`,
