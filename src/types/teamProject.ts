@@ -213,6 +213,137 @@ export function calculatePhaseTotals(phase: ProjectPhase): PhaseTotals {
   };
 }
 
+// Task title templates by role and level for generating realistic tasks
+const TASK_TITLE_TEMPLATES: Record<string, Record<TaskLevel, string[]>> = {
+  designer: {
+    lv1: ['Create moodboard', 'Color palette review', 'Icon set update', 'Asset export', 'Image optimization', 'Font selection'],
+    lv2: ['Wireframe layouts', 'Homepage mockup', 'Component library', 'UI kit update', 'Style guide', 'Prototype review'],
+    lv3: ['Full design system', 'Brand identity', 'Design audit', 'UX overhaul', 'Complete redesign', 'Design strategy']
+  },
+  developer: {
+    lv1: ['Bug fix', 'Code review', 'Documentation update', 'Unit test', 'Dependency update', 'Config update'],
+    lv2: ['API integration', 'Component refactor', 'Feature module', 'Performance fix', 'Testing suite', 'Database migration'],
+    lv3: ['Architecture design', 'Full-stack feature', 'System migration', 'Security audit', 'Platform overhaul', 'Tech stack upgrade']
+  },
+  writer: {
+    lv1: ['Homepage copy', 'Meta descriptions', 'Social captions', 'Email subject lines', 'Alt text', 'Tagline options'],
+    lv2: ['Blog post', 'Landing page copy', 'Email sequence', 'Case study', 'Product descriptions', 'FAQ section'],
+    lv3: ['Content strategy', 'Full website copy', 'Brand voice guide', 'Content audit', 'Messaging framework', 'Editorial calendar']
+  },
+  'creative director': {
+    lv1: ['Creative brief review', 'Asset approval', 'Feedback notes', 'Reference gathering'],
+    lv2: ['Campaign concept', 'Competitive analysis', 'Presentation deck', 'Creative review'],
+    lv3: ['Brand positioning', 'Campaign strategy', 'Creative direction', 'Vision document']
+  },
+  'social media': {
+    lv1: ['Post scheduling', 'Comment responses', 'Story updates', 'Analytics check', 'Hashtag research'],
+    lv2: ['Content calendar', 'Channel audit', 'Engagement report', 'Influencer outreach'],
+    lv3: ['Social strategy', 'Platform launch', 'Crisis management', 'Community building']
+  },
+  'graphic designer': {
+    lv1: ['Social templates', 'Email graphics', 'Icon updates', 'Banner resize', 'Image cropping'],
+    lv2: ['Ad banner set', 'Infographic', 'Presentation design', 'Marketing collateral'],
+    lv3: ['Visual identity', 'Campaign visuals', 'Illustration set', 'Motion graphics']
+  },
+  copywriter: {
+    lv1: ['Ad headlines', 'CTA buttons', 'Social captions', 'Email subjects', 'Product taglines'],
+    lv2: ['Email sequence', 'Sales page', 'Ad campaign copy', 'Video script'],
+    lv3: ['Brand messaging', 'Full campaign copy', 'Copywriting guide', 'Conversion optimization']
+  },
+  'video editor': {
+    lv1: ['Trim clips', 'Add captions', 'Color correction', 'Audio sync', 'Export versions'],
+    lv2: ['Promo teaser', 'Social video', 'Tutorial edit', 'Interview edit'],
+    lv3: ['Full campaign video', 'Documentary', 'Brand film', 'Video series']
+  },
+  default: {
+    lv1: ['Quick task', 'Review item', 'Update doc', 'Small fix', 'Minor update', 'Check item'],
+    lv2: ['Standard task', 'Medium feature', 'Analysis', 'Implementation', 'Report', 'Module work'],
+    lv3: ['Major task', 'Complex feature', 'Strategic work', 'Full project', 'Complete overhaul', 'System design']
+  }
+};
+
+function getRoleTemplates(role: string | undefined): Record<TaskLevel, string[]> {
+  if (!role) return TASK_TITLE_TEMPLATES.default;
+  const normalizedRole = role.toLowerCase().trim();
+  return TASK_TITLE_TEMPLATES[normalizedRole] || TASK_TITLE_TEMPLATES.default;
+}
+
+export function generateTaskTitle(role: string | undefined, level: TaskLevel, existingTitles: string[]): string {
+  const templates = getRoleTemplates(role);
+  const options = templates[level];
+  
+  // Find a title that's not already used
+  for (const title of options) {
+    if (!existingTitles.includes(title)) {
+      return title;
+    }
+  }
+  
+  // If all are used, add a number suffix
+  const baseTitle = options[0];
+  let counter = 2;
+  while (existingTitles.includes(`${baseTitle} ${counter}`)) {
+    counter++;
+  }
+  return `${baseTitle} ${counter}`;
+}
+
+export function syncTasksWithMemberCounts(
+  member: TeamMember,
+  existingTasks: ProjectTask[]
+): ProjectTask[] {
+  const tasks = [...existingTasks];
+  const levels: TaskLevel[] = ['lv1', 'lv2', 'lv3'];
+  
+  levels.forEach(level => {
+    const targetCount = level === 'lv1' ? member.tasksLv1 : level === 'lv2' ? member.tasksLv2 : member.tasksLv3;
+    const memberTasksAtLevel = tasks.filter(t => t.assigneeId === member.id && t.level === level);
+    const currentCount = memberTasksAtLevel.length;
+    
+    if (targetCount > currentCount) {
+      // Need to add tasks
+      const existingTitles = tasks.map(t => t.title);
+      for (let i = 0; i < targetCount - currentCount; i++) {
+        const title = generateTaskTitle(member.role, level, existingTitles);
+        existingTitles.push(title);
+        tasks.push({
+          id: crypto.randomUUID(),
+          title,
+          level,
+          status: 'todo',
+          assigneeId: member.id
+        });
+      }
+    } else if (targetCount < currentCount) {
+      // Need to remove tasks - prioritize removing todo, then in_progress, never done
+      const tasksToRemove = currentCount - targetCount;
+      let removed = 0;
+      
+      // First try to remove 'todo' tasks
+      for (let i = tasks.length - 1; i >= 0 && removed < tasksToRemove; i--) {
+        const task = tasks[i];
+        if (task.assigneeId === member.id && task.level === level && task.status === 'todo') {
+          tasks.splice(i, 1);
+          removed++;
+        }
+      }
+      
+      // If still need to remove, try 'in_progress' tasks
+      for (let i = tasks.length - 1; i >= 0 && removed < tasksToRemove; i--) {
+        const task = tasks[i];
+        if (task.assigneeId === member.id && task.level === level && task.status === 'in_progress') {
+          tasks.splice(i, 1);
+          removed++;
+        }
+      }
+      
+      // Don't auto-remove 'done' tasks - they represent completed work
+    }
+  });
+  
+  return tasks;
+}
+
 // Pre-built example templates with tasks
 export const EXAMPLE_WEBSITE_PROJECT: ProjectPhase = {
   id: 'website-1',
