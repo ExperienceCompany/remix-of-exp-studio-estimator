@@ -23,6 +23,8 @@ export interface PhasePdfData extends PhaseTotals {
 export interface ProjectPayoutPdfData {
   projectName: string;
   reportDate: string;
+  startDate?: string | null;
+  endDate?: string | null;
   phases: PhasePdfData[];
   grandTotals: {
     revenue: number;
@@ -86,10 +88,21 @@ export async function generateProjectPayoutPdf(data: ProjectPayoutPdfData): Prom
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   doc.text(`Project: ${data.projectName || 'Untitled Project'}`, leftMargin, y);
-  doc.text(`Date: ${data.reportDate}`, leftMargin, y + 7);
+  doc.text(`Report Date: ${data.reportDate}`, leftMargin, y + 7);
+  
+  // Project timeline
+  let timelineY = y + 14;
+  if (data.startDate || data.endDate) {
+    const startLabel = data.startDate ? `Start: ${data.startDate}` : '';
+    const endLabel = data.endDate ? `End: ${data.endDate}` : '';
+    const timeline = [startLabel, endLabel].filter(Boolean).join('  |  ');
+    doc.text(timeline, leftMargin, timelineY);
+    timelineY += 7;
+  }
+  
   doc.setTextColor(0, 0, 0);
   
-  y += 20;
+  y = timelineY + 6;
   
   // Divider
   doc.setDrawColor(200, 200, 200);
