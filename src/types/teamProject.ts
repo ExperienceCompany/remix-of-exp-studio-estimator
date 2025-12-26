@@ -13,6 +13,7 @@ export interface ProjectTask {
   level: TaskLevel;
   status: TaskStatus;
   assigneeId: string | null;
+  dueDate?: string | null; // ISO date string (YYYY-MM-DD)
 }
 
 export interface TeamMember {
