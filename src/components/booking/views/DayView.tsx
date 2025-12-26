@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { format, getDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { BookingCard } from '../BookingCard';
@@ -34,6 +34,7 @@ interface PendingBooking {
 }
 
 const FULL_STUDIO_BUYOUT_TYPE = 'full_studio_buyout';
+const SLOT_HEIGHT = 28; // Height of each slot in pixels
 
 const generateTimeSlots = (start: string, end: string, increment: number = 15) => {
   const slots: string[] = [];
@@ -99,7 +100,17 @@ export function DayView({
   onBookingCreate,
 }: DayViewProps) {
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [hoveredSlot, setHoveredSlot] = useState<{ studioId: string; time: string } | null>(null);
+  
+  // Drag states
+  const [resizeMode, setResizeMode] = useState<'top' | 'bottom' | null>(null);
+  const [moveMode, setMoveMode] = useState<{
+    startY: number;
+    originalStartMins: number;
+    durationMins: number;
+  } | null>(null);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const timeSlots = useMemo(
     () => generateTimeSlots(operatingStart, operatingEnd),
@@ -146,7 +157,7 @@ export function DayView({
   // Check if slot is blocked by a full studio buyout
   const isSlotBlockedByBuyout = useCallback((studioId: string, slot: string) => {
     const studio = studios.find(s => s.id === studioId);
-    if (studio?.type === FULL_STUDIO_BUYOUT_TYPE) return false; // The buyout studio itself is not blocked
+    if (studio?.type === FULL_STUDIO_BUYOUT_TYPE) return false;
     
     const slotMins = timeToMinutes(slot);
     return buyoutBookings.some((b) => {
@@ -163,6 +174,22 @@ export function DayView({
   const isSlotUnavailable = useCallback((studioId: string, slot: string) => {
     return isSlotBooked(studioId, slot) || isSlotInBuffer(studioId, slot) || isSlotBlockedByBuyout(studioId, slot);
   }, [isSlotBooked, isSlotInBuffer, isSlotBlockedByBuyout]);
+
+  // Check if a range is available for all studios in pending booking
+  const isRangeAvailable = useCallback((startMins: number, endMins: number, studioIds: string[]) => {
+    const opStartMins = timeToMinutes(operatingStart);
+    const opEndMins = timeToMinutes(operatingEnd) - 15;
+    
+    if (startMins < opStartMins || endMins > opEndMins) return false;
+    
+    for (const studioId of studioIds) {
+      for (let mins = startMins; mins <= endMins; mins += 15) {
+        const slot = minutesToTime(mins);
+        if (isSlotUnavailable(studioId, slot)) return false;
+      }
+    }
+    return true;
+  }, [operatingStart, operatingEnd, isSlotUnavailable]);
 
   // Get current pending time range
   const pendingRange = useMemo(() => {
@@ -201,27 +228,16 @@ export function DayView({
     return slotMins >= pendingRange.minSlot && slotMins <= pendingRange.maxSlot;
   }, [pendingRange]);
 
-  const handleSlotMouseDown = (studioId: string, slot: string) => {
+  // Click on slot to create booking
+  const handleSlotClick = (studioId: string, slot: string) => {
     if (isSlotUnavailable(studioId, slot)) return;
+    if (pendingBooking) return; // Already have a pending booking
     
     setPendingBooking({
       studioIds: [studioId],
       startSlot: slot,
       endSlot: slot,
     });
-    setIsDragging(true);
-  };
-
-  const handleSlotMouseEnter = (studioId: string, slot: string) => {
-    if (!isDragging || !pendingBooking) return;
-    if (!pendingBooking.studioIds.includes(studioId)) return;
-    if (isSlotUnavailable(studioId, slot)) return;
-    
-    setPendingBooking(prev => prev ? { ...prev, endSlot: slot } : null);
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
   };
 
   // Add studio to current pending booking
@@ -245,7 +261,7 @@ export function DayView({
   // Remove studio from selection
   const removeStudioFromSelection = (studioId: string) => {
     if (!pendingBooking) return;
-    if (pendingBooking.studioIds.length <= 1) return; // Keep at least one
+    if (pendingBooking.studioIds.length <= 1) return;
     
     setPendingBooking(prev => prev ? {
       ...prev,
@@ -253,71 +269,111 @@ export function DayView({
     } : null);
   };
 
-  // Adjust start time
-  const adjustStartTime = (direction: 'up' | 'down') => {
-    if (!pendingBooking || !pendingRange) return;
-    
-    const newMins = direction === 'up' 
-      ? pendingRange.minSlot - 15 
-      : pendingRange.minSlot + 15;
-    
-    // Validate bounds
-    const opStartMins = timeToMinutes(operatingStart);
-    if (newMins < opStartMins) return;
-    if (newMins > pendingRange.maxSlot) return; // Can't go past end
-    
-    // Check availability for all selected studios
-    const newSlot = minutesToTime(newMins);
-    for (const studioId of pendingBooking.studioIds) {
-      if (direction === 'up' && isSlotUnavailable(studioId, newSlot)) return;
-    }
-    
-    // Update based on which was the original start
-    const startMins = timeToMinutes(pendingBooking.startSlot);
-    const endMins = timeToMinutes(pendingBooking.endSlot);
-    
-    if (startMins <= endMins) {
-      setPendingBooking(prev => prev ? { ...prev, startSlot: newSlot } : null);
-    } else {
-      setPendingBooking(prev => prev ? { ...prev, endSlot: newSlot } : null);
-    }
+  // Start resize drag
+  const handleResizeStart = (direction: 'top' | 'bottom', e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setResizeMode(direction);
   };
 
-  // Adjust end time
-  const adjustEndTime = (direction: 'up' | 'down') => {
-    if (!pendingBooking || !pendingRange) return;
+  // Start move drag
+  const handleMoveStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!pendingRange || !pendingBooking) return;
     
-    const newMins = direction === 'up' 
-      ? pendingRange.maxSlot - 15 
-      : pendingRange.maxSlot + 15;
-    
-    // Validate bounds
-    const opEndMins = timeToMinutes(operatingEnd) - 15; // Last bookable slot
-    if (newMins > opEndMins) return;
-    if (newMins < pendingRange.minSlot) return; // Can't go before start
-    
-    // Check availability for all selected studios
-    const newSlot = minutesToTime(newMins);
-    for (const studioId of pendingBooking.studioIds) {
-      if (direction === 'down' && isSlotUnavailable(studioId, newSlot)) return;
-    }
-    
-    // Update based on which was the original end
-    const startMins = timeToMinutes(pendingBooking.startSlot);
-    const endMins = timeToMinutes(pendingBooking.endSlot);
-    
-    if (endMins >= startMins) {
-      setPendingBooking(prev => prev ? { ...prev, endSlot: newSlot } : null);
-    } else {
-      setPendingBooking(prev => prev ? { ...prev, startSlot: newSlot } : null);
-    }
+    const durationMins = pendingRange.maxSlot - pendingRange.minSlot;
+    setMoveMode({
+      startY: e.clientY,
+      originalStartMins: pendingRange.minSlot,
+      durationMins,
+    });
   };
+
+  // Handle mouse move for resize/move
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!pendingBooking || !pendingRange) return;
+
+      if (resizeMode) {
+        // Calculate which slot we're over
+        const container = containerRef.current;
+        if (!container) return;
+        
+        const rect = container.getBoundingClientRect();
+        const relativeY = e.clientY - rect.top;
+        const slotIndex = Math.floor(relativeY / SLOT_HEIGHT);
+        const targetSlotMins = timeToMinutes(operatingStart) + (slotIndex * 15);
+        
+        if (resizeMode === 'top') {
+          // Resize from top - adjust start time
+          const newStartMins = Math.max(
+            timeToMinutes(operatingStart),
+            Math.min(targetSlotMins, pendingRange.maxSlot)
+          );
+          
+          // Check availability
+          if (isRangeAvailable(newStartMins, pendingRange.maxSlot, pendingBooking.studioIds)) {
+            setPendingBooking(prev => prev ? {
+              ...prev,
+              startSlot: minutesToTime(newStartMins),
+              endSlot: minutesToTime(pendingRange.maxSlot),
+            } : null);
+          }
+        } else {
+          // Resize from bottom - adjust end time
+          const newEndMins = Math.max(
+            pendingRange.minSlot,
+            Math.min(targetSlotMins, timeToMinutes(operatingEnd) - 15)
+          );
+          
+          // Check availability
+          if (isRangeAvailable(pendingRange.minSlot, newEndMins, pendingBooking.studioIds)) {
+            setPendingBooking(prev => prev ? {
+              ...prev,
+              startSlot: minutesToTime(pendingRange.minSlot),
+              endSlot: minutesToTime(newEndMins),
+            } : null);
+          }
+        }
+      } else if (moveMode) {
+        // Calculate slot offset from mouse movement
+        const deltaY = e.clientY - moveMode.startY;
+        const slotOffset = Math.round(deltaY / SLOT_HEIGHT);
+        const newStartMins = moveMode.originalStartMins + (slotOffset * 15);
+        const newEndMins = newStartMins + moveMode.durationMins;
+        
+        // Check bounds and availability
+        if (isRangeAvailable(newStartMins, newEndMins, pendingBooking.studioIds)) {
+          setPendingBooking(prev => prev ? {
+            ...prev,
+            startSlot: minutesToTime(newStartMins),
+            endSlot: minutesToTime(newEndMins),
+          } : null);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setResizeMode(null);
+      setMoveMode(null);
+    };
+
+    if (resizeMode || moveMode) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [resizeMode, moveMode, pendingBooking, pendingRange, operatingStart, operatingEnd, isRangeAvailable]);
 
   const handleConfirmBooking = () => {
     if (!pendingBooking || !pendingRange) return;
     
     const startTime = minutesToTime(pendingRange.minSlot);
-    const endTime = minutesToTime(pendingRange.maxSlot + 15); // Add 15 min to get actual end time
+    const endTime = minutesToTime(pendingRange.maxSlot + 15);
     
     onBookingCreate?.(pendingBooking.studioIds, startTime, endTime, estimatedCost);
     setPendingBooking(null);
@@ -325,7 +381,8 @@ export function DayView({
 
   const handleCancelPending = () => {
     setPendingBooking(null);
-    setIsDragging(false);
+    setResizeMode(null);
+    setMoveMode(null);
   };
 
   // Calculate estimated cost based on DIY rates
@@ -385,11 +442,11 @@ export function DayView({
     };
   }, [pendingBooking, pendingRange, studios]);
 
+  const isDragging = resizeMode !== null || moveMode !== null;
+
   return (
     <div 
       className="border rounded-lg overflow-hidden select-none flex flex-col"
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
       {/* Sticky top bar when pending booking exists */}
       {pendingBooking && !isDragging && pendingBookingDisplay && (
@@ -425,7 +482,7 @@ export function DayView({
         </div>
       )}
 
-      <div className="overflow-x-auto flex-1">
+      <div className="overflow-x-auto flex-1" ref={containerRef}>
         <table className="w-full min-w-[800px]">
           <thead>
             <tr className="bg-muted">
@@ -476,11 +533,14 @@ export function DayView({
                     const isStartOfPending = isPendingStartSlot(studio.id, time);
                     const isEndOfPending = isPendingEndSlot(studio.id, time);
                     
+                    // Hover state
+                    const isHovered = hoveredSlot?.studioId === studio.id && hoveredSlot?.time === time;
+                    const showHoverState = isHovered && !isUnavailable && !pendingBooking;
+                    
                     // Show + button for studios not in selection but in time range
                     const showAddButton = pendingBooking && 
                       !pendingBooking.studioIds.includes(studio.id) && 
                       isSlotInPendingTimeRange(time) && 
-                      isStartOfPending === false && 
                       !isUnavailable;
                     
                     // Only show + on the first slot of the range
@@ -490,16 +550,25 @@ export function DayView({
                       <td
                         key={studio.id}
                         className={cn(
-                          "py-0.5 px-1 border-r min-h-[28px] h-7 relative",
-                          !isUnavailable && !isInPending && "cursor-pointer hover:bg-muted/50",
+                          "py-0.5 px-1 border-r min-h-[28px] h-7 relative transition-colors",
+                          !isUnavailable && !isInPending && !pendingBooking && "cursor-pointer",
                           isBooked && "bg-muted/30",
                           isBuffer && "bg-amber-500/10",
                           isBlockedByBuyout && "bg-destructive/10",
-                          isInPending && "bg-primary/20"
+                          isInPending && "bg-primary/10",
+                          showHoverState && "bg-primary"
                         )}
-                        onMouseDown={() => handleSlotMouseDown(studio.id, time)}
-                        onMouseEnter={() => handleSlotMouseEnter(studio.id, time)}
+                        onClick={() => handleSlotClick(studio.id, time)}
+                        onMouseEnter={() => setHoveredSlot({ studioId: studio.id, time })}
+                        onMouseLeave={() => setHoveredSlot(null)}
                       >
+                        {/* Hover state - orange with time */}
+                        {showHoverState && (
+                          <div className="absolute inset-0 flex items-center justify-center text-primary-foreground font-medium text-xs">
+                            ⊕ {formatTime(time)}
+                          </div>
+                        )}
+                        
                         {/* Existing bookings */}
                         {slotBookings.map((booking) =>
                           isSlotStart(booking, time) ? (
@@ -528,43 +597,40 @@ export function DayView({
                         
                         {/* Pending booking indicator */}
                         {isInPending && !isBooked && (
-                          <div className={cn(
-                            "absolute inset-0 border-2 border-primary border-dashed",
-                            isStartOfPending && "rounded-t",
-                            isEndOfPending && "rounded-b"
-                          )}>
-                            {/* Arrow controls at start */}
+                          <div 
+                            className={cn(
+                              "absolute inset-0 border-2 border-primary border-dashed",
+                              isStartOfPending && "rounded-t-lg",
+                              isEndOfPending && "rounded-b-lg",
+                              !resizeMode && !moveMode && "cursor-grab",
+                              moveMode && "cursor-grabbing"
+                            )}
+                            onMouseDown={handleMoveStart}
+                          >
+                            {/* Single Up Arrow at top */}
                             {isStartOfPending && !isDragging && (
-                              <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex gap-0.5 z-10">
+                              <div 
+                                className="absolute -top-3 left-1/2 -translate-x-1/2 z-10"
+                                onMouseDown={(e) => handleResizeStart('top', e)}
+                              >
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); adjustStartTime('up'); }}
-                                  className="w-5 h-5 bg-primary hover:bg-primary/80 text-primary-foreground rounded flex items-center justify-center shadow"
+                                  className="w-6 h-6 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg flex items-center justify-center shadow cursor-n-resize"
                                 >
-                                  <ChevronUp className="h-3 w-3" />
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); adjustStartTime('down'); }}
-                                  className="w-5 h-5 bg-primary hover:bg-primary/80 text-primary-foreground rounded flex items-center justify-center shadow"
-                                >
-                                  <ChevronDown className="h-3 w-3" />
+                                  <ChevronUp className="h-4 w-4" />
                                 </button>
                               </div>
                             )}
                             
-                            {/* Arrow controls at end */}
+                            {/* Single Down Arrow at bottom */}
                             {isEndOfPending && !isDragging && (
-                              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex gap-0.5 z-10">
+                              <div 
+                                className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10"
+                                onMouseDown={(e) => handleResizeStart('bottom', e)}
+                              >
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); adjustEndTime('up'); }}
-                                  className="w-5 h-5 bg-primary hover:bg-primary/80 text-primary-foreground rounded flex items-center justify-center shadow"
+                                  className="w-6 h-6 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg flex items-center justify-center shadow cursor-s-resize"
                                 >
-                                  <ChevronUp className="h-3 w-3" />
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); adjustEndTime('down'); }}
-                                  className="w-5 h-5 bg-primary hover:bg-primary/80 text-primary-foreground rounded flex items-center justify-center shadow"
-                                >
-                                  <ChevronDown className="h-3 w-3" />
+                                  <ChevronDown className="h-4 w-4" />
                                 </button>
                               </div>
                             )}
@@ -572,7 +638,7 @@ export function DayView({
                         )}
                         
                         {/* Add studio button */}
-                        {showAddButton && isFirstSlotOfRange && !isUnavailable && (
+                        {showAddButton && isFirstSlotOfRange && (
                           <button
                             onClick={(e) => { e.stopPropagation(); addStudioToSelection(studio.id); }}
                             className="absolute inset-0 flex items-center justify-center hover:bg-primary/10 transition-colors"
