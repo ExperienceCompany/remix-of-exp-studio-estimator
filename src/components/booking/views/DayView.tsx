@@ -14,22 +14,28 @@ interface DayViewProps {
   onBookingClick?: (booking: StudioBooking) => void;
 }
 
-const generateTimeSlots = (start: string, end: string) => {
+const generateTimeSlots = (start: string, end: string, increment: number = 15) => {
   const slots: string[] = [];
-  const [startH] = start.split(':').map(Number);
-  const [endH] = end.split(':').map(Number);
+  const [startH, startM = 0] = start.split(':').map(Number);
+  const [endH, endM = 0] = end.split(':').map(Number);
   
-  for (let h = startH; h <= endH; h++) {
-    slots.push(`${h.toString().padStart(2, '0')}:00`);
+  let currentMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+  
+  while (currentMinutes <= endMinutes) {
+    const h = Math.floor(currentMinutes / 60);
+    const m = currentMinutes % 60;
+    slots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+    currentMinutes += increment;
   }
   return slots;
 };
 
 const formatTime = (time: string) => {
-  const [hour] = time.split(':').map(Number);
+  const [hour, min] = time.split(':').map(Number);
   const ampm = hour >= 12 ? 'PM' : 'AM';
   const displayHour = hour % 12 || 12;
-  return `${displayHour} ${ampm}`;
+  return `${displayHour}:${min.toString().padStart(2, '0')} ${ampm}`;
 };
 
 export function DayView({
@@ -49,20 +55,23 @@ export function DayView({
   const dateStr = format(currentDate, 'yyyy-MM-dd');
   const dayBookings = bookings.filter((b) => b.booking_date === dateStr);
 
-  const getBookingsForStudioAndHour = (studioId: string, hour: string) => {
-    const hourNum = parseInt(hour.split(':')[0], 10);
+  const getBookingsForSlot = (studioId: string, slot: string) => {
+    const [slotH, slotM] = slot.split(':').map(Number);
+    const slotMinutes = slotH * 60 + slotM;
     return dayBookings.filter((b) => {
       if (b.studio_id !== studioId) return false;
-      const [bStartH] = b.start_time.split(':').map(Number);
-      const [bEndH] = b.end_time.split(':').map(Number);
-      return hourNum >= bStartH && hourNum < bEndH;
+      const [bStartH, bStartM = 0] = b.start_time.split(':').map(Number);
+      const [bEndH, bEndM = 0] = b.end_time.split(':').map(Number);
+      const startMinutes = bStartH * 60 + bStartM;
+      const endMinutes = bEndH * 60 + bEndM;
+      return slotMinutes >= startMinutes && slotMinutes < endMinutes;
     });
   };
 
-  const isSlotStart = (booking: StudioBooking, hour: string) => {
-    const hourNum = parseInt(hour.split(':')[0], 10);
-    const [bStartH] = booking.start_time.split(':').map(Number);
-    return hourNum === bStartH;
+  const isSlotStart = (booking: StudioBooking, slot: string) => {
+    const [slotH, slotM] = slot.split(':').map(Number);
+    const [bStartH, bStartM = 0] = booking.start_time.split(':').map(Number);
+    return slotH === bStartH && slotM === bStartM;
   };
 
   return (
@@ -84,35 +93,41 @@ export function DayView({
           </tr>
         </thead>
         <tbody>
-          {timeSlots.map((time, idx) => (
-            <tr key={time} className={cn(idx % 2 === 0 && 'bg-muted/20')}>
-              <td className="py-2 px-2 text-sm text-muted-foreground border-r font-mono">
-                {formatTime(time)}
-              </td>
-              {studios.map((studio) => {
-                const slotBookings = getBookingsForStudioAndHour(studio.id, time);
-                
-                return (
-                  <td
-                    key={studio.id}
-                    className="py-1 px-1 border-r min-h-[48px] relative cursor-pointer hover:bg-muted/50"
-                    onClick={() => slotBookings.length === 0 && onSlotClick?.(studio.id, time)}
-                  >
-                    {slotBookings.map((booking) =>
-                      isSlotStart(booking, time) ? (
-                        <BookingCard
-                          key={booking.id}
-                          booking={booking}
-                          compact
-                          onClick={() => onBookingClick?.(booking)}
-                        />
-                      ) : null
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {timeSlots.map((time, idx) => {
+            const isHourMark = time.endsWith(':00');
+            return (
+              <tr key={time} className={cn(isHourMark && 'border-t border-border')}>
+                <td className={cn(
+                  "py-1 px-2 text-xs text-muted-foreground border-r font-mono",
+                  isHourMark ? "font-medium" : "text-muted-foreground/60"
+                )}>
+                  {formatTime(time)}
+                </td>
+                {studios.map((studio) => {
+                  const slotBookings = getBookingsForSlot(studio.id, time);
+                  
+                  return (
+                    <td
+                      key={studio.id}
+                      className="py-0.5 px-1 border-r min-h-[28px] h-7 relative cursor-pointer hover:bg-muted/50"
+                      onClick={() => slotBookings.length === 0 && onSlotClick?.(studio.id, time)}
+                    >
+                      {slotBookings.map((booking) =>
+                        isSlotStart(booking, time) ? (
+                          <BookingCard
+                            key={booking.id}
+                            booking={booking}
+                            compact
+                            onClick={() => onBookingClick?.(booking)}
+                          />
+                        ) : null
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
