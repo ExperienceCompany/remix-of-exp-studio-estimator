@@ -18,6 +18,8 @@ export interface StudioBooking {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  title: string | null;
+  people_count: number | null;
 }
 
 export interface BlockedDate {

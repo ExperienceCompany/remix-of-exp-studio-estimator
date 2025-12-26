@@ -253,6 +253,8 @@ export function BookingForm({
         notes: formData.notes || null,
         quote_id: null,
         created_by: null,
+        title: null,
+        people_count: 1,
       });
 
       setSubmitted(true);

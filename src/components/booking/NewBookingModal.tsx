@@ -282,6 +282,8 @@ export function NewBookingModal({
   const [manualPrice, setManualPrice] = useState<string>('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('not_applicable');
   const [notes, setNotes] = useState('');
+  const [title, setTitle] = useState('');
+  const [peopleCount, setPeopleCount] = useState<number>(1);
   
   // Serviced session state (estimator-like)
   const [serviceType, setServiceType] = useState<ServiceType | null>(null);
@@ -325,6 +327,8 @@ export function NewBookingModal({
         setManualPrice('');
         setPaymentStatus('not_applicable');
         setNotes(existingBooking.notes || '');
+        setTitle(existingBooking.title || '');
+        setPeopleCount(existingBooking.people_count || 1);
         setServiceType(null);
         setSessionDuration(1);
         setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
@@ -349,6 +353,8 @@ export function NewBookingModal({
         setManualPrice('');
         setPaymentStatus('not_applicable');
         setNotes('');
+        setTitle('');
+        setPeopleCount(1);
         setServiceType(null);
         setSessionDuration(1);
         setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
@@ -938,6 +944,8 @@ export function NewBookingModal({
           notes: notes || null,
           quote_id: null,
           created_by: null,
+          title: title || null,
+          people_count: peopleCount || 1,
         })
       );
 
@@ -963,6 +971,8 @@ export function NewBookingModal({
                 notes: notes || null,
                 quote_id: null,
                 created_by: null,
+                title: title || null,
+                people_count: peopleCount || 1,
               })
             );
           }
@@ -1041,6 +1051,8 @@ export function NewBookingModal({
           notes: notes || null,
           quote_id: quote.id,
           created_by: null,
+          title: title || null,
+          people_count: peopleCount || 1,
         })
       );
 
@@ -1198,6 +1210,8 @@ export function NewBookingModal({
         customer_phone: holderType === 'customer' ? customerPhone : null,
         session_type: bookingType === 'customer' ? sessionType : null,
         notes: notes || null,
+        title: title || null,
+        people_count: peopleCount || 1,
       });
       
       toast({ title: 'Booking updated successfully' });
@@ -1295,6 +1309,45 @@ export function NewBookingModal({
                     <Ban className="h-4 w-4 mr-2" />
                     Unavailable
                   </Button>
+                </div>
+              </div>
+
+              {/* Title */}
+              <div className="space-y-2">
+                <Label htmlFor="booking-title">Title</Label>
+                <Input
+                  id="booking-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter a descriptive name for this booking"
+                />
+              </div>
+
+              {/* Details / Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="booking-details">Details</Label>
+                <Textarea
+                  id="booking-details"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Additional notes or description"
+                  rows={2}
+                />
+              </div>
+
+              {/* Expected People Count */}
+              <div className="space-y-2">
+                <Label htmlFor="people-count">Expected people count</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="people-count"
+                    type="number"
+                    min={1}
+                    value={peopleCount}
+                    onChange={(e) => setPeopleCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-20"
+                  />
+                  <Users className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
 
