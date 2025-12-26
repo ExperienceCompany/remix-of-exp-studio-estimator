@@ -71,25 +71,18 @@ export function StepAddons() {
     );
   };
 
-  // Calculate available crew (allocated - assigned)
-  const getAvailableCrew = (): CrewAllocation => {
-    const assigned = getAssignedCrew();
-    return {
-      lv1: selection.crewAllocation.lv1 - assigned.lv1,
-      lv2: selection.crewAllocation.lv2 - assigned.lv2,
-      lv3: selection.crewAllocation.lv3 - assigned.lv3,
-    };
-  };
-
-  const totalAllocatedCrew = selection.crewAllocation.lv1 + selection.crewAllocation.lv2 + selection.crewAllocation.lv3;
-  const assignedCrew = getAssignedCrew();
-  const totalAssignedCrew = assignedCrew.lv1 + assignedCrew.lv2 + assignedCrew.lv3;
-  const totalUnassignedCrew = totalAllocatedCrew - totalAssignedCrew;
+  // Helper to get total crew assigned to a specific editing item
+  const getTotalCrewForItem = (item: { assignedCrew?: CrewAllocation }) => 
+    (item.assignedCrew?.lv1 || 0) + 
+    (item.assignedCrew?.lv2 || 0) + 
+    (item.assignedCrew?.lv3 || 0);
 
   // Check if crew assignment is required and complete
-  const hasVideoEditingSelected = selection.editingItems.some(e => e.category !== 'photo_editing');
-  const crewAssignmentRequired = hasVideoEditingSelected && totalAllocatedCrew > 0;
-  const canProceed = !crewAssignmentRequired || totalUnassignedCrew === 0;
+  // For post-production: each enabled video editing add-on must have at least 1 crew member
+  const videoEditingItems_selected = selection.editingItems.filter(e => e.category !== 'photo_editing');
+  const hasVideoEditingSelected = videoEditingItems_selected.length > 0;
+  const allVideoEditingHaveCrew = videoEditingItems_selected.every(e => getTotalCrewForItem(e) >= 1);
+  const canProceed = !hasVideoEditingSelected || allVideoEditingHaveCrew;
 
   const toggleEditingItem = (item: any, defaultDuration?: number) => {
     const existing = selection.editingItems.find(e => e.id === item.id);
@@ -150,7 +143,6 @@ export function StepAddons() {
   };
 
   const updateEditingAssignedCrew = (itemId: string, level: keyof CrewAllocation, delta: number) => {
-    const available = getAvailableCrew();
     updateSelection({
       editingItems: selection.editingItems.map(e => {
         if (e.id !== itemId) return e;
@@ -159,9 +151,6 @@ export function StepAddons() {
         
         // Don't allow negative values
         if (newValue < 0) return e;
-        
-        // Don't allow assigning more than available (when increasing)
-        if (delta > 0 && available[level] <= 0) return e;
         
         return {
           ...e,
@@ -321,7 +310,6 @@ export function StepAddons() {
   const renderVideoEditingOptions = () => {
     if (!showVideoEditing || videoEditingItems.length === 0) return null;
 
-    const available = getAvailableCrew();
     const lv1Rate = providerLevels?.find(p => p.level === 'lv1')?.hourly_rate || 20;
     const lv2Rate = providerLevels?.find(p => p.level === 'lv2')?.hourly_rate || 30;
     const lv3Rate = providerLevels?.find(p => p.level === 'lv3')?.hourly_rate || 40;
@@ -343,7 +331,9 @@ export function StepAddons() {
             const isSelected = !!selectedItem;
             const customerPrice = Number(item.customer_price);
             const itemAssignedCrew = selectedItem?.assignedCrew || { lv1: 0, lv2: 0, lv3: 0 };
+            const itemTotalCrew = getTotalCrewForItem(selectedItem || { assignedCrew: { lv1: 0, lv2: 0, lv3: 0 } });
             const isLongForm = item.category.startsWith('long_form');
+            const needsCrew = isSelected && itemTotalCrew < 1;
             
             return (
               <div key={item.id} className="space-y-2">
@@ -370,156 +360,104 @@ export function StepAddons() {
                   </span>
                 </div>
                 
-                {/* Crew assignment per level */}
-                {isSelected && totalAllocatedCrew > 0 && (
+                {/* Crew assignment - always show all 3 levels when selected */}
+                {isSelected && (
                   <div className="pl-12 pb-2 space-y-2">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Users className="h-4 w-4" />
                       <span>Assign Production Crew:</span>
+                      {needsCrew && (
+                        <span className="text-xs text-destructive">(min 1 required)</span>
+                      )}
                     </div>
                     
-                    {/* Lv1 */}
-                    {selection.crewAllocation.lv1 > 0 && (
-                      <div className="flex items-center justify-between pl-6">
-                        <span className="text-xs text-muted-foreground">Lv1 Entry (${lv1Rate}/hr)</span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateEditingAssignedCrew(item.id, 'lv1', -1)}
-                            disabled={itemAssignedCrew.lv1 <= 0}
-                          >
-                            <Minus className="h-2 w-2" />
-                          </Button>
-                          <span className="w-5 text-center text-xs font-medium">{itemAssignedCrew.lv1}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateEditingAssignedCrew(item.id, 'lv1', 1)}
-                            disabled={available.lv1 <= 0}
-                          >
-                            <Plus className="h-2 w-2" />
-                          </Button>
-                          <span className="text-xs text-muted-foreground ml-1">
-                            ({available.lv1 + itemAssignedCrew.lv1} avail)
-                          </span>
-                        </div>
+                    {/* Lv1 - always show */}
+                    <div className="flex items-center justify-between pl-6">
+                      <span className="text-xs text-muted-foreground">Lv1 Entry (${lv1Rate}/hr)</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateEditingAssignedCrew(item.id, 'lv1', -1)}
+                          disabled={itemAssignedCrew.lv1 <= 0}
+                        >
+                          <Minus className="h-2 w-2" />
+                        </Button>
+                        <span className="w-5 text-center text-xs font-medium">{itemAssignedCrew.lv1}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateEditingAssignedCrew(item.id, 'lv1', 1)}
+                        >
+                          <Plus className="h-2 w-2" />
+                        </Button>
                       </div>
-                    )}
+                    </div>
                     
-                    {/* Lv2 */}
-                    {selection.crewAllocation.lv2 > 0 && (
-                      <div className="flex items-center justify-between pl-6">
-                        <span className="text-xs text-muted-foreground">Lv2 Experienced (${lv2Rate}/hr)</span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateEditingAssignedCrew(item.id, 'lv2', -1)}
-                            disabled={itemAssignedCrew.lv2 <= 0}
-                          >
-                            <Minus className="h-2 w-2" />
-                          </Button>
-                          <span className="w-5 text-center text-xs font-medium">{itemAssignedCrew.lv2}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateEditingAssignedCrew(item.id, 'lv2', 1)}
-                            disabled={available.lv2 <= 0}
-                          >
-                            <Plus className="h-2 w-2" />
-                          </Button>
-                          <span className="text-xs text-muted-foreground ml-1">
-                            ({available.lv2 + itemAssignedCrew.lv2} avail)
-                          </span>
-                        </div>
+                    {/* Lv2 - always show */}
+                    <div className="flex items-center justify-between pl-6">
+                      <span className="text-xs text-muted-foreground">Lv2 Experienced (${lv2Rate}/hr)</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateEditingAssignedCrew(item.id, 'lv2', -1)}
+                          disabled={itemAssignedCrew.lv2 <= 0}
+                        >
+                          <Minus className="h-2 w-2" />
+                        </Button>
+                        <span className="w-5 text-center text-xs font-medium">{itemAssignedCrew.lv2}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateEditingAssignedCrew(item.id, 'lv2', 1)}
+                        >
+                          <Plus className="h-2 w-2" />
+                        </Button>
                       </div>
-                    )}
+                    </div>
                     
-                    {/* Lv3 */}
-                    {selection.crewAllocation.lv3 > 0 && (
-                      <div className="flex items-center justify-between pl-6">
-                        <span className="text-xs text-muted-foreground">Lv3 Expert (${lv3Rate}/hr)</span>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateEditingAssignedCrew(item.id, 'lv3', -1)}
-                            disabled={itemAssignedCrew.lv3 <= 0}
-                          >
-                            <Minus className="h-2 w-2" />
-                          </Button>
-                          <span className="w-5 text-center text-xs font-medium">{itemAssignedCrew.lv3}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateEditingAssignedCrew(item.id, 'lv3', 1)}
-                            disabled={available.lv3 <= 0}
-                          >
-                            <Plus className="h-2 w-2" />
-                          </Button>
-                          <span className="text-xs text-muted-foreground ml-1">
-                            ({available.lv3 + itemAssignedCrew.lv3} avail)
-                          </span>
-                        </div>
+                    {/* Lv3 - always show */}
+                    <div className="flex items-center justify-between pl-6">
+                      <span className="text-xs text-muted-foreground">Lv3 Expert (${lv3Rate}/hr)</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateEditingAssignedCrew(item.id, 'lv3', -1)}
+                          disabled={itemAssignedCrew.lv3 <= 0}
+                        >
+                          <Minus className="h-2 w-2" />
+                        </Button>
+                        <span className="w-5 text-center text-xs font-medium">{itemAssignedCrew.lv3}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => updateEditingAssignedCrew(item.id, 'lv3', 1)}
+                        >
+                          <Plus className="h-2 w-2" />
+                        </Button>
                       </div>
-                    )}
+                    </div>
+                    
+                    {/* Total crew for this item */}
+                    <div className="flex items-center justify-between pl-6 pt-1">
+                      <span className="text-xs font-medium">Total Crew:</span>
+                      <span className={`text-xs font-medium ${needsCrew ? 'text-destructive' : 'text-primary'}`}>
+                        {itemTotalCrew} {itemTotalCrew >= 1 && <Check className="inline h-3 w-3" />}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
             );
           })}
-          
-          {/* Crew Summary */}
-          {totalAllocatedCrew > 0 && selection.editingItems.some(e => e.category !== 'photo_editing') && (
-            <div className="pt-3 border-t space-y-1">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Users className="h-4 w-4" />
-                <span>Crew Summary</span>
-              </div>
-              <div className="pl-6 space-y-1 text-xs">
-                {selection.crewAllocation.lv1 > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lv1:</span>
-                    <span className={assignedCrew.lv1 < selection.crewAllocation.lv1 ? 'text-amber-500' : ''}>
-                      {assignedCrew.lv1}/{selection.crewAllocation.lv1} assigned
-                      {assignedCrew.lv1 < selection.crewAllocation.lv1 && ' ⚠️'}
-                    </span>
-                  </div>
-                )}
-                {selection.crewAllocation.lv2 > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lv2:</span>
-                    <span className={assignedCrew.lv2 < selection.crewAllocation.lv2 ? 'text-amber-500' : ''}>
-                      {assignedCrew.lv2}/{selection.crewAllocation.lv2} assigned
-                      {assignedCrew.lv2 < selection.crewAllocation.lv2 && ' ⚠️'}
-                    </span>
-                  </div>
-                )}
-                {selection.crewAllocation.lv3 > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lv3:</span>
-                    <span className={assignedCrew.lv3 < selection.crewAllocation.lv3 ? 'text-amber-500' : ''}>
-                      {assignedCrew.lv3}/{selection.crewAllocation.lv3} assigned
-                      {assignedCrew.lv3 < selection.crewAllocation.lv3 && ' ⚠️'}
-                    </span>
-                  </div>
-                )}
-              </div>
-              {totalUnassignedCrew > 0 && (
-                <div className="flex items-center gap-1 text-xs text-amber-500 pl-6 pt-1">
-                  <AlertCircle className="h-3 w-3" />
-                  <span>{totalUnassignedCrew} crew unassigned</span>
-                </div>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
     );
@@ -660,10 +598,10 @@ export function StepAddons() {
       </Card>
 
       {/* Crew Assignment Warning */}
-      {crewAssignmentRequired && totalUnassignedCrew > 0 && (
+      {hasVideoEditingSelected && !allVideoEditingHaveCrew && (
         <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          <span>Please assign all production crew ({totalUnassignedCrew} remaining) to editing tasks before continuing.</span>
+          <span>Please assign at least 1 production crew member to each editing service.</span>
         </div>
       )}
 
