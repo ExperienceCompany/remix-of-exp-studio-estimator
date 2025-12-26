@@ -221,6 +221,26 @@ export function DayView({
     return timeToMinutes(slot) === pendingRange.maxSlot;
   }, [pendingBooking, pendingRange]);
 
+  // Check if slot is in pending buffer zone (before or after pending booking)
+  const isSlotInPendingBuffer = useCallback((studioId: string, slot: string) => {
+    if (!pendingBooking || !pendingRange || bufferMinutes === 0) return false;
+    if (!pendingBooking.studioIds.includes(studioId)) return false;
+    
+    const slotMins = timeToMinutes(slot);
+    
+    // Buffer BEFORE the booking (slot is within bufferMinutes before start)
+    const bufferBeforeEnd = pendingRange.minSlot;
+    const bufferBeforeStart = bufferBeforeEnd - bufferMinutes;
+    const isBeforeBuffer = slotMins >= bufferBeforeStart && slotMins < bufferBeforeEnd;
+    
+    // Buffer AFTER the booking (slot is within bufferMinutes after end)
+    const bufferAfterStart = pendingRange.maxSlot + 15; // +15 because end slot is inclusive
+    const bufferAfterEnd = bufferAfterStart + bufferMinutes;
+    const isAfterBuffer = slotMins >= bufferAfterStart && slotMins < bufferAfterEnd;
+    
+    return isBeforeBuffer || isAfterBuffer;
+  }, [pendingBooking, pendingRange, bufferMinutes]);
+
   // Check if slot is in pending time range (for showing + buttons)
   const isSlotInPendingTimeRange = useCallback((slot: string) => {
     if (!pendingRange) return false;
@@ -532,6 +552,7 @@ export function DayView({
                     const isInPending = isSlotInPendingRange(studio.id, time);
                     const isStartOfPending = isPendingStartSlot(studio.id, time);
                     const isEndOfPending = isPendingEndSlot(studio.id, time);
+                    const isInPendingBuffer = isSlotInPendingBuffer(studio.id, time);
                     
                     // Hover state
                     const isHovered = hoveredSlot?.studioId === studio.id && hoveredSlot?.time === time;
@@ -556,6 +577,7 @@ export function DayView({
                           isBuffer && "bg-amber-500/10",
                           isBlockedByBuyout && "bg-destructive/10",
                           isInPending && "bg-primary/10",
+                          isInPendingBuffer && !isBooked && !isBuffer && "bg-muted/50",
                           showHoverState && "bg-primary"
                         )}
                         onClick={() => handleSlotClick(studio.id, time)}
@@ -595,18 +617,39 @@ export function DayView({
                           </div>
                         )}
                         
+                        {/* Pending buffer zone indicator */}
+                        {isInPendingBuffer && !isBooked && !isBuffer && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-[10px] text-muted-foreground">buffer</span>
+                          </div>
+                        )}
+                        
                         {/* Pending booking indicator */}
                         {isInPending && !isBooked && (
                           <div 
                             className={cn(
-                              "absolute inset-0 border-2 border-primary border-dashed",
-                              isStartOfPending && "rounded-t-lg",
-                              isEndOfPending && "rounded-b-lg",
+                              "absolute inset-0 border-l-4 border-primary bg-card shadow-sm",
+                              isStartOfPending && "rounded-t-md border-t-2",
+                              isEndOfPending && "rounded-b-md border-b-2",
+                              !isStartOfPending && !isEndOfPending && "border-r-2",
                               !resizeMode && !moveMode && "cursor-grab",
                               moveMode && "cursor-grabbing"
                             )}
                             onMouseDown={handleMoveStart}
                           >
+                            {/* X remove button for multi-studio selection */}
+                            {isStartOfPending && pendingBooking && pendingBooking.studioIds.length > 1 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeStudioFromSelection(studio.id);
+                                }}
+                                className="absolute top-0.5 right-0.5 z-20 w-4 h-4 bg-muted hover:bg-destructive/20 rounded-full flex items-center justify-center border border-border"
+                              >
+                                <X className="h-2.5 w-2.5 text-muted-foreground hover:text-destructive" />
+                              </button>
+                            )}
+                            
                             {/* Single Up Arrow at top - hide during bottom resize or move */}
                             {isStartOfPending && resizeMode !== 'bottom' && !moveMode && (
                               <div 
