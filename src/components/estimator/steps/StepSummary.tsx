@@ -12,16 +12,20 @@ import {
   TimeSlotType,
   ProviderLevel,
 } from '@/types/estimator';
-import { ArrowLeft, Copy, FileText, RotateCcw, Download } from 'lucide-react';
+import { ArrowLeft, Copy, FileText, RotateCcw, Download, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuotePdf } from '@/lib/generateQuotePdf';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
+import { useCreateAdminLog } from '@/hooks/useAdminLogs';
+import { useAuth } from '@/hooks/useAuth';
 
 export function StepSummary() {
-  const { selection, totals, setCurrentStep, resetSelection } = useEstimator();
+  const { selection, totals, internalTotals, setCurrentStep, resetSelection } = useEstimator();
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
+  const createLog = useCreateAdminLog();
 
   const handleCopyQuote = () => {
     const lines = [
@@ -90,6 +94,28 @@ export function StepSummary() {
     } catch (error) {
       console.error('Failed to save/generate quote:', error);
       toast({ title: 'Failed to generate quote', variant: 'destructive' });
+    }
+  };
+
+  const handleSaveToAdminLogs = async () => {
+    try {
+      await createLog.mutateAsync({
+        log_type: 'studio_estimate',
+        log_name: `${selection.studioType ? STUDIO_LABELS[selection.studioType] : 'Studio'} - ${selection.serviceType ? SERVICE_LABELS[selection.serviceType] : 'Session'}`,
+        customer_total: totals.customerTotal,
+        provider_payout: internalTotals.providerPayout,
+        gross_margin: internalTotals.grossMargin,
+        hours: selection.hours,
+        data_json: {
+          selection,
+          totals,
+          internalTotals,
+        },
+      });
+      toast({ title: 'Saved to Admin Logs!' });
+    } catch (error) {
+      console.error('Failed to save to admin logs:', error);
+      toast({ title: 'Failed to save', variant: 'destructive' });
     }
   };
 
@@ -187,15 +213,21 @@ export function StepSummary() {
       </Card>
 
       {/* Actions */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Button variant="outline" onClick={handleCopyQuote}>
           <Copy className="h-4 w-4 mr-2" />
-          Copy Quote
+          Copy
         </Button>
         <Button variant="outline" onClick={handleDownloadQuote}>
           <Download className="h-4 w-4 mr-2" />
-          Download PDF
+          Download
         </Button>
+        {isAdmin && (
+          <Button variant="outline" onClick={handleSaveToAdminLogs} disabled={createLog.isPending}>
+            <Save className="h-4 w-4 mr-2" />
+            {createLog.isPending ? 'Saving...' : 'Save to Logs'}
+          </Button>
+        )}
         <Button>
           <FileText className="h-4 w-4 mr-2" />
           Book This

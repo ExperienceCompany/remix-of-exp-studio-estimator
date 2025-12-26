@@ -3,16 +3,24 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, TrendingUp, DollarSign, Percent, Clock, AlertCircle, Building } from 'lucide-react';
+import { ArrowLeft, TrendingUp, DollarSign, Percent, Clock, AlertCircle, Building, Save } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOpsSettings } from '@/hooks/useOpsSettings';
 import { EstimatorProvider, useEstimator } from '@/contexts/EstimatorContext';
 import { PackageShortcuts } from '@/components/estimator/PackageShortcuts';
 import { EstimatorStepper } from '@/components/estimator/EstimatorStepper';
+import { useCreateAdminLog } from '@/hooks/useAdminLogs';
+import { useToast } from '@/hooks/use-toast';
+import {
+  STUDIO_LABELS,
+  SERVICE_LABELS,
+} from '@/types/estimator';
 
 function InternalDashboard({ isAdmin }: { isAdmin: boolean }) {
-  const { internalTotals, selection } = useEstimator();
+  const { internalTotals, selection, totals } = useEstimator();
   const { hourlyOverheadRate, totalMonthlyExpenses, settings } = useOpsSettings();
+  const createLog = useCreateAdminLog();
+  const { toast } = useToast();
 
   // Net profit calculations (admin only)
   const overheadAllocation = hourlyOverheadRate * selection.hours;
@@ -21,6 +29,37 @@ function InternalDashboard({ isAdmin }: { isAdmin: boolean }) {
     ? (netProfit / internalTotals.customerTotal) * 100 
     : 0;
   const netMarginPerHour = selection.hours > 0 ? netProfit / selection.hours : 0;
+
+  const handleSaveToAdminLogs = async () => {
+    try {
+      await createLog.mutateAsync({
+        log_type: 'internal_ops',
+        log_name: `${selection.studioType ? STUDIO_LABELS[selection.studioType] : 'Studio'} - ${selection.serviceType ? SERVICE_LABELS[selection.serviceType] : 'Session'}`,
+        customer_total: internalTotals.customerTotal,
+        provider_payout: internalTotals.providerPayout,
+        gross_margin: internalTotals.grossMargin,
+        net_profit: netProfit,
+        hours: selection.hours,
+        data_json: {
+          selection,
+          totals,
+          internalTotals,
+          opsSettings: {
+            overheadAllocation,
+            netProfit,
+            netMarginPercent,
+            netMarginPerHour,
+            hourlyOverheadRate,
+            totalMonthlyExpenses,
+          },
+        },
+      });
+      toast({ title: 'Saved to Admin Logs!' });
+    } catch (error) {
+      console.error('Failed to save:', error);
+      toast({ title: 'Failed to save', variant: 'destructive' });
+    }
+  };
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">
@@ -170,6 +209,22 @@ function InternalDashboard({ isAdmin }: { isAdmin: boolean }) {
                     <span className="font-medium">{netMarginPercent.toFixed(1)}%</span>
                   </div>
                 </div>
+              </>
+            )}
+
+            {/* Save to Logs Button - Admin Only */}
+            {isAdmin && internalTotals.customerTotal > 0 && (
+              <>
+                <Separator />
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleSaveToAdminLogs}
+                  disabled={createLog.isPending}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {createLog.isPending ? 'Saving...' : 'Save to Admin Logs'}
+                </Button>
               </>
             )}
           </CardContent>

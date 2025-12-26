@@ -13,7 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, AlertCircle, Save, RefreshCw, Settings } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Save, RefreshCw, Settings, FileText } from 'lucide-react';
+import { LoggedExamplesEditor } from '@/components/admin/LoggedExamplesEditor';
 import { useAuth } from '@/hooks/useAuth';
 import { useDiyRates, useProviderLevels, useStudios, useTimeSlots } from '@/hooks/useEstimatorData';
 import { useOpsSettings } from '@/hooks/useOpsSettings';
@@ -413,6 +414,10 @@ export default function Admin() {
             <TabsTrigger value="rates">DIY Rates</TabsTrigger>
             <TabsTrigger value="providers">Provider Levels</TabsTrigger>
             <TabsTrigger value="ops">Ops Settings</TabsTrigger>
+            <TabsTrigger value="logs" className="gap-1">
+              <FileText className="h-4 w-4" />
+              Logged Examples
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="rates">
@@ -425,6 +430,10 @@ export default function Admin() {
 
           <TabsContent value="ops">
             <OpsSettingsEditor />
+          </TabsContent>
+
+          <TabsContent value="logs">
+            <LoggedExamplesEditor />
           </TabsContent>
         </Tabs>
       </section>

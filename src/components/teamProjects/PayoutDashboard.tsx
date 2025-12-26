@@ -1,9 +1,12 @@
 import { PhaseTotals, TASK_POINTS } from "@/types/teamProject";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, Users, TrendingUp, FileDown } from "lucide-react";
+import { Building2, Users, TrendingUp, FileDown, Save } from "lucide-react";
 import { generateProjectPayoutPdf } from "@/lib/generateProjectPayoutPdf";
 import { format } from "date-fns";
+import { useCreateAdminLog } from "@/hooks/useAdminLogs";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 interface PayoutDashboardProps {
   phaseTotals: PhaseTotals;
@@ -11,6 +14,10 @@ interface PayoutDashboardProps {
 }
 
 export function PayoutDashboard({ phaseTotals, projectName = "" }: PayoutDashboardProps) {
+  const { isAdmin } = useAuth();
+  const createLog = useCreateAdminLog();
+  const { toast } = useToast();
+
   const {
     phaseName,
     phaseRevenue,
@@ -142,24 +149,56 @@ export function PayoutDashboard({ phaseTotals, projectName = "" }: PayoutDashboa
               <span>Margin %</span>
               <span>50%</span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full mt-3 gap-2"
-              onClick={() => generateProjectPayoutPdf({
-                projectName: projectName || phaseName,
-                reportDate: format(new Date(), 'MMMM d, yyyy'),
-                phases: [phaseTotals],
-                grandTotals: {
-                  revenue: phaseRevenue,
-                  studioShare,
-                  teamPool
-                }
-              })}
-            >
-              <FileDown className="h-4 w-4" />
-              Download Phase PDF
-            </Button>
+            <div className="flex gap-2 mt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => generateProjectPayoutPdf({
+                  projectName: projectName || phaseName,
+                  reportDate: format(new Date(), 'MMMM d, yyyy'),
+                  phases: [phaseTotals],
+                  grandTotals: {
+                    revenue: phaseRevenue,
+                    studioShare,
+                    teamPool
+                  }
+                })}
+              >
+                <FileDown className="h-4 w-4" />
+                Download PDF
+              </Button>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-2"
+                  onClick={async () => {
+                    try {
+                      const totalPayouts = memberPayouts.reduce((sum, p) => sum + p.payout, 0);
+                      await createLog.mutateAsync({
+                        log_type: 'team_project',
+                        log_name: projectName || phaseName,
+                        customer_total: phaseRevenue,
+                        provider_payout: totalPayouts,
+                        gross_margin: studioShare,
+                        data_json: {
+                          phaseTotals,
+                          projectName,
+                        },
+                      });
+                      toast({ title: 'Saved to Admin Logs!' });
+                    } catch {
+                      toast({ title: 'Failed to save', variant: 'destructive' });
+                    }
+                  }}
+                  disabled={createLog.isPending}
+                >
+                  <Save className="h-4 w-4" />
+                  {createLog.isPending ? 'Saving...' : 'Save to Logs'}
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_logs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_total: number | null
+          data_json: Json
+          gross_margin: number | null
+          hours: number | null
+          id: string
+          log_name: string | null
+          log_type: string
+          net_profit: number | null
+          provider_payout: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_total?: number | null
+          data_json: Json
+          gross_margin?: number | null
+          hours?: number | null
+          id?: string
+          log_name?: string | null
+          log_type: string
+          net_profit?: number | null
+          provider_payout?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_total?: number | null
+          data_json?: Json
+          gross_margin?: number | null
+          hours?: number | null
+          id?: string
+          log_name?: string | null
+          log_type?: string
+          net_profit?: number | null
+          provider_payout?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
