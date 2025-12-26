@@ -471,6 +471,77 @@ export type Database = {
         }
         Relationships: []
       }
+      sessions: {
+        Row: {
+          actual_duration_seconds: number | null
+          affiliate_code: string | null
+          created_at: string | null
+          created_by: string | null
+          ended_at: string | null
+          final_total: number | null
+          id: string
+          original_total: number | null
+          paused_at: string | null
+          payment_status: string | null
+          quote_id: string | null
+          selections_json: Json | null
+          session_type: string
+          square_payment_id: string | null
+          started_at: string | null
+          status: string
+          total_paused_seconds: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          actual_duration_seconds?: number | null
+          affiliate_code?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          ended_at?: string | null
+          final_total?: number | null
+          id?: string
+          original_total?: number | null
+          paused_at?: string | null
+          payment_status?: string | null
+          quote_id?: string | null
+          selections_json?: Json | null
+          session_type: string
+          square_payment_id?: string | null
+          started_at?: string | null
+          status?: string
+          total_paused_seconds?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          actual_duration_seconds?: number | null
+          affiliate_code?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          ended_at?: string | null
+          final_total?: number | null
+          id?: string
+          original_total?: number | null
+          paused_at?: string | null
+          payment_status?: string | null
+          quote_id?: string | null
+          selections_json?: Json | null
+          session_type?: string
+          square_payment_id?: string | null
+          started_at?: string | null
+          status?: string
+          total_paused_seconds?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       studios: {
         Row: {
           created_at: string | null
