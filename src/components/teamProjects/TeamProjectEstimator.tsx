@@ -13,7 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, UserPlus, Layers, Sparkles } from "lucide-react";
+import { Plus, UserPlus, Layers, Sparkles, FileDown } from "lucide-react";
+import { generateProjectPayoutPdf } from "@/lib/generateProjectPayoutPdf";
+import { format } from "date-fns";
 
 export function TeamProjectEstimator() {
   const [projectName, setProjectName] = useState("");
@@ -154,7 +156,7 @@ export function TeamProjectEstimator() {
       {/* Grand Totals (if multiple phases) */}
       {phases.length > 1 && (
         <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="pt-4">
+          <CardContent className="pt-4 space-y-4">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <div className="text-2xl font-bold">${grandTotals.revenue.toLocaleString()}</div>
@@ -169,6 +171,19 @@ export function TeamProjectEstimator() {
                 <div className="text-sm text-muted-foreground">Team Pool</div>
               </div>
             </div>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => generateProjectPayoutPdf({
+                projectName,
+                reportDate: format(new Date(), 'MMMM d, yyyy'),
+                phases: allPhaseTotals,
+                grandTotals
+              })}
+            >
+              <FileDown className="h-4 w-4" />
+              Download Full Project Report
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -276,7 +291,7 @@ export function TeamProjectEstimator() {
 
                 {/* Right: Payout Dashboard */}
                 <div>
-                  <PayoutDashboard phaseTotals={phaseTotals} />
+                  <PayoutDashboard phaseTotals={phaseTotals} projectName={projectName} />
                 </div>
               </div>
             </TabsContent>
