@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { useCreateAdminLog } from "@/hooks/useAdminLogs";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { AffiliateEarningsCard } from "@/components/AffiliateEarningsCard";
 
 interface PayoutDashboardProps {
   phaseTotals: PhaseTotals;
@@ -227,6 +228,9 @@ export function PayoutDashboard({ phaseTotals, projectName = "", tasks = [], tea
           </CardContent>
         </Card>
       )}
+
+      {/* Affiliate Earnings Card */}
+      <AffiliateEarningsCard customerTotal={phaseRevenue} />
     </div>
   );
 }

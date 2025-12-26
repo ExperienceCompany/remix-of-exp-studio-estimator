@@ -8,6 +8,7 @@ import { useEditingMenu } from '@/hooks/useEstimatorData';
 import { useCreateAdminLog } from '@/hooks/useAdminLogs';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { AffiliateEarningsCard } from '@/components/AffiliateEarningsCard';
 
 // Minimum edits for Enhance tier
 const ENHANCE_MINIMUM = 10;
@@ -281,6 +282,9 @@ export function PhotoEditingEstimator() {
               <span className="text-2xl font-bold text-primary">${calculateTotal}</span>
             </div>
           </div>
+
+          {/* Affiliate Earnings Card */}
+          <AffiliateEarningsCard customerTotal={calculateTotal} />
 
           <div className="flex flex-wrap gap-2 justify-between mt-6">
             <Button variant="outline" onClick={handleBack}>
