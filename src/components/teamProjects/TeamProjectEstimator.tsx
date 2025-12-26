@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, UserPlus, Layers, Sparkles, FileDown, Users, ClipboardList } from "lucide-react";
 import { generateProjectPayoutPdf, TaskPdfData, PhasePdfData } from "@/lib/generateProjectPayoutPdf";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 type ViewMode = 'team' | 'tasks';
 
@@ -30,6 +30,8 @@ interface InitialData {
   budget?: number;
   description?: string;
   allocationMode?: 'flexible' | 'balanced';
+  startDate?: string | null;
+  endDate?: string | null;
   phases: ProjectPhase[];
 }
 
@@ -368,6 +370,7 @@ export function TeamProjectEstimator({ initialData, onProjectUpdate }: TeamProje
                       level: task.level,
                       status: task.status,
                       assigneeName: member?.name || null,
+                      dueDate: task.dueDate || null,
                       value
                     };
                   });
@@ -517,6 +520,8 @@ export function TeamProjectEstimator({ initialData, onProjectUpdate }: TeamProje
                       phase={phase}
                       teamPool={phaseTotals.teamPool}
                       totalPoints={phaseTotals.totalPoints}
+                      projectStartDate={initialData?.startDate ? parseISO(initialData.startDate) : null}
+                      projectEndDate={initialData?.endDate ? parseISO(initialData.endDate) : null}
                       onUpdateTask={(taskId, updates) => updateTask(phase.id, taskId, updates)}
                       onRemoveTask={(taskId) => removeTask(phase.id, taskId)}
                       onAddTask={() => addTask(phase.id)}

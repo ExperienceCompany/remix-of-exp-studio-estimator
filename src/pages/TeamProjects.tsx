@@ -167,6 +167,7 @@ export default function TeamProjects() {
           level: task.level,
           status: task.status,
           assigneeName: member?.name || null,
+          dueDate: task.dueDate || null,
           value
         };
       });

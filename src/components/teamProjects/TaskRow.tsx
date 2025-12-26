@@ -4,13 +4,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, User, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Trash2, User, X, CalendarIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface TaskRowProps {
   task: ProjectTask;
   taskValue: number;
   assignee?: TeamMember;
   teamMembers: TeamMember[];
+  projectStartDate?: Date | null;
+  projectEndDate?: Date | null;
   onUpdate: (updates: Partial<ProjectTask>) => void;
   onRemove: () => void;
 }
@@ -27,8 +33,28 @@ const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'done', label: 'Done' }
 ];
 
-export function TaskRow({ task, taskValue, assignee, teamMembers, onUpdate, onRemove }: TaskRowProps) {
+export function TaskRow({ 
+  task, 
+  taskValue, 
+  assignee, 
+  teamMembers, 
+  projectStartDate,
+  projectEndDate,
+  onUpdate, 
+  onRemove 
+}: TaskRowProps) {
   const levelBadge = LEVEL_BADGES[task.level];
+  const dueDate = task.dueDate ? parseISO(task.dueDate) : undefined;
+
+  const handleDateSelect = (date: Date | undefined) => {
+    onUpdate({ dueDate: date ? format(date, 'yyyy-MM-dd') : null });
+  };
+
+  const isDateDisabled = (date: Date) => {
+    if (projectStartDate && date < projectStartDate) return true;
+    if (projectEndDate && date > projectEndDate) return true;
+    return false;
+  };
 
   return (
     <Card className="border-border">
@@ -63,6 +89,45 @@ export function TaskRow({ task, taskValue, assignee, teamMembers, onUpdate, onRe
           <div className="text-sm font-medium text-primary min-w-[80px] text-right">
             ${taskValue.toFixed(2)}
           </div>
+
+          {/* Due Date Picker */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "w-[120px] h-8 justify-start text-left font-normal",
+                  !dueDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {dueDate ? format(dueDate, "MMM d") : "Due date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dueDate}
+                onSelect={handleDateSelect}
+                disabled={isDateDisabled}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+              {dueDate && (
+                <div className="p-2 border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-muted-foreground"
+                    onClick={() => handleDateSelect(undefined)}
+                  >
+                    Clear date
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
 
           {/* Status Selector */}
           <Select value={task.status} onValueChange={(val: TaskStatus) => onUpdate({ status: val })}>

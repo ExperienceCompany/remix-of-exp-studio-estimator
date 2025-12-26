@@ -8,6 +8,7 @@ export interface TaskPdfData {
   level: TaskLevel;
   status: TaskStatus;
   assigneeName: string | null;
+  dueDate?: string | null;
   value: number;
 }
 
