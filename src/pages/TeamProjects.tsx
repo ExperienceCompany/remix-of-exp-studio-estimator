@@ -35,6 +35,8 @@ export default function TeamProjects() {
         budget: existingLog.customer_total || 5000,
         description: (data.description as string) || '',
         allocationMode: (data.allocationMode as 'flexible' | 'balanced') || 'flexible',
+        startDate: (data.startDate as string) || null,
+        endDate: (data.endDate as string) || null,
         phases: (data.phases as ProjectPhase[]) || []
       });
       setActiveTab("editor");
@@ -61,6 +63,8 @@ export default function TeamProjects() {
           projectType: output.projectType,
           description: output.description,
           allocationMode: output.allocationMode,
+          startDate: output.startDate,
+          endDate: output.endDate,
           phases: output.phases,
           generatedAt: new Date().toISOString()
         }
@@ -111,6 +115,8 @@ export default function TeamProjects() {
           projectType: generatedProject.projectType,
           description: generatedProject.description,
           allocationMode: generatedProject.allocationMode,
+          startDate: generatedProject.startDate,
+          endDate: generatedProject.endDate,
           phases: generatedProject.phases,
           updatedAt: new Date().toISOString()
         }
@@ -177,6 +183,8 @@ export default function TeamProjects() {
     generateProjectPayoutPdf({
       projectName: generatedProject.projectName,
       reportDate: format(new Date(), 'MMMM d, yyyy'),
+      startDate: generatedProject.startDate,
+      endDate: generatedProject.endDate,
       phases: phasesWithTasks,
       grandTotals
     });

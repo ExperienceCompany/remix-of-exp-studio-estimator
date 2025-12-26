@@ -6,8 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Wand2, UserPlus } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Trash2, Wand2, UserPlus, CalendarIcon } from "lucide-react";
 import { generateFlexibleTasks, generateBalancedTasks, ProjectPhase } from "@/types/teamProject";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface TeamMemberInput {
   id: string;
@@ -21,6 +25,8 @@ export interface GeneratorOutput {
   budget: number;
   description: string;
   allocationMode: 'flexible' | 'balanced';
+  startDate: string | null;
+  endDate: string | null;
   phases: ProjectPhase[];
 }
 
@@ -56,6 +62,8 @@ export function TaskBoardGenerator({ onGenerate }: TaskBoardGeneratorProps) {
   const [budget, setBudget] = useState(5000);
   const [description, setDescription] = useState("");
   const [allocationMode, setAllocationMode] = useState<'flexible' | 'balanced'>('flexible');
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [teamMembers, setTeamMembers] = useState<TeamMemberInput[]>([
     { id: crypto.randomUUID(), name: '', role: 'Designer' }
   ]);
@@ -111,6 +119,8 @@ export function TaskBoardGenerator({ onGenerate }: TaskBoardGeneratorProps) {
       budget,
       description,
       allocationMode,
+      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
+      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
       phases: [phase]
     });
   };
@@ -155,6 +165,62 @@ export function TaskBoardGenerator({ onGenerate }: TaskBoardGeneratorProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        </div>
+
+        {/* Project Dates */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Start Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, "PPP") : "Select start date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={setStartDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>End Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !endDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, "PPP") : "Select end date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={setEndDate}
+                  disabled={(date) => startDate ? date < startDate : false}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
