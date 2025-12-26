@@ -96,7 +96,10 @@ export function DayView({
           {timeSlots.map((time, idx) => {
             const isHourMark = time.endsWith(':00');
             return (
-              <tr key={time} className={cn(isHourMark && 'border-t border-border')}>
+              <tr key={time} className={cn(
+                "border-b border-muted-foreground/20",
+                isHourMark && "border-t border-border"
+              )}>
                 <td className={cn(
                   "py-1 px-2 text-xs text-muted-foreground border-r font-mono",
                   isHourMark ? "font-medium" : "text-muted-foreground/60"
