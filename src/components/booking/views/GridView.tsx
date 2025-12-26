@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
+import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { BookingCard } from '../BookingCard';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
@@ -34,73 +34,97 @@ export function GridView({
 
   return (
     <div className="border rounded-lg overflow-x-auto">
-      <table className="w-full min-w-[900px]">
+      <table className="w-full min-w-[800px]">
         <thead>
           <tr className="bg-muted">
             <th className="w-32 py-3 px-2 text-left text-sm font-medium text-muted-foreground border-b border-r">
-              Studio
+              Date
             </th>
-            {weekDays.map((day) => (
+            {studios.map((studio) => (
               <th
-                key={day.toISOString()}
-                className={cn(
-                  'py-3 px-2 text-center text-sm font-medium border-b border-r',
-                  isToday(day) && 'bg-primary/10'
-                )}
+                key={studio.id}
+                className="py-3 px-2 text-center text-sm font-medium border-b border-r"
               >
-                <div>{format(day, 'EEE')}</div>
-                <div
-                  className={cn(
-                    'text-lg',
-                    isToday(day) && 'text-primary font-bold'
-                  )}
-                >
-                  {format(day, 'd')}
+                <div>{studio.name}</div>
+                <div className="text-xs text-muted-foreground font-normal">
+                  {studio.type.replace(/_/g, ' ')}
                 </div>
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {studios.map((studio, studioIdx) => (
-            <tr key={studio.id} className={cn(studioIdx % 2 === 0 && 'bg-muted/20')}>
-              <td className="py-2 px-2 text-sm font-medium border-r">
-                {studio.name}
-              </td>
-              {weekDays.map((day) => {
-                const cellBookings = getBookingsForDateAndStudio(day, studio.id);
-                
-                return (
-                  <td
-                    key={day.toISOString()}
-                    className={cn(
-                      'py-1 px-1 border-r min-h-[80px] align-top cursor-pointer hover:bg-muted/50',
-                      isToday(day) && 'bg-primary/5'
-                    )}
-                    onClick={() => onDateClick?.(day, studio.id)}
-                  >
-                    <div className="space-y-0.5 max-h-[100px] overflow-y-auto">
-                      {cellBookings.slice(0, 2).map((booking) => (
-                        <BookingCard
-                          key={booking.id}
-                          booking={booking}
-                          compact
-                          onClick={() => {
-                            onBookingClick?.(booking);
-                          }}
-                        />
-                      ))}
-                      {cellBookings.length > 2 && (
-                        <div className="text-xs text-muted-foreground px-1">
-                          +{cellBookings.length - 2} more
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {weekDays.map((date, idx) => {
+            const isTodayDate = isToday(date);
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+            
+            return (
+              <tr
+                key={date.toISOString()}
+                className={cn(
+                  'hover:bg-muted/30 transition-colors',
+                  isWeekend && 'bg-muted/10',
+                  isTodayDate && 'bg-primary/5'
+                )}
+              >
+                <td
+                  className={cn(
+                    "py-2 px-2 border-r cursor-pointer",
+                    isTodayDate && "font-bold"
+                  )}
+                  onClick={() => onDateClick?.(date)}
+                >
+                  <div className="text-sm font-medium">
+                    {format(date, 'EEE')}
+                  </div>
+                  <div className={cn(
+                    "text-lg",
+                    isTodayDate && "text-primary"
+                  )}>
+                    {format(date, 'd')}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {format(date, 'MMM')}
+                  </div>
+                </td>
+                {studios.map((studio) => {
+                  const dayBookings = getBookingsForDateAndStudio(date, studio.id);
+                  const displayBookings = dayBookings.slice(0, 3);
+                  const hasMore = dayBookings.length > 3;
+
+                  return (
+                    <td
+                      key={studio.id}
+                      className="py-1 px-1 border-r align-top min-h-[80px] cursor-pointer hover:bg-muted/50"
+                      onClick={() => dayBookings.length === 0 && onDateClick?.(date, studio.id)}
+                    >
+                      <div className="space-y-1">
+                        {displayBookings.map((booking) => (
+                          <BookingCard
+                            key={booking.id}
+                            booking={booking}
+                            compact
+                            onClick={() => onBookingClick?.(booking)}
+                          />
+                        ))}
+                        {hasMore && (
+                          <div
+                            className="text-xs text-muted-foreground text-center cursor-pointer hover:text-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDateClick?.(date);
+                            }}
+                          >
+                            +{dayBookings.length - 3} more
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
