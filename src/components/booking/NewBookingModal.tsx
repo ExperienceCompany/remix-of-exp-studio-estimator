@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { format, getDay, addWeeks, addMonths } from 'date-fns';
+import { format, getDay } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -54,12 +54,12 @@ import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddon
 import { useCreateBooking } from '@/hooks/useStudioBookings';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { RepeatOptions, RepeatConfig, createDefaultRepeatConfig, calculateRepeatDates } from './RepeatOptions';
 import type { TimeSlotType, ServiceType, CrewAllocation, SessionAddon } from '@/types/estimator';
 
 type BookingType = 'customer' | 'internal' | 'unavailable';
 type SessionType = 'diy' | 'serviced';
 type HolderType = 'casual' | 'customer' | 'internal';
-type RepeatType = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
 type PaymentStatus = 'not_applicable' | 'pending' | 'paid' | 'partial';
 type BookingStep = 'basic' | 'service' | 'duration' | 'addons' | 'summary';
 
@@ -214,7 +214,7 @@ export function NewBookingModal({
   const [date, setDate] = useState<Date | undefined>(defaultDate || new Date());
   const [startTime, setStartTime] = useState<string>('10:00 AM');
   const [endTime, setEndTime] = useState<string>('11:00 AM');
-  const [repeat, setRepeat] = useState<RepeatType>('none');
+  const [repeatConfig, setRepeatConfig] = useState<RepeatConfig>(() => createDefaultRepeatConfig(defaultDate || new Date()));
   const [selectedStudios, setSelectedStudios] = useState<string[]>([]);
   const [holderType, setHolderType] = useState<HolderType>('casual');
   const [customerName, setCustomerName] = useState('');
@@ -243,7 +243,7 @@ export function NewBookingModal({
       setDate(defaultDate || new Date());
       setStartTime('10:00 AM');
       setEndTime('11:00 AM');
-      setRepeat('none');
+      setRepeatConfig(createDefaultRepeatConfig(defaultDate || new Date()));
       setSelectedStudios([]);
       setHolderType('casual');
       setCustomerName('');
@@ -260,6 +260,13 @@ export function NewBookingModal({
       setAffiliateCode('');
     }
   }, [open, defaultDate]);
+
+  // Update repeat config when date changes to reflect correct weekday defaults
+  useEffect(() => {
+    if (date && repeatConfig.frequency === 'none') {
+      setRepeatConfig(createDefaultRepeatConfig(date));
+    }
+  }, [date]);
 
   const timeSlots = useMemo(() => {
     return generateTimeSlots(operatingStart, operatingEnd);
@@ -489,35 +496,17 @@ export function NewBookingModal({
         })
       );
 
-      // If repeating, create additional bookings
-      if (repeat !== 'none') {
-        const repeatCount = repeat === 'daily' ? 7 : repeat === 'weekly' ? 4 : repeat === 'biweekly' ? 4 : 3;
+      // If repeating, create additional bookings for each repeat date
+      if (repeatConfig.frequency !== 'none') {
+        const repeatDates = calculateRepeatDates(repeatConfig, date);
         
-        for (let i = 1; i <= repeatCount; i++) {
-          let nextDate: Date;
-          switch (repeat) {
-            case 'daily':
-              nextDate = new Date(date);
-              nextDate.setDate(date.getDate() + i);
-              break;
-            case 'weekly':
-              nextDate = addWeeks(date, i);
-              break;
-            case 'biweekly':
-              nextDate = addWeeks(date, i * 2);
-              break;
-            case 'monthly':
-              nextDate = addMonths(date, i);
-              break;
-            default:
-              continue;
-          }
-          
+        // Skip the first date (already created above)
+        for (const repeatDate of repeatDates.slice(1)) {
           for (const studioId of selectedStudios) {
             bookingPromises.push(
               createBooking.mutateAsync({
                 studio_id: studioId,
-                booking_date: format(nextDate, 'yyyy-MM-dd'),
+                booking_date: format(repeatDate, 'yyyy-MM-dd'),
                 start_time: to24Hour(startTime),
                 end_time: to24Hour(bookingEndTime),
                 booking_type: bookingType,
@@ -885,21 +874,12 @@ export function NewBookingModal({
               </div>
 
               {/* Repeat */}
-              <div className="space-y-2">
-                <Label>Repeat</Label>
-                <Select value={repeat} onValueChange={(v: RepeatType) => setRepeat(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="daily">Daily (next 7 days)</SelectItem>
-                    <SelectItem value="weekly">Weekly (next 4 weeks)</SelectItem>
-                    <SelectItem value="biweekly">Biweekly (next 8 weeks)</SelectItem>
-                    <SelectItem value="monthly">Monthly (next 3 months)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <RepeatOptions
+                config={repeatConfig}
+                onChange={setRepeatConfig}
+                startDate={date || new Date()}
+                startTime={startTime}
+              />
 
               {/* Spaces */}
               <div className="space-y-2">
