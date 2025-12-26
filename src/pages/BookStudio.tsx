@@ -60,6 +60,15 @@ export default function BookStudio() {
     }
   };
 
+  // Handle inline booking creation from Day View
+  const handleInlineBookingCreate = (date: Date, studioId: string, startTime: string, endTime: string) => {
+    setSelectedDate(date);
+    setSelectedStudioId(studioId);
+    setSelectedStartTime(startTime);
+    setSelectedEndTime(endTime);
+    setStep('booking-form');
+  };
+
   const handleTimeSlotClick = (time: string) => {
     if (!selectedStartTime) {
       setSelectedStartTime(time);
@@ -196,6 +205,7 @@ export default function BookStudio() {
             </div>
             <BookingCalendar
               onDateSelect={handleCalendarSelect}
+              onBookingCreate={handleInlineBookingCreate}
               onBookingClick={(booking) => {
                 // Could show booking details modal
                 console.log('Booking clicked:', booking);

@@ -30,6 +30,7 @@ type ViewMode = 'month' | 'day' | 'grid' | 'list';
 interface BookingCalendarProps {
   onDateSelect?: (date: Date, studioId?: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
+  onBookingCreate?: (date: Date, studioId: string, startTime: string, endTime: string) => void;
   initialDate?: Date;
   selectedStudioId?: string;
 }
@@ -37,6 +38,7 @@ interface BookingCalendarProps {
 export function BookingCalendar({
   onDateSelect,
   onBookingClick,
+  onBookingCreate,
   initialDate,
   selectedStudioId,
 }: BookingCalendarProps) {
@@ -232,6 +234,9 @@ export function BookingCalendar({
             studios={filterStudioId === 'all' ? activeStudios : activeStudios.filter(s => s.id === filterStudioId)}
             onSlotClick={(studioId, time) => onDateSelect?.(currentDate, studioId)}
             onBookingClick={onBookingClick}
+            onBookingCreate={(studioId, startTime, endTime) => 
+              onBookingCreate?.(currentDate, studioId, startTime, endTime)
+            }
           />
         )}
         {viewMode === 'grid' && (
