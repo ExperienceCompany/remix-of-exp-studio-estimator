@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { format, startOfWeek, addDays, isToday } from 'date-fns';
+import { format, addDays, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { BookingCard } from '../BookingCard';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
@@ -19,11 +19,10 @@ export function GridView({
   onDateClick,
   onBookingClick,
 }: GridViewProps) {
-  const weekStart = startOfWeek(currentDate);
-  
+  // Start from current date instead of week start
   const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  }, [weekStart]);
+    return Array.from({ length: 7 }, (_, i) => addDays(currentDate, i));
+  }, [currentDate]);
 
   const getBookingsForDateAndStudio = (date: Date, studioId: string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
