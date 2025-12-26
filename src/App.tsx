@@ -14,6 +14,7 @@ import QuoteView from "./pages/QuoteView";
 import TeamProjects from "./pages/TeamProjects";
 import TeamPayouts from "./pages/TeamPayouts";
 import SessionTimer from "./pages/SessionTimer";
+import Sessions from "./pages/Sessions";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/quote/:id" element={<QuoteView />} />
           <Route path="/projects" element={<TeamProjects />} />
           <Route path="/payouts" element={<TeamPayouts />} />
+          <Route path="/sessions" element={<Sessions />} />
           <Route path="/session/:id" element={<SessionTimer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
