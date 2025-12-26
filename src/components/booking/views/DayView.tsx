@@ -116,6 +116,7 @@ export function DayView({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
 
   // Clear pending booking when trigger changes (from parent after successful booking)
   useEffect(() => {
@@ -332,11 +333,11 @@ export function DayView({
       if (!pendingBooking || !pendingRange) return;
 
       if (resizeMode) {
-        // Calculate which slot we're over
-        const container = containerRef.current;
-        if (!container) return;
+        // Calculate which slot we're over using tbody for accurate Y position
+        const tbody = tbodyRef.current;
+        if (!tbody) return;
         
-        const rect = container.getBoundingClientRect();
+        const rect = tbody.getBoundingClientRect();
         const relativeY = e.clientY - rect.top;
         const slotIndex = Math.floor(relativeY / SLOT_HEIGHT);
         const targetSlotMins = timeToMinutes(operatingStart) + (slotIndex * 15);
@@ -591,7 +592,7 @@ export function DayView({
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={tbodyRef}>
             {timeSlots.map((time) => {
               const isHourMark = time.endsWith(':00');
               return (
