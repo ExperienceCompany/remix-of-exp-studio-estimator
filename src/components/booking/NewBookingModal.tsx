@@ -68,13 +68,14 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
-import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons } from '@/hooks/useEstimatorData';
+import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons, useEditingMenu } from '@/hooks/useEstimatorData';
+import { Switch } from '@/components/ui/switch';
 import { useCreateBooking, useUpdateBooking, useCancelBooking, StudioBooking } from '@/hooks/useStudioBookings';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RepeatOptions, RepeatConfig, createDefaultRepeatConfig, calculateRepeatDates } from './RepeatOptions';
 import { useProfiles, useCreateProfile, Profile } from '@/hooks/useProfiles';
-import type { TimeSlotType, ServiceType, CrewAllocation, SessionAddon } from '@/types/estimator';
+import type { TimeSlotType, ServiceType, CrewAllocation, SessionAddon, EditingItem } from '@/types/estimator';
 
 type BookingType = 'customer' | 'internal' | 'unavailable';
 type SessionType = 'diy' | 'serviced';
@@ -246,7 +247,7 @@ export function NewBookingModal({
   const { data: services = [] } = useServices();
   const { data: vodcastCameraAddons = [] } = useVodcastCameraAddons();
   const { data: sessionAddonsData = [] } = useSessionAddons();
-  
+  const { data: editingMenuData = [] } = useEditingMenu();
   // Profiles hook for user search
   const [profileSearch, setProfileSearch] = useState('');
   const { data: profiles = [] } = useProfiles(profileSearch);
@@ -286,6 +287,8 @@ export function NewBookingModal({
   const [cameraCount, setCameraCount] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [affiliateCode, setAffiliateCode] = useState('');
+  const [editingItems, setEditingItems] = useState<EditingItem[]>([]);
+  const [addonHours, setAddonHours] = useState<Record<string, number>>({});
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -323,7 +326,8 @@ export function NewBookingModal({
         setCameraCount(1);
         setSelectedAddons([]);
         setAffiliateCode('');
-      } else {
+        setEditingItems([]);
+        setAddonHours({});
         // New booking - use prefill data or defaults
         setBookingType('customer');
         setSessionType('diy');
@@ -345,6 +349,8 @@ export function NewBookingModal({
         setCameraCount(1);
         setSelectedAddons([]);
         setAffiliateCode('');
+        setEditingItems([]);
+        setAddonHours({});
       }
     }
   }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking]);
@@ -373,10 +379,35 @@ export function NewBookingModal({
   const availableAddons = useMemo(() => {
     return sessionAddonsData.filter(addon => {
       if (!addon.is_active) return false;
+      // Hide service type addons (like Revisions) - they appear separately
+      if (addon.addon_type === 'service') return false;
       if (addon.applies_to_session_type && addon.applies_to_session_type !== sessionType) return false;
       return true;
     });
   }, [sessionAddonsData, sessionType]);
+
+  // Get auto-included addons (like Set Design fee for photoshoot)
+  const autoIncludedAddons = useMemo(() => {
+    return sessionAddonsData.filter(addon => {
+      if (!addon.is_active) return false;
+      // Set Design + Props is auto-included for serviced photoshoot
+      if (sessionType === 'serviced' && serviceType === 'photoshoot' && addon.name.includes('Set Design')) {
+        return true;
+      }
+      return false;
+    });
+  }, [sessionAddonsData, sessionType, serviceType]);
+
+  // Filter photo editing items (only for photoshoot)
+  const photoEditingItems = useMemo(() => {
+    if (serviceType !== 'photoshoot') return [];
+    return editingMenuData.filter(item => item.category === 'photo_editing');
+  }, [editingMenuData, serviceType]);
+
+  // Filter revision addon (hourly)
+  const revisionsAddon = useMemo(() => {
+    return sessionAddonsData.find(addon => addon.is_active && addon.name === 'Revisions');
+  }, [sessionAddonsData]);
 
   // Calculate total crew members
   const totalCrew = useMemo(() => {
@@ -435,16 +466,27 @@ export function NewBookingModal({
         const addon = sessionAddonsData.find(a => a.id === addonId);
         if (addon) {
           if (addon.is_hourly) {
-            total += Number(addon.flat_amount) * durationHours;
+            const hrs = addonHours[addonId] || 1;
+            total += Number(addon.flat_amount) * hrs;
           } else {
             total += Number(addon.flat_amount);
           }
         }
       }
+
+      // Add auto-included addons
+      for (const addon of autoIncludedAddons) {
+        total += Number(addon.flat_amount);
+      }
+
+      // Add editing items (photo editing)
+      for (const editItem of editingItems) {
+        total += editItem.quantity * editItem.customerPrice;
+      }
     }
     
     return Math.round(total * 100) / 100;
-  }, [date, selectedStudios, hours, startTime, sessionType, sessionDuration, crewAllocation, cameraCount, serviceType, selectedAddons, bookingType, diyRates, providerLevels, vodcastCameraAddons, sessionAddonsData]);
+  }, [date, selectedStudios, hours, startTime, sessionType, sessionDuration, crewAllocation, cameraCount, serviceType, selectedAddons, bookingType, diyRates, providerLevels, vodcastCameraAddons, sessionAddonsData, autoIncludedAddons, editingItems, addonHours]);
 
   const displayPrice = manualPrice !== '' ? parseFloat(manualPrice) || 0 : calculatedPrice;
 
@@ -535,17 +577,34 @@ export function NewBookingModal({
     for (const addonId of selectedAddons) {
       const addon = sessionAddonsData.find(a => a.id === addonId);
       if (addon) {
-        const durationToUse = sessionType === 'serviced' ? sessionDuration : hours;
-        const cost = addon.is_hourly ? Number(addon.flat_amount) * durationToUse : Number(addon.flat_amount);
+        const hrs = addon.is_hourly ? (addonHours[addonId] || 1) : 1;
+        const cost = addon.is_hourly ? Number(addon.flat_amount) * hrs : Number(addon.flat_amount);
         items.push({
-          label: addon.name + (addon.is_hourly ? ` (${formatDuration(durationToUse)} @ $${addon.flat_amount}/hr)` : ''),
+          label: addon.name + (addon.is_hourly ? ` (${hrs} hr${hrs > 1 ? 's' : ''} @ $${addon.flat_amount}/hr)` : ''),
           amount: cost,
         });
       }
     }
+
+    // Auto-included addons
+    for (const addon of autoIncludedAddons) {
+      items.push({
+        label: `${addon.name} (included)`,
+        amount: Number(addon.flat_amount),
+      });
+    }
+
+    // Editing items (photo editing)
+    for (const editItem of editingItems) {
+      const total = editItem.quantity * editItem.customerPrice;
+      items.push({
+        label: `${editItem.name} (${editItem.quantity} edits @ $${editItem.customerPrice}/edit)`,
+        amount: total,
+      });
+    }
     
     return items;
-  }, [date, selectedStudios, startTime, sessionType, sessionDuration, hours, bookingType, crewAllocation, serviceType, cameraCount, selectedAddons, studios, diyRates, providerLevels, vodcastCameraAddons, sessionAddonsData]);
+  }, [date, selectedStudios, startTime, sessionType, sessionDuration, hours, bookingType, crewAllocation, serviceType, cameraCount, selectedAddons, studios, diyRates, providerLevels, vodcastCameraAddons, sessionAddonsData, autoIncludedAddons, editingItems, addonHours]);
 
   // Get studio rates for display
   const studioRatesDisplay = useMemo(() => {
@@ -601,6 +660,44 @@ export function NewBookingModal({
         ? prev.filter(id => id !== addonId)
         : [...prev, addonId]
     );
+  };
+
+  // Toggle a photo editing item on/off
+  const toggleEditingItem = (item: { id: string; name: string; category: string; base_price: number; customer_price: number | null }) => {
+    const existing = editingItems.find(e => e.id === item.id);
+    if (existing) {
+      setEditingItems(prev => prev.filter(e => e.id !== item.id));
+    } else {
+      const isEnhance = item.name === 'Enhance Edit';
+      const customerPrice = Number(item.customer_price || item.base_price * 2);
+      setEditingItems(prev => [
+        ...prev,
+        {
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          quantity: isEnhance ? 10 : 1,
+          basePrice: Number(item.base_price),
+          customerPrice,
+          incrementPrice: null,
+        },
+      ]);
+    }
+  };
+
+  // Update quantity for an editing item
+  const updateEditingQuantity = (itemId: string, newQuantity: number) => {
+    setEditingItems(prev => prev.map(e => {
+      if (e.id !== itemId) return e;
+      const isEnhance = e.name === 'Enhance Edit';
+      const minQuantity = isEnhance ? 10 : 1;
+      return { ...e, quantity: Math.max(minQuantity, newQuantity) };
+    }));
+  };
+
+  // Update hours for an hourly addon
+  const updateAddonHours = (addonId: string, hours: number) => {
+    setAddonHours(prev => ({ ...prev, [addonId]: Math.max(1, hours) }));
   };
 
   // Get current step index based on session type
@@ -1575,13 +1672,33 @@ export function NewBookingModal({
           {step === 'addons' && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Select any additional services.</p>
-              
-              {availableAddons.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No add-ons available</p>
-              ) : (
+
+              {/* Auto-Included Add-ons */}
+              {autoIncludedAddons.length > 0 && (
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Check className="h-4 w-4 text-primary" />
+                      Included with Session
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    {autoIncludedAddons.map(addon => (
+                      <div key={addon.id} className="flex items-center justify-between py-1">
+                        <span className="text-sm">{addon.name}</span>
+                        <Badge variant="secondary">+${addon.flat_amount}</Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Session Add-ons */}
+              {availableAddons.length > 0 && (
                 <div className="space-y-3">
                   {availableAddons.map(addon => {
                     const isSelected = selectedAddons.includes(addon.id);
+                    const hrs = addonHours[addon.id] || 1;
                     return (
                       <Card
                         key={addon.id}
@@ -1591,7 +1708,7 @@ export function NewBookingModal({
                         )}
                         onClick={() => toggleAddon(addon.id)}
                       >
-                        <CardHeader className="p-4">
+                        <CardHeader className="p-4 pb-2">
                           <div className="flex items-center justify-between">
                             <div>
                               <CardTitle className="text-sm">{addon.name}</CardTitle>
@@ -1607,14 +1724,187 @@ export function NewBookingModal({
                             </div>
                           </div>
                         </CardHeader>
+                        {/* Hour selector for hourly add-ons */}
+                        {isSelected && addon.is_hourly && (
+                          <CardContent className="p-4 pt-0" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">Hours:</span>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => { e.stopPropagation(); updateAddonHours(addon.id, hrs - 1); }}
+                                  disabled={hrs <= 1}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <Input
+                                  type="number"
+                                  value={hrs}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => updateAddonHours(addon.id, parseInt(e.target.value) || 1)}
+                                  className="w-14 h-7 text-center text-sm"
+                                  min={1}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => { e.stopPropagation(); updateAddonHours(addon.id, hrs + 1); }}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                                <span className="text-sm font-medium ml-2">= ${hrs * Number(addon.flat_amount)}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        )}
                       </Card>
                     );
                   })}
                 </div>
               )}
 
-              {/* Line Items Breakdown for DIY */}
-              {sessionType === 'diy' && lineItems.length > 0 && (
+              {/* Photo Editing (for photoshoot service) */}
+              {photoEditingItems.length > 0 && (
+                <Card>
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Camera className="h-4 w-4" />
+                      Photo Editing
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Select editing services and quantity
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-3">
+                    {photoEditingItems.map(item => {
+                      const selectedItem = editingItems.find(e => e.id === item.id);
+                      const isSelected = !!selectedItem;
+                      const quantity = selectedItem?.quantity || 0;
+                      const customerPrice = Number(item.customer_price || item.base_price * 2);
+                      const isEnhance = item.name === 'Enhance Edit';
+                      const itemTotal = quantity * customerPrice;
+
+                      return (
+                        <div key={item.id} className="space-y-2 py-2 border-b last:border-0">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                checked={isSelected}
+                                onCheckedChange={() => toggleEditingItem(item)}
+                              />
+                              <div>
+                                <p className="text-sm font-medium">{item.name}</p>
+                                <p className="text-xs text-muted-foreground">{item.description}</p>
+                                {isEnhance && (
+                                  <p className="text-xs text-primary font-medium">10 edit minimum ($100)</p>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-sm font-medium">${customerPrice}/edit</span>
+                          </div>
+
+                          {isSelected && (
+                            <div className="flex items-center justify-between pl-12">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateEditingQuantity(item.id, quantity - 1)}
+                                  disabled={isEnhance ? quantity <= 10 : quantity <= 1}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <Input
+                                  type="number"
+                                  value={quantity}
+                                  onChange={(e) => updateEditingQuantity(item.id, parseInt(e.target.value) || 1)}
+                                  className="w-14 h-7 text-center text-sm"
+                                  min={isEnhance ? 10 : 1}
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateEditingQuantity(item.id, quantity + 1)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <span className="text-sm font-bold">= ${itemTotal}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Revisions add-on (hourly) */}
+              {revisionsAddon && sessionType === 'serviced' && (
+                <Card>
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={selectedAddons.includes(revisionsAddon.id)}
+                          onCheckedChange={() => toggleAddon(revisionsAddon.id)}
+                        />
+                        <div>
+                          <CardTitle className="text-sm">{revisionsAddon.name}</CardTitle>
+                          {revisionsAddon.description && (
+                            <CardDescription className="text-xs">{revisionsAddon.description}</CardDescription>
+                          )}
+                        </div>
+                      </div>
+                      <Badge variant="secondary">+${revisionsAddon.flat_amount}/hr</Badge>
+                    </div>
+                  </CardHeader>
+                  {selectedAddons.includes(revisionsAddon.id) && (
+                    <CardContent className="p-4 pt-0">
+                      <div className="flex items-center justify-between pl-12">
+                        <span className="text-xs text-muted-foreground">Hours:</span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateAddonHours(revisionsAddon.id, (addonHours[revisionsAddon.id] || 1) - 1)}
+                            disabled={(addonHours[revisionsAddon.id] || 1) <= 1}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Input
+                            type="number"
+                            value={addonHours[revisionsAddon.id] || 1}
+                            onChange={(e) => updateAddonHours(revisionsAddon.id, parseInt(e.target.value) || 1)}
+                            className="w-14 h-7 text-center text-sm"
+                            min={1}
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateAddonHours(revisionsAddon.id, (addonHours[revisionsAddon.id] || 1) + 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-sm font-medium ml-2">
+                            = ${(addonHours[revisionsAddon.id] || 1) * Number(revisionsAddon.flat_amount)}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              )}
+
+              {/* Line Items Breakdown */}
+              {lineItems.length > 0 && (
                 <Card className="mt-4">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">Cost Breakdown</CardTitle>
