@@ -1,9 +1,10 @@
-import { ProjectTask, TeamMember, TaskStatus, TASK_POINTS } from "@/types/teamProject";
+import { ProjectTask, TeamMember, TaskStatus, TASK_POINTS, getBlockingTasks } from "@/types/teamProject";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { differenceInDays, parseISO, format, isWithinInterval, addDays, startOfDay } from "date-fns";
 import { useMemo } from "react";
+import { AlertTriangle, Link2 } from "lucide-react";
 
 interface TaskTimelineProps {
   tasks: ProjectTask[];
@@ -120,19 +121,24 @@ export function TaskTimeline({
     
     const value = getTaskValue(task);
     const member = task.assigneeId ? getMemberById(task.assigneeId) : null;
+    const blockingTasks = getBlockingTasks(task, tasks);
+    const isBlocked = blockingTasks.length > 0;
+    const hasDependencies = task.dependsOn && task.dependsOn.length > 0;
 
     return (
       <TooltipProvider key={task.id}>
         <Tooltip>
           <TooltipTrigger asChild>
             <div
-              className={`absolute h-6 rounded-md cursor-pointer transition-all hover:opacity-80 flex items-center px-2 text-xs text-white font-medium truncate ${STATUS_COLORS[task.status]}`}
+              className={`absolute h-6 rounded-md cursor-pointer transition-all hover:opacity-80 flex items-center px-2 text-xs text-white font-medium truncate ${STATUS_COLORS[task.status]} ${isBlocked ? 'ring-2 ring-amber-500' : ''}`}
               style={{
                 left: `${position}%`,
                 width: `${Math.max(100 / days * 2, 3)}%`,
                 minWidth: '60px'
               }}
             >
+              {isBlocked && <AlertTriangle className="h-3 w-3 mr-1 flex-shrink-0" />}
+              {hasDependencies && !isBlocked && <Link2 className="h-3 w-3 mr-1 flex-shrink-0" />}
               {task.title || 'Untitled'}
             </div>
           </TooltipTrigger>
@@ -143,6 +149,12 @@ export function TaskTimeline({
               <p className="text-xs">Status: {STATUS_LABELS[task.status]}</p>
               <p className="text-xs">Value: ${value.toFixed(2)}</p>
               {member && <p className="text-xs">Assignee: {member.name}</p>}
+              {hasDependencies && (
+                <p className="text-xs text-amber-300">
+                  Dependencies: {task.dependsOn?.length} task(s)
+                  {isBlocked && ` (${blockingTasks.length} blocking)`}
+                </p>
+              )}
             </div>
           </TooltipContent>
         </Tooltip>

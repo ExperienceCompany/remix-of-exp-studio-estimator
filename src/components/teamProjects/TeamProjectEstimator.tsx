@@ -371,6 +371,7 @@ export function TeamProjectEstimator({ initialData, onProjectUpdate }: TeamProje
                       status: task.status,
                       assigneeName: member?.name || null,
                       dueDate: task.dueDate || null,
+                      dependsOn: task.dependsOn || [],
                       value
                     };
                   });

@@ -168,6 +168,7 @@ export default function TeamProjects() {
           status: task.status,
           assigneeName: member?.name || null,
           dueDate: task.dueDate || null,
+          dependsOn: task.dependsOn || [],
           value
         };
       });

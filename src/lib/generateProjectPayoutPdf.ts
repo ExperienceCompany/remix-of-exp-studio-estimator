@@ -9,6 +9,7 @@ export interface TaskPdfData {
   status: TaskStatus;
   assigneeName: string | null;
   dueDate?: string | null;
+  dependsOn?: string[];
   value: number;
 }
 

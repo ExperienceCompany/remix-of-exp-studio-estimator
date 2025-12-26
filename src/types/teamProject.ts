@@ -14,6 +14,24 @@ export interface ProjectTask {
   status: TaskStatus;
   assigneeId: string | null;
   dueDate?: string | null; // ISO date string (YYYY-MM-DD)
+  dependsOn?: string[]; // Array of task IDs that must be completed first
+}
+
+// Check if a task's dependencies are all completed
+export function areDependenciesMet(task: ProjectTask, allTasks: ProjectTask[]): boolean {
+  if (!task.dependsOn || task.dependsOn.length === 0) return true;
+  return task.dependsOn.every(depId => {
+    const depTask = allTasks.find(t => t.id === depId);
+    return depTask?.status === 'done';
+  });
+}
+
+// Get blocking tasks (dependencies that are not done)
+export function getBlockingTasks(task: ProjectTask, allTasks: ProjectTask[]): ProjectTask[] {
+  if (!task.dependsOn || task.dependsOn.length === 0) return [];
+  return task.dependsOn
+    .map(depId => allTasks.find(t => t.id === depId))
+    .filter((t): t is ProjectTask => t !== undefined && t.status !== 'done');
 }
 
 export interface TeamMember {
