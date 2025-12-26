@@ -13,6 +13,7 @@ export interface StudioBooking {
   customer_email: string | null;
   customer_phone: string | null;
   notes: string | null;
+  details: string | null;
   session_type: string | null;
   quote_id: string | null;
   created_by: string | null;

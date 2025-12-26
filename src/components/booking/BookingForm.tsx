@@ -251,6 +251,7 @@ export function BookingForm({
         customer_phone: formData.customerPhone || null,
         session_type: formData.sessionType,
         notes: formData.notes || null,
+        details: null,
         quote_id: null,
         created_by: null,
         title: null,
