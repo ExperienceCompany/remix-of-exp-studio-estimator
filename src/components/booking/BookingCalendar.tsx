@@ -60,6 +60,10 @@ export function BookingCalendar({
   const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
   const [editingBooking, setEditingBooking] = useState<StudioBooking | null>(null);
   const [clearPendingTrigger, setClearPendingTrigger] = useState(0);
+  
+  // List view date range state
+  const [listStartDate, setListStartDate] = useState<Date>(new Date());
+  const [listEndDate, setListEndDate] = useState<Date>(addDays(new Date(), 14));
 
   const { isStaff } = useAuth();
   const { data: studios = [] } = useStudios();
@@ -98,14 +102,17 @@ export function BookingCalendar({
         const end = endOfWeek(currentDate);
         return { start: format(start, 'yyyy-MM-dd'), end: format(end, 'yyyy-MM-dd') };
       }
-      case 'list':
-      default: {
-        const start = format(currentDate, 'yyyy-MM-dd');
-        const end = format(addDays(currentDate, 30), 'yyyy-MM-dd');
-        return { start, end };
+      case 'list': {
+        // Use the list-specific date range for fetching
+        return { 
+          start: format(listStartDate, 'yyyy-MM-dd'), 
+          end: format(listEndDate, 'yyyy-MM-dd') 
+        };
       }
+      default:
+        return { start: format(currentDate, 'yyyy-MM-dd'), end: format(addDays(currentDate, 30), 'yyyy-MM-dd') };
     }
-  }, [viewMode, currentDate]);
+  }, [viewMode, currentDate, listStartDate, listEndDate]);
 
   const { data: allBookings = [] } = useStudioBookings(
     filterStudioId === 'all' ? undefined : filterStudioId,
@@ -326,7 +333,13 @@ export function BookingCalendar({
               currentDate={currentDate}
               bookings={allBookings}
               studios={activeStudios}
-              onBookingClick={onBookingClick}
+              onBookingClick={handleBookingClickForEdit}
+              startDate={listStartDate}
+              endDate={listEndDate}
+              onDateRangeChange={(start, end) => {
+                setListStartDate(start);
+                setListEndDate(end);
+              }}
             />
           )}
         </CardContent>

@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format, addDays, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { BookingCard } from '../BookingCard';
+import { useUpdateBooking } from '@/hooks/useStudioBookings';
+import { useToast } from '@/hooks/use-toast';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface GridViewProps {
@@ -21,6 +23,10 @@ export function GridView({
   onSlotClick,
   onBookingClick,
 }: GridViewProps) {
+  const { toast } = useToast();
+  const updateBooking = useUpdateBooking();
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+
   // Start from current date instead of week start
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(currentDate, i));
@@ -31,6 +37,50 @@ export function GridView({
     return bookings.filter(
       (b) => b.booking_date === dateStr && b.studio_id === studioId
     );
+  };
+
+  const handleDragStart = (e: React.DragEvent, booking: StudioBooking) => {
+    e.dataTransfer.setData('bookingId', booking.id);
+    e.dataTransfer.setData('bookingData', JSON.stringify(booking));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: Date, studioId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverCell(`${format(date, 'yyyy-MM-dd')}-${studioId}`);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverCell(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, date: Date, studioId: string) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    
+    const bookingId = e.dataTransfer.getData('bookingId');
+    if (!bookingId) return;
+    
+    const newDate = format(date, 'yyyy-MM-dd');
+    
+    try {
+      await updateBooking.mutateAsync({
+        id: bookingId,
+        booking_date: newDate,
+        studio_id: studioId,
+      });
+      toast({
+        title: 'Booking moved',
+        description: `Booking moved to ${format(date, 'EEEE, MMM d')}`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to move booking',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -92,12 +142,20 @@ export function GridView({
                   const dayBookings = getBookingsForDateAndStudio(date, studio.id);
                   const displayBookings = dayBookings.slice(0, 3);
                   const hasMore = dayBookings.length > 3;
+                  const cellKey = `${format(date, 'yyyy-MM-dd')}-${studio.id}`;
+                  const isDragOver = dragOverCell === cellKey;
 
                   return (
                     <td
                       key={studio.id}
-                      className="py-1 px-1 border-r align-top min-h-[80px] cursor-pointer hover:bg-muted/50"
+                      className={cn(
+                        'py-1 px-1 border-r align-top min-h-[80px] cursor-pointer hover:bg-muted/50 transition-colors',
+                        isDragOver && 'bg-primary/10 ring-2 ring-primary ring-inset'
+                      )}
                       onClick={() => onSlotClick?.(date, studio.id)}
+                      onDragOver={(e) => handleDragOver(e, date, studio.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, date, studio.id)}
                     >
                       <div className="space-y-1">
                         {displayBookings.map((booking) => (
@@ -106,6 +164,8 @@ export function GridView({
                             booking={booking}
                             compact
                             onClick={() => onBookingClick?.(booking)}
+                            draggable
+                            onDragStart={handleDragStart}
                           />
                         ))}
                         {hasMore && (

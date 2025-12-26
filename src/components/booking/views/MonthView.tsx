@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   format,
   startOfMonth,
@@ -12,6 +12,8 @@ import {
 } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { BookingCard } from '../BookingCard';
+import { useUpdateBooking } from '@/hooks/useStudioBookings';
+import { useToast } from '@/hooks/use-toast';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface MonthViewProps {
@@ -31,6 +33,10 @@ export function MonthView({
   onSlotClick,
   onBookingClick,
 }: MonthViewProps) {
+  const { toast } = useToast();
+  const updateBooking = useUpdateBooking();
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart);
@@ -48,6 +54,49 @@ export function MonthView({
 
   const getStudioName = (studioId: string) => {
     return studios.find((s) => s.id === studioId)?.name || 'Unknown';
+  };
+
+  const handleDragStart = (e: React.DragEvent, booking: StudioBooking) => {
+    e.dataTransfer.setData('bookingId', booking.id);
+    e.dataTransfer.setData('bookingData', JSON.stringify(booking));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: Date) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverDate(format(date, 'yyyy-MM-dd'));
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDate(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, date: Date) => {
+    e.preventDefault();
+    setDragOverDate(null);
+    
+    const bookingId = e.dataTransfer.getData('bookingId');
+    if (!bookingId) return;
+    
+    const newDate = format(date, 'yyyy-MM-dd');
+    
+    try {
+      await updateBooking.mutateAsync({
+        id: bookingId,
+        booking_date: newDate,
+      });
+      toast({
+        title: 'Booking moved',
+        description: `Booking moved to ${format(date, 'EEEE, MMM d')}`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to move booking',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -69,6 +118,8 @@ export function MonthView({
         {days.map((day, idx) => {
           const dayBookings = getBookingsForDate(day);
           const isCurrentMonth = isSameMonth(day, currentDate);
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const isDragOver = dragOverDate === dateStr;
 
           return (
             <div
@@ -76,9 +127,13 @@ export function MonthView({
               className={cn(
                 'min-h-[120px] border-b border-r p-1 cursor-pointer hover:bg-muted/50 transition-colors',
                 !isCurrentMonth && 'bg-muted/30',
-                idx % 7 === 0 && 'border-l'
+                idx % 7 === 0 && 'border-l',
+                isDragOver && 'bg-primary/10 ring-2 ring-primary ring-inset'
               )}
               onClick={() => onSlotClick?.(day)}
+              onDragOver={(e) => handleDragOver(e, day)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, day)}
             >
               <div
                 className={cn(
@@ -96,9 +151,9 @@ export function MonthView({
                     booking={booking}
                     studioName={getStudioName(booking.studio_id)}
                     compact
-                    onClick={() => {
-                      onBookingClick?.(booking);
-                    }}
+                    onClick={() => onBookingClick?.(booking)}
+                    draggable
+                    onDragStart={handleDragStart}
                   />
                 ))}
                 {dayBookings.length > 3 && (

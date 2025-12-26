@@ -7,6 +7,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,10 +65,11 @@ import {
   UserPlus,
   Building2,
   ChevronsUpDown,
+  Trash2,
 } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons } from '@/hooks/useEstimatorData';
-import { useCreateBooking, useUpdateBooking, StudioBooking } from '@/hooks/useStudioBookings';
+import { useCreateBooking, useUpdateBooking, useCancelBooking, StudioBooking } from '@/hooks/useStudioBookings';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RepeatOptions, RepeatConfig, createDefaultRepeatConfig, calculateRepeatDates } from './RepeatOptions';
@@ -229,6 +241,7 @@ export function NewBookingModal({
   const { toast } = useToast();
   const createBooking = useCreateBooking();
   const updateBooking = useUpdateBooking();
+  const cancelBooking = useCancelBooking();
   const { data: providerLevels = [] } = useProviderLevels();
   const { data: services = [] } = useServices();
   const { data: vodcastCameraAddons = [] } = useVodcastCameraAddons();
@@ -1154,10 +1167,9 @@ export function NewBookingModal({
                       </SelectContent>
                     </Select>
                   </div>
-                  {/* Only show end time for DIY sessions */}
-                  {sessionType === 'diy' && (
-                    <div>
-                      <Label className="text-xs text-muted-foreground">To</Label>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">To</Label>
+                    {sessionType === 'diy' ? (
                       <Select value={endTime} onValueChange={setEndTime}>
                         <SelectTrigger>
                           <SelectValue />
@@ -1168,11 +1180,18 @@ export function NewBookingModal({
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/50 text-sm flex items-center">
+                        {computedEndTime}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {sessionType === 'diy' && hours > 0 && (
                   <p className="text-xs text-muted-foreground">{hours} hour{hours !== 1 ? 's' : ''}</p>
+                )}
+                {sessionType === 'serviced' && (
+                  <p className="text-xs text-muted-foreground">Duration set in Duration step</p>
                 )}
               </div>
 
@@ -1732,12 +1751,47 @@ export function NewBookingModal({
           {isEditing && (
             <>
               <div className="flex gap-2 w-full sm:w-auto">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={isSubmitting}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Cancel Booking
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will mark the booking as cancelled. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={async () => {
+                          if (existingBooking) {
+                            try {
+                              await cancelBooking.mutateAsync(existingBooking.id);
+                              toast({ title: 'Booking cancelled' });
+                              onClose();
+                              onBookingCreated?.();
+                            } catch (error) {
+                              toast({ title: 'Error', description: 'Failed to cancel booking', variant: 'destructive' });
+                            }
+                          }
+                        }}
+                      >
+                        Yes, Cancel Booking
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Button onClick={handleUpdateBooking} disabled={isSubmitting}>
                   <Save className="h-4 w-4 mr-2" />
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </Button>
                 <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-                  Cancel
+                  Close
                 </Button>
               </div>
               {bookingType === 'customer' && (

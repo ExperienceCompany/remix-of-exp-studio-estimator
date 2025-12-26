@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface BookingCardProps {
   booking: {
@@ -15,7 +16,9 @@ interface BookingCardProps {
   };
   studioName?: string;
   compact?: boolean;
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent) => void;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent, booking: StudioBooking) => void;
 }
 
 const formatTime = (time: string) => {
@@ -29,27 +32,45 @@ const getBookingTypeColor = (type: string, status: string) => {
   if (status === 'cancelled') return 'bg-muted text-muted-foreground line-through';
   switch (type) {
     case 'customer':
-      return 'bg-primary text-primary-foreground border-primary shadow-sm';
+      return 'bg-primary text-primary-foreground border-primary shadow-sm hover:bg-primary/85';
     case 'internal':
-      return 'bg-accent text-accent-foreground border-accent shadow-sm';
+      return 'bg-accent text-accent-foreground border-accent shadow-sm hover:bg-accent/85';
     case 'unavailable':
-      return 'bg-destructive text-destructive-foreground border-destructive shadow-sm';
+      return 'bg-destructive text-destructive-foreground border-destructive shadow-sm hover:bg-destructive/85';
     default:
       return 'bg-muted text-muted-foreground';
   }
 };
 
-export function BookingCard({ booking, studioName, compact = false, onClick }: BookingCardProps & { onClick?: (e?: React.MouseEvent) => void }) {
+export function BookingCard({ 
+  booking, 
+  studioName, 
+  compact = false, 
+  onClick,
+  draggable = false,
+  onDragStart,
+}: BookingCardProps) {
   const colorClass = getBookingTypeColor(booking.booking_type, booking.status);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    if (onDragStart) {
+      onDragStart(e, booking as StudioBooking);
+    }
+  };
 
   if (compact) {
     return (
       <div
         className={cn(
-          'text-xs px-1 py-0.5 rounded truncate cursor-pointer border',
+          'text-xs px-1 py-0.5 rounded truncate cursor-pointer border transition-colors',
           colorClass
         )}
-        onClick={onClick}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.(e);
+        }}
+        draggable={draggable}
+        onDragStart={handleDragStart}
         title={`${booking.customer_name || booking.booking_type} - ${formatTime(booking.start_time)}`}
       >
         {formatTime(booking.start_time)} {booking.customer_name || booking.booking_type}
@@ -60,10 +81,15 @@ export function BookingCard({ booking, studioName, compact = false, onClick }: B
   return (
     <div
       className={cn(
-        'p-2 rounded-md border cursor-pointer hover:opacity-80 transition-opacity',
+        'p-2 rounded-md border cursor-pointer transition-all hover:shadow-md hover:scale-[1.01]',
         colorClass
       )}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(e);
+      }}
+      draggable={draggable}
+      onDragStart={handleDragStart}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-sm truncate">
