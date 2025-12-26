@@ -164,12 +164,13 @@ export function ListView({
                 </Badge>
               </div>
               <div className="space-y-2">
-                {groupedBookings[dateStr].map((booking) => (
+                {groupedBookings[dateStr].map((booking, idx) => (
                   <div
                     key={booking.id}
                     className={cn(
                       'flex items-center gap-4 p-3 rounded-lg border cursor-pointer hover:opacity-80 transition-opacity',
-                      getBookingTypeColor(booking.booking_type, booking.status)
+                      getBookingTypeColor(booking.booking_type, booking.status),
+                      idx !== groupedBookings[dateStr].length - 1 && 'border-b border-muted-foreground/20'
                     )}
                     onClick={() => onBookingClick?.(booking)}
                   >

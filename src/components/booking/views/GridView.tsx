@@ -62,7 +62,7 @@ export function GridView({
               <tr
                 key={date.toISOString()}
                 className={cn(
-                  'hover:bg-muted/30 transition-colors',
+                  'hover:bg-muted/30 transition-colors border-b border-muted-foreground/20',
                   isWeekend && 'bg-muted/10',
                   isTodayDate && 'bg-primary/5'
                 )}
