@@ -1606,6 +1606,7 @@ export function NewBookingModal({
               
               <div className="flex gap-2">
                 {step === 'summary' ? (
+                  // Serviced session summary step
                   <>
                     <Button variant="outline" onClick={handleSaveToDrafts} disabled={isSubmitting}>
                       <Save className="h-4 w-4 mr-2" />
@@ -1616,7 +1617,18 @@ export function NewBookingModal({
                       {isSubmitting ? 'Adding...' : 'Add to Calendar'}
                     </Button>
                   </>
+                ) : sessionType === 'diy' && step === 'addons' ? (
+                  // DIY session on add-ons step - show Confirm Booking
+                  <>
+                    <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleNext} disabled={isSubmitting}>
+                      {isSubmitting ? 'Creating...' : 'Confirm Booking'}
+                    </Button>
+                  </>
                 ) : (
+                  // Other steps - show Next
                   <>
                     <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
                       Cancel
