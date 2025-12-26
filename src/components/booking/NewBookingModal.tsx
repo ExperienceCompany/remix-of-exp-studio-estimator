@@ -1746,16 +1746,21 @@ export function NewBookingModal({
           )}
         </div>
 
-        <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
+        <DialogFooter className="flex flex-col gap-4 pt-4">
           {/* Edit mode: single Save Changes button */}
           {isEditing && (
             <>
-              <div className="flex gap-2 w-full sm:w-auto">
+              {bookingType === 'customer' && (
+                <div className="text-lg font-semibold text-center sm:text-right">
+                  Total: ${displayPrice.toFixed(2)}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2 justify-end">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" disabled={isSubmitting}>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Cancel Booking
+                    <Button variant="destructive" size="sm" disabled={isSubmitting}>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Cancel
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -1781,24 +1786,19 @@ export function NewBookingModal({
                           }
                         }}
                       >
-                        Yes, Cancel Booking
+                        Yes, Cancel
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                <Button onClick={handleUpdateBooking} disabled={isSubmitting}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                <Button size="sm" onClick={handleUpdateBooking} disabled={isSubmitting}>
+                  <Save className="h-4 w-4 mr-1" />
+                  {isSubmitting ? 'Saving...' : 'Save'}
                 </Button>
-                <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+                <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
                   Close
                 </Button>
               </div>
-              {bookingType === 'customer' && (
-                <div className="text-lg font-semibold">
-                  Total: ${displayPrice.toFixed(2)}
-                </div>
-              )}
             </>
           )}
           
