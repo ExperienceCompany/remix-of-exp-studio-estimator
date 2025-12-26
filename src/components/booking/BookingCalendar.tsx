@@ -22,6 +22,7 @@ import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, sta
 import { useStudios, useDiyRates } from '@/hooks/useEstimatorData';
 import { useStudioBookings } from '@/hooks/useStudioBookings';
 import { useCalendarSettings } from '@/hooks/useCalendarSettings';
+import { useAuth } from '@/hooks/useAuth';
 import { MonthView } from './views/MonthView';
 import { DayView } from './views/DayView';
 import { GridView } from './views/GridView';
@@ -50,6 +51,7 @@ export function BookingCalendar({
   const [filterStudioId, setFilterStudioId] = useState<string>(selectedStudioId || 'all');
   const [showNewBookingModal, setShowNewBookingModal] = useState(false);
 
+  const { isStaff } = useAuth();
   const { data: studios = [] } = useStudios();
   const { data: diyRates = [] } = useDiyRates();
   const { data: calendarSettings = [] } = useCalendarSettings();
@@ -281,26 +283,30 @@ export function BookingCalendar({
         </CardContent>
       </Card>
 
-      {/* Floating Action Button */}
-      <Button
-        onClick={() => setShowNewBookingModal(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
-        size="icon"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
+      {/* Floating Action Button - Admin/Staff only */}
+      {isStaff && (
+        <>
+          <Button
+            onClick={() => setShowNewBookingModal(true)}
+            className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+            size="icon"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
 
-      {/* New Booking Modal */}
-      <NewBookingModal
-        open={showNewBookingModal}
-        onClose={() => setShowNewBookingModal(false)}
-        studios={activeStudios}
-        diyRates={diyRates}
-        defaultDate={currentDate}
-        operatingStart={defaultSettings.operatingStart}
-        operatingEnd={defaultSettings.operatingEnd}
-        onBookingCreated={() => setShowNewBookingModal(false)}
-      />
+          {/* New Booking Modal */}
+          <NewBookingModal
+            open={showNewBookingModal}
+            onClose={() => setShowNewBookingModal(false)}
+            studios={activeStudios}
+            diyRates={diyRates}
+            defaultDate={currentDate}
+            operatingStart={defaultSettings.operatingStart}
+            operatingEnd={defaultSettings.operatingEnd}
+            onBookingCreated={() => setShowNewBookingModal(false)}
+          />
+        </>
+      )}
     </div>
   );
 }
