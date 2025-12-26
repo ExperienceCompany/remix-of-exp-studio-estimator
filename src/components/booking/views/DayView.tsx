@@ -698,6 +698,7 @@ export function DayView({
                               moveMode && "cursor-grabbing"
                             )}
                             onMouseDown={(e) => handleMoveStart(studio.id, e)}
+                            onDoubleClick={(e) => { e.stopPropagation(); handleConfirmBooking(); }}
                           >
                             {/* X remove button for multi-studio selection */}
                             {isStartOfPending && pendingBooking && pendingBooking.studioIds.length > 1 && (
