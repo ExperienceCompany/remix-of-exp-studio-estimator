@@ -116,12 +116,12 @@ export default function Index() {
                 </div>
                 <CardTitle>Team Payouts</CardTitle>
                 <CardDescription>
-                  Calculate provider earnings and payouts
+                  Staff earnings summary dashboard
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button asChild variant="secondary" className="w-full">
-                  <Link to="/internal">View Payouts</Link>
+                  <Link to="/payouts">View Payouts</Link>
                 </Button>
               </CardContent>
             </Card>

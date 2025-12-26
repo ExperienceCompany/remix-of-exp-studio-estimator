@@ -12,6 +12,7 @@ import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import QuoteView from "./pages/QuoteView";
 import TeamProjects from "./pages/TeamProjects";
+import TeamPayouts from "./pages/TeamPayouts";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/admin" element={<Admin />} />
           <Route path="/quote/:id" element={<QuoteView />} />
           <Route path="/projects" element={<TeamProjects />} />
+          <Route path="/payouts" element={<TeamPayouts />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
