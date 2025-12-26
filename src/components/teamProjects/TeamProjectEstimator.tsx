@@ -4,6 +4,7 @@ import {
   ProjectPhase,
   ProjectTask,
   calculatePhaseTotals,
+  calculateRevenueByStatus,
   EXAMPLE_WEBSITE_PROJECT,
   EXAMPLE_MARKETING_CAMPAIGN,
   TASK_POINTS
@@ -17,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, UserPlus, Layers, Sparkles, FileDown, Users, ClipboardList } from "lucide-react";
-import { generateProjectPayoutPdf } from "@/lib/generateProjectPayoutPdf";
+import { generateProjectPayoutPdf, TaskPdfData, PhasePdfData } from "@/lib/generateProjectPayoutPdf";
 import { format } from "date-fns";
 
 type ViewMode = 'team' | 'tasks';
@@ -308,12 +309,42 @@ export function TeamProjectEstimator() {
             <Button
               variant="outline"
               className="w-full gap-2"
-              onClick={() => generateProjectPayoutPdf({
-                projectName,
-                reportDate: format(new Date(), 'MMMM d, yyyy'),
-                phases: allPhaseTotals,
-                grandTotals
-              })}
+              onClick={() => {
+                // Build phases with tasks for PDF
+                const phasesWithTasks: PhasePdfData[] = phases.map((phase, i) => {
+                  const phaseTotals = allPhaseTotals[i];
+                  const tasks = phase.tasks || [];
+                  
+                  const taskPdfData: TaskPdfData[] = tasks.map(task => {
+                    const taskPoints = TASK_POINTS[task.level];
+                    const value = phaseTotals.totalPoints > 0 ? (taskPoints / phaseTotals.totalPoints) * phaseTotals.teamPool : 0;
+                    const member = phase.teamMembers.find(m => m.id === task.assigneeId);
+                    return {
+                      id: task.id,
+                      title: task.title,
+                      level: task.level,
+                      status: task.status,
+                      assigneeName: member?.name || null,
+                      value
+                    };
+                  });
+                  
+                  const revenueByStatus = calculateRevenueByStatus(tasks, phase.teamMembers, phaseTotals.teamPool, phaseTotals.totalPoints);
+                  
+                  return {
+                    ...phaseTotals,
+                    tasks: taskPdfData,
+                    revenueByStatus
+                  };
+                });
+                
+                generateProjectPayoutPdf({
+                  projectName,
+                  reportDate: format(new Date(), 'MMMM d, yyyy'),
+                  phases: phasesWithTasks,
+                  grandTotals
+                });
+              }}
             >
               <FileDown className="h-4 w-4" />
               Download Full Project Report
@@ -427,7 +458,12 @@ export function TeamProjectEstimator() {
 
                   {/* Right: Payout Dashboard */}
                   <div>
-                    <PayoutDashboard phaseTotals={phaseTotals} projectName={projectName} />
+                    <PayoutDashboard 
+                      phaseTotals={phaseTotals} 
+                      projectName={projectName}
+                      tasks={phase.tasks || []}
+                      teamMembers={phase.teamMembers}
+                    />
                   </div>
                 </div>
               ) : (

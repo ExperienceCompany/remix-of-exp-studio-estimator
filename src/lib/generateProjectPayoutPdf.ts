@@ -1,11 +1,29 @@
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
-import { PhaseTotals, TASK_POINTS } from '@/types/teamProject';
+import { PhaseTotals, TASK_POINTS, ProjectTask, TaskLevel, TaskStatus, MemberStatusBreakdown } from '@/types/teamProject';
+
+export interface TaskPdfData {
+  id: string;
+  title: string;
+  level: TaskLevel;
+  status: TaskStatus;
+  assigneeName: string | null;
+  value: number;
+}
+
+export interface PhasePdfData extends PhaseTotals {
+  tasks?: TaskPdfData[];
+  revenueByStatus?: {
+    members: MemberStatusBreakdown[];
+    unclaimed: MemberStatusBreakdown;
+    totals: MemberStatusBreakdown;
+  };
+}
 
 export interface ProjectPayoutPdfData {
   projectName: string;
   reportDate: string;
-  phases: PhaseTotals[];
+  phases: PhasePdfData[];
   grandTotals: {
     revenue: number;
     studioShare: number;
@@ -159,6 +177,146 @@ export async function generateProjectPayoutPdf(data: ProjectPayoutPdfData): Prom
     }
     
     y += 5;
+
+    // Revenue by Status Table (if available)
+    if (phase.revenueByStatus && (phase.revenueByStatus.members.length > 0 || phase.revenueByStatus.unclaimed.totalValue > 0)) {
+      checkPageBreak(60);
+      
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('📊 Revenue by Status', leftMargin, y);
+      y += 8;
+      
+      // Table header
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(80, 80, 80);
+      doc.text('Member', leftMargin, y);
+      doc.text('Done', 80, y, { align: 'center' });
+      doc.text('In Progress', 110, y, { align: 'center' });
+      doc.text('To Do', 140, y, { align: 'center' });
+      doc.text('Total', rightMargin, y, { align: 'right' });
+      y += 3;
+      doc.setDrawColor(180, 180, 180);
+      doc.line(leftMargin, y, rightMargin, y);
+      y += 5;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0, 0, 0);
+      
+      // Member rows
+      phase.revenueByStatus.members.forEach(m => {
+        checkPageBreak(8);
+        doc.setFontSize(8);
+        const displayName = m.role ? `${m.memberName} (${m.role})` : m.memberName;
+        doc.text(displayName.substring(0, 25), leftMargin, y);
+        doc.setTextColor(34, 139, 34);
+        doc.text(m.doneValue > 0 ? formatCurrency(m.doneValue) : '—', 80, y, { align: 'center' });
+        doc.setTextColor(180, 120, 20);
+        doc.text(m.inProgressValue > 0 ? formatCurrency(m.inProgressValue) : '—', 110, y, { align: 'center' });
+        doc.setTextColor(100, 100, 100);
+        doc.text(m.todoValue > 0 ? formatCurrency(m.todoValue) : '—', 140, y, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatCurrency(m.totalValue), rightMargin, y, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        y += 6;
+      });
+      
+      // Unclaimed row
+      if (phase.revenueByStatus.unclaimed.totalValue > 0) {
+        checkPageBreak(8);
+        doc.setFontSize(8);
+        doc.setTextColor(120, 120, 120);
+        doc.text('Unclaimed', leftMargin, y);
+        doc.text(phase.revenueByStatus.unclaimed.doneValue > 0 ? formatCurrency(phase.revenueByStatus.unclaimed.doneValue) : '—', 80, y, { align: 'center' });
+        doc.text(phase.revenueByStatus.unclaimed.inProgressValue > 0 ? formatCurrency(phase.revenueByStatus.unclaimed.inProgressValue) : '—', 110, y, { align: 'center' });
+        doc.text(phase.revenueByStatus.unclaimed.todoValue > 0 ? formatCurrency(phase.revenueByStatus.unclaimed.todoValue) : '—', 140, y, { align: 'center' });
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatCurrency(phase.revenueByStatus.unclaimed.totalValue), rightMargin, y, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+        y += 6;
+      }
+      
+      // Totals row
+      doc.setDrawColor(180, 180, 180);
+      doc.line(leftMargin, y, rightMargin, y);
+      y += 5;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTAL', leftMargin, y);
+      doc.setTextColor(34, 139, 34);
+      doc.text(formatCurrency(phase.revenueByStatus.totals.doneValue), 80, y, { align: 'center' });
+      doc.setTextColor(180, 120, 20);
+      doc.text(formatCurrency(phase.revenueByStatus.totals.inProgressValue), 110, y, { align: 'center' });
+      doc.setTextColor(100, 100, 100);
+      doc.text(formatCurrency(phase.revenueByStatus.totals.todoValue), 140, y, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+      doc.text(formatCurrency(phase.revenueByStatus.totals.totalValue), rightMargin, y, { align: 'right' });
+      y += 10;
+    }
+
+    // Task Board Detail (if tasks exist)
+    if (phase.tasks && phase.tasks.length > 0) {
+      checkPageBreak(40);
+      
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('📋 Task Board Detail', leftMargin, y);
+      y += 10;
+      
+      const statusGroups: { status: TaskStatus; label: string; icon: string }[] = [
+        { status: 'done', label: 'DONE', icon: '✓' },
+        { status: 'in_progress', label: 'IN PROGRESS', icon: '⏳' },
+        { status: 'todo', label: 'TO DO', icon: '○' }
+      ];
+      
+      statusGroups.forEach(({ status, label, icon }) => {
+        const statusTasks = phase.tasks!.filter(t => t.status === status);
+        if (statusTasks.length === 0) return;
+        
+        checkPageBreak(25);
+        
+        // Status header
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        if (status === 'done') doc.setTextColor(34, 139, 34);
+        else if (status === 'in_progress') doc.setTextColor(180, 120, 20);
+        else doc.setTextColor(100, 100, 100);
+        doc.text(`${icon} ${label} (${statusTasks.length} tasks)`, leftMargin, y);
+        y += 6;
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        
+        statusTasks.forEach(task => {
+          checkPageBreak(8);
+          
+          // Task title
+          const title = task.title || 'Untitled Task';
+          doc.text(title.substring(0, 40), leftMargin + 5, y);
+          
+          // Level badge
+          doc.setFont('helvetica', 'bold');
+          doc.text(task.level.toUpperCase(), 100, y);
+          
+          // Value
+          doc.text(formatCurrency(task.value), 125, y);
+          
+          // Assignee
+          doc.setFont('helvetica', 'normal');
+          doc.text(task.assigneeName || 'Unclaimed', 160, y);
+          
+          y += 6;
+        });
+        
+        y += 4;
+      });
+    }
     
     // Phase divider
     if (phaseIndex < data.phases.length - 1) {
