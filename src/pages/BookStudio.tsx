@@ -1,27 +1,26 @@
 import { useState, useMemo } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CalendarDays, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useStudios } from '@/hooks/useEstimatorData';
 import { useCalendarSettingsByStudio } from '@/hooks/useCalendarSettings';
 import { useStudioBookings, useBlockedDates } from '@/hooks/useStudioBookings';
 import { TimeSlotGrid } from '@/components/booking/TimeSlotGrid';
 import { TimeInputFields } from '@/components/booking/TimeInputFields';
 import { BookingForm } from '@/components/booking/BookingForm';
-import { format, addDays, startOfDay, isSameDay } from 'date-fns';
+import { BookingCalendar } from '@/components/booking/BookingCalendar';
+import { format, isSameDay, addDays } from 'date-fns';
 
-type BookingStep = 'select-studio' | 'select-date' | 'select-time' | 'booking-form' | 'confirmation';
+type BookingStep = 'calendar-view' | 'select-time' | 'booking-form' | 'confirmation';
 
 export default function BookStudio() {
-  const { studioType } = useParams<{ studioType?: string }>();
   const navigate = useNavigate();
   
   const { data: studios, isLoading: studiosLoading } = useStudios();
   
-  const [step, setStep] = useState<BookingStep>('select-studio');
+  const [step, setStep] = useState<BookingStep>('calendar-view');
   const [selectedStudioId, setSelectedStudioId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedStartTime, setSelectedStartTime] = useState<string | null>(null);
@@ -36,20 +35,8 @@ export default function BookStudio() {
   const { data: bookings = [] } = useStudioBookings(selectedStudioId, startDate, endDate);
   const { data: blockedDates = [] } = useBlockedDates(selectedStudioId);
 
-  // Pre-select studio from URL param
-  useMemo(() => {
-    if (studioType && studios?.length && !selectedStudioId) {
-      const matchedStudio = studios.find(s => 
-        s.type === studioType || s.name.toLowerCase().includes(studioType.replace('-', ' '))
-      );
-      if (matchedStudio) {
-        setSelectedStudioId(matchedStudio.id);
-        setStep('select-date');
-      }
-    }
-  }, [studioType, studios, selectedStudioId]);
-
   const selectedStudio = studios?.find(s => s.id === selectedStudioId);
+  const activeStudios = studios?.filter(s => s.is_active) || [];
 
   // Check if a date is blocked
   const isDateBlocked = (date: Date) => {
@@ -58,57 +45,45 @@ export default function BookStudio() {
     );
   };
 
-  // Calculate max booking date
-  const maxDate = settings ? addDays(new Date(), settings.advance_booking_days) : addDays(new Date(), 30);
-
-  const handleStudioSelect = (studioId: string) => {
-    setSelectedStudioId(studioId);
-    setSelectedDate(undefined);
-    setSelectedStartTime(null);
-    setSelectedEndTime(null);
-    setStep('select-date');
-  };
-
-  const handleDateSelect = (date: Date | undefined) => {
+  // Handle calendar date/studio selection
+  const handleCalendarSelect = (date: Date, studioId?: string) => {
     setSelectedDate(date);
+    if (studioId) {
+      setSelectedStudioId(studioId);
+    }
     setSelectedStartTime(null);
     setSelectedEndTime(null);
-    if (date) {
+    
+    // If we have both date and studio, move to time selection
+    if (studioId || selectedStudioId) {
       setStep('select-time');
     }
   };
 
   const handleTimeSlotClick = (time: string) => {
     if (!selectedStartTime) {
-      // First click - set start time
       setSelectedStartTime(time);
       setSelectedEndTime(null);
     } else if (!selectedEndTime) {
-      // Second click - set end time
       const [startHour, startMin] = selectedStartTime.split(':').map(Number);
       const [clickHour, clickMin] = time.split(':').map(Number);
       const startMinutes = startHour * 60 + startMin;
       const clickMinutes = clickHour * 60 + clickMin;
 
       if (clickMinutes <= startMinutes) {
-        // If clicked before or on start, reset to new start
         setSelectedStartTime(time);
         setSelectedEndTime(null);
       } else {
-        // Set end time directly (clicked slot represents the end boundary)
         setSelectedEndTime(time);
       }
     } else {
-      // Third click - reset
       setSelectedStartTime(time);
       setSelectedEndTime(null);
     }
   };
 
-  // Handle input field changes (syncs with grid)
   const handleStartTimeInputChange = (time: string) => {
     setSelectedStartTime(time);
-    // Reset end time if it's now invalid
     if (selectedEndTime) {
       const [startH, startM] = time.split(':').map(Number);
       const [endH, endM] = selectedEndTime.split(':').map(Number);
@@ -136,7 +111,6 @@ export default function BookStudio() {
     if (durationHours < settings.min_booking_hours) return false;
     if (durationHours > settings.max_booking_hours) return false;
     
-    // Check for overlapping bookings
     for (const booking of bookings) {
       const [bsH, bsM] = booking.start_time.split(':').map(Number);
       const [beH, beM] = booking.end_time.split(':').map(Number);
@@ -159,17 +133,18 @@ export default function BookStudio() {
 
   const handleBookingSuccess = () => {
     setStep('confirmation');
-    // Reset after a delay
     setTimeout(() => {
       navigate('/book');
+      window.location.reload();
     }, 3000);
   };
 
-  const formatTimeDisplay = (time: string) => {
-    const [hour, min] = time.split(':').map(Number);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${min.toString().padStart(2, '0')} ${ampm}`;
+  const handleBackToCalendar = () => {
+    setStep('calendar-view');
+    setSelectedDate(undefined);
+    setSelectedStudioId('');
+    setSelectedStartTime(null);
+    setSelectedEndTime(null);
   };
 
   if (studiosLoading) {
@@ -179,8 +154,6 @@ export default function BookStudio() {
       </div>
     );
   }
-
-  const activeStudios = studios?.filter(s => s.is_active) || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -196,95 +169,71 @@ export default function BookStudio() {
         </div>
       </header>
 
-      <section className="container py-6 max-w-3xl mx-auto">
+      <section className="container py-6">
         {/* Progress Steps */}
-        <div className="flex items-center gap-2 mb-6 text-sm">
-          <Badge variant={step === 'select-studio' ? 'default' : 'secondary'}>
-            1. Studio
-          </Badge>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          <Badge variant={step === 'select-date' ? 'default' : selectedDate ? 'secondary' : 'outline'}>
-            2. Date
+        <div className="flex items-center gap-2 mb-6 text-sm max-w-3xl mx-auto">
+          <Badge variant={step === 'calendar-view' ? 'default' : selectedDate ? 'secondary' : 'outline'}>
+            1. Calendar
           </Badge>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
           <Badge variant={step === 'select-time' ? 'default' : selectedEndTime ? 'secondary' : 'outline'}>
-            3. Time
+            2. Time
           </Badge>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
           <Badge variant={step === 'booking-form' ? 'default' : 'outline'}>
-            4. Details
+            3. Details
           </Badge>
         </div>
 
-        {/* Step 1: Select Studio */}
-        {step === 'select-studio' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarDays className="h-5 w-5" />
-                Select a Studio
-              </CardTitle>
-              <CardDescription>
-                Choose which studio you'd like to book
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {activeStudios.map((studio) => (
-                <Button
-                  key={studio.id}
-                  variant="outline"
-                  className="w-full justify-start h-auto py-4"
-                  onClick={() => handleStudioSelect(studio.id)}
-                >
-                  <div className="text-left">
-                    <div className="font-medium">{studio.name}</div>
-                    {studio.description && (
-                      <div className="text-sm text-muted-foreground">{studio.description}</div>
-                    )}
-                  </div>
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
+        {/* Step 1: Full-Width Calendar View */}
+        {step === 'calendar-view' && (
+          <div className="w-full">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold">Select a Date & Studio</h2>
+              <p className="text-muted-foreground text-sm">
+                Browse availability across all studios. Click a date to select a time slot.
+              </p>
+            </div>
+            <BookingCalendar
+              onDateSelect={handleCalendarSelect}
+              onBookingClick={(booking) => {
+                // Could show booking details modal
+                console.log('Booking clicked:', booking);
+              }}
+            />
+            
+            {/* Quick Studio Selection */}
+            {selectedDate && !selectedStudioId && (
+              <Card className="mt-4 max-w-md mx-auto">
+                <CardHeader>
+                  <CardTitle className="text-lg">Select a Studio</CardTitle>
+                  <CardDescription>
+                    {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {activeStudios.map((studio) => (
+                    <Button
+                      key={studio.id}
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setSelectedStudioId(studio.id);
+                        setStep('select-time');
+                      }}
+                    >
+                      {studio.name}
+                    </Button>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
 
-        {/* Step 2: Select Date */}
-        {step === 'select-date' && selectedStudio && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Select a Date</CardTitle>
-              <CardDescription>
-                {selectedStudio.name} • Choose your preferred date
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-center">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateSelect}
-                  disabled={(date) => 
-                    date < startOfDay(new Date()) || 
-                    date > maxDate ||
-                    isDateBlocked(date)
-                  }
-                  className="rounded-md border pointer-events-auto"
-                />
-              </div>
-              
-              <div className="flex justify-between mt-4">
-                <Button variant="outline" onClick={() => setStep('select-studio')}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Change Studio
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 3: Select Time */}
+        {/* Step 2: Select Time */}
         {step === 'select-time' && selectedStudio && selectedDate && settings && (
-          <Card>
+          <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle>Select Time</CardTitle>
               <CardDescription>
@@ -335,9 +284,9 @@ export default function BookStudio() {
               />
 
               <div className="flex justify-between pt-4 border-t">
-                <Button variant="outline" onClick={() => setStep('select-date')}>
+                <Button variant="outline" onClick={handleBackToCalendar}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Change Date
+                  Back to Calendar
                 </Button>
                 <Button 
                   onClick={handleContinueToForm}
@@ -351,17 +300,32 @@ export default function BookStudio() {
           </Card>
         )}
 
-        {/* Step 4: Booking Form */}
+        {/* Step 3: Booking Form */}
         {step === 'booking-form' && selectedStudio && selectedDate && selectedStartTime && selectedEndTime && (
-          <BookingForm
-            studioId={selectedStudioId}
-            studioName={selectedStudio.name}
-            date={selectedDate}
-            startTime={selectedStartTime}
-            endTime={selectedEndTime}
-            onSuccess={handleBookingSuccess}
-            onCancel={() => setStep('select-time')}
-          />
+          <div className="max-w-3xl mx-auto">
+            <BookingForm
+              studioId={selectedStudioId}
+              studioName={selectedStudio.name}
+              date={selectedDate}
+              startTime={selectedStartTime}
+              endTime={selectedEndTime}
+              onSuccess={handleBookingSuccess}
+              onCancel={() => setStep('select-time')}
+            />
+          </div>
+        )}
+
+        {/* Confirmation */}
+        {step === 'confirmation' && (
+          <Card className="max-w-md mx-auto text-center">
+            <CardContent className="pt-8 pb-8">
+              <div className="text-4xl mb-4">✓</div>
+              <h2 className="text-xl font-semibold mb-2">Booking Submitted!</h2>
+              <p className="text-muted-foreground">
+                You'll receive a confirmation email shortly.
+              </p>
+            </CardContent>
+          </Card>
         )}
       </section>
     </div>

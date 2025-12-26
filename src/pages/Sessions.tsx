@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -21,11 +22,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay } from 'date-fns';
 import type { EstimatorSelection } from '@/types/estimator';
 import { STUDIO_LABELS, StudioType } from '@/types/estimator';
+import { BookingCalendar } from '@/components/booking/BookingCalendar';
 
 type SessionStatus = 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
 
@@ -279,7 +281,7 @@ export default function Sessions() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-6xl mx-auto py-8 px-4">
+      <div className="container mx-auto py-8 px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
@@ -289,7 +291,7 @@ export default function Sessions() {
             <div>
               <h1 className="text-2xl font-bold">Studio Sessions</h1>
               <p className="text-sm text-muted-foreground">
-                Monitor active sessions and view history
+                Monitor active sessions and view calendar bookings
               </p>
             </div>
           </div>
@@ -298,6 +300,32 @@ export default function Sessions() {
             Refresh
           </Button>
         </div>
+
+        {/* Tabs for Sessions vs Calendar */}
+        <Tabs defaultValue="sessions" className="mb-6">
+          <TabsList>
+            <TabsTrigger value="sessions">
+              <Timer className="h-4 w-4 mr-2" />
+              Sessions
+            </TabsTrigger>
+            <TabsTrigger value="calendar">
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Calendar Bookings
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="calendar" className="mt-6">
+            <BookingCalendar
+              onBookingClick={(booking) => {
+                toast({
+                  title: booking.customer_name || 'Booking',
+                  description: `${format(new Date(booking.booking_date), 'MMM d')} at ${booking.start_time} - ${booking.end_time}`,
+                });
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="sessions" className="mt-6">
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 mb-6">
@@ -469,6 +497,8 @@ export default function Sessions() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
