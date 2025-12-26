@@ -440,3 +440,169 @@ export const EXAMPLE_MARKETING_CAMPAIGN: ProjectPhase[] = [
     ]
   }
 ];
+
+// Role complexity mapping for flexible task generation
+const ROLE_COMPLEXITY: Record<string, { lv1: number; lv2: number; lv3: number }> = {
+  'creative director': { lv1: 0, lv2: 1, lv3: 3 },
+  'director': { lv1: 0, lv2: 1, lv3: 3 },
+  'lead': { lv1: 0, lv2: 2, lv3: 2 },
+  'senior': { lv1: 1, lv2: 2, lv3: 2 },
+  'designer': { lv1: 2, lv2: 2, lv3: 1 },
+  'developer': { lv1: 1, lv2: 2, lv3: 2 },
+  'writer': { lv1: 3, lv2: 2, lv3: 0 },
+  'copywriter': { lv1: 2, lv2: 2, lv3: 1 },
+  'graphic designer': { lv1: 3, lv2: 2, lv3: 0 },
+  'video editor': { lv1: 1, lv2: 2, lv3: 1 },
+  'photographer': { lv1: 2, lv2: 2, lv3: 1 },
+  'social media': { lv1: 3, lv2: 2, lv3: 0 },
+  'producer': { lv1: 1, lv2: 2, lv3: 2 },
+  'assistant': { lv1: 4, lv2: 1, lv3: 0 },
+  'junior': { lv1: 3, lv2: 2, lv3: 0 },
+  'default': { lv1: 2, lv2: 2, lv3: 1 }
+};
+
+function getRoleComplexity(role: string): { lv1: number; lv2: number; lv3: number } {
+  const normalizedRole = role.toLowerCase().trim();
+  
+  // Check for exact match first
+  if (ROLE_COMPLEXITY[normalizedRole]) {
+    return ROLE_COMPLEXITY[normalizedRole];
+  }
+  
+  // Check for partial matches
+  for (const [key, complexity] of Object.entries(ROLE_COMPLEXITY)) {
+    if (normalizedRole.includes(key) || key.includes(normalizedRole)) {
+      return complexity;
+    }
+  }
+  
+  return ROLE_COMPLEXITY.default;
+}
+
+export interface GeneratedTaskResult {
+  members: TeamMember[];
+  tasks: ProjectTask[];
+}
+
+/**
+ * Generate tasks with flexible distribution based on role complexity
+ * - Creative directors/leads get more Lv3 tasks
+ * - Standard roles get balanced mix
+ * - Junior/assistant roles get more Lv1/Lv2 tasks
+ */
+export function generateFlexibleTasks(
+  memberInputs: { name: string; role: string }[],
+  projectType: string,
+  budget: number
+): GeneratedTaskResult {
+  const members: TeamMember[] = [];
+  const tasks: ProjectTask[] = [];
+  const allTitles: string[] = [];
+  
+  memberInputs.forEach((input, index) => {
+    const complexity = getRoleComplexity(input.role);
+    const memberId = crypto.randomUUID();
+    
+    const member: TeamMember = {
+      id: memberId,
+      name: input.name,
+      role: input.role,
+      tasksLv1: complexity.lv1,
+      tasksLv2: complexity.lv2,
+      tasksLv3: complexity.lv3
+    };
+    members.push(member);
+    
+    // Generate tasks for each level
+    const levels: TaskLevel[] = ['lv1', 'lv2', 'lv3'];
+    levels.forEach(level => {
+      const count = level === 'lv1' ? complexity.lv1 : level === 'lv2' ? complexity.lv2 : complexity.lv3;
+      
+      for (let i = 0; i < count; i++) {
+        const title = generateTaskTitle(input.role, level, allTitles);
+        allTitles.push(title);
+        
+        tasks.push({
+          id: crypto.randomUUID(),
+          title,
+          level,
+          status: 'todo',
+          assigneeId: memberId
+        });
+      }
+    });
+  });
+  
+  return { members, tasks };
+}
+
+/**
+ * Generate tasks with balanced (equal pay) distribution
+ * Each member receives approximately the same total points/payout
+ */
+export function generateBalancedTasks(
+  memberInputs: { name: string; role: string }[],
+  budget: number
+): GeneratedTaskResult {
+  const teamPool = budget * 0.5;
+  const targetPointsPerPerson = teamPool / memberInputs.length;
+  
+  // Determine task mix to hit target points per person
+  // Lv3=10pts, Lv2=5pts, Lv1=2.5pts
+  // Default: 2 Lv3 (20) + 1 Lv2 (5) = 25 pts per person for $250 each
+  // Adjust based on budget
+  
+  const members: TeamMember[] = [];
+  const tasks: ProjectTask[] = [];
+  const allTitles: string[] = [];
+  
+  memberInputs.forEach((input) => {
+    const memberId = crypto.randomUUID();
+    
+    // Calculate task distribution to hit target points
+    // Try to get close to target with a reasonable number of tasks
+    let lv3Count = Math.floor(targetPointsPerPerson / 15); // Aim for ~15 pts per Lv3 slot
+    let remaining = targetPointsPerPerson - (lv3Count * TASK_POINTS.lv3);
+    
+    let lv2Count = Math.floor(remaining / TASK_POINTS.lv2);
+    remaining = remaining - (lv2Count * TASK_POINTS.lv2);
+    
+    let lv1Count = Math.round(remaining / TASK_POINTS.lv1);
+    
+    // Ensure at least some tasks
+    if (lv3Count + lv2Count + lv1Count === 0) {
+      lv2Count = 1;
+    }
+    
+    const member: TeamMember = {
+      id: memberId,
+      name: input.name,
+      role: input.role,
+      tasksLv1: lv1Count,
+      tasksLv2: lv2Count,
+      tasksLv3: lv3Count
+    };
+    members.push(member);
+    
+    // Generate tasks
+    const levels: TaskLevel[] = ['lv1', 'lv2', 'lv3'];
+    levels.forEach(level => {
+      const count = level === 'lv1' ? lv1Count : level === 'lv2' ? lv2Count : lv3Count;
+      
+      for (let i = 0; i < count; i++) {
+        const title = generateTaskTitle(input.role, level, allTitles);
+        allTitles.push(title);
+        
+        tasks.push({
+          id: crypto.randomUUID(),
+          title,
+          level,
+          status: 'todo',
+          assigneeId: memberId
+        });
+      }
+    });
+  });
+  
+  return { members, tasks };
+}

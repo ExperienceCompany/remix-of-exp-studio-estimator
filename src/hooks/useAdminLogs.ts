@@ -117,6 +117,62 @@ export function useDeleteAdminLog() {
   });
 }
 
+export interface UpdateLogInput {
+  id: string;
+  log_name?: string;
+  customer_total?: number;
+  provider_payout?: number;
+  gross_margin?: number;
+  net_profit?: number;
+  hours?: number;
+  data_json?: Record<string, unknown>;
+}
+
+export function useUpdateAdminLog() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateLogInput) => {
+      const { id, ...updates } = input;
+      const updateData = {
+        ...updates,
+        updated_at: new Date().toISOString(),
+        data_json: updates.data_json as unknown as import('@/integrations/supabase/types').Json,
+      };
+
+      const { data, error } = await supabase
+        .from('admin_logs')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin_logs'] });
+    },
+  });
+}
+
+export function useAdminLogById(id: string | null) {
+  return useQuery({
+    queryKey: ['admin_logs', id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from('admin_logs')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data as AdminLog;
+    },
+    enabled: !!id,
+  });
+}
+
 export function useAdminLogStats() {
   const { data: logs } = useAdminLogs('all');
 
