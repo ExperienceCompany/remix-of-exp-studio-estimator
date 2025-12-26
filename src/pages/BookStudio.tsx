@@ -96,11 +96,8 @@ export default function BookStudio() {
         setSelectedStartTime(time);
         setSelectedEndTime(null);
       } else {
-        // Set end time (add increment to include full slot)
-        const endMinutes = clickMinutes + (settings?.time_increment_minutes || 15);
-        const endHour = Math.floor(endMinutes / 60);
-        const endMin = endMinutes % 60;
-        setSelectedEndTime(`${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`);
+        // Set end time directly (clicked slot represents the end boundary)
+        setSelectedEndTime(time);
       }
     } else {
       // Third click - reset
