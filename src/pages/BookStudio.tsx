@@ -345,6 +345,7 @@ export default function BookStudio() {
             <BookingForm
               studioId={primaryStudioId}
               studioName={selectedStudios.map(s => s.name).join(', ')}
+              studioType={primaryStudio?.type}
               date={selectedDate}
               startTime={selectedStartTime}
               endTime={selectedEndTime}
