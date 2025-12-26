@@ -25,7 +25,8 @@ interface DayViewProps {
   onSlotClick?: (studioId: string, time: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
   onOpenBookingModal?: (studioIds: string[], startTime: string, endTime: string, estimatedCost: number) => void;
-  clearPendingTrigger?: number; // Increment to trigger clearing pending booking
+  clearPendingTrigger?: number;
+  externalPendingUpdate?: { studioIds: string[]; startTime: string; endTime: string } | null;
 }
 
 interface PendingBooking {
@@ -100,6 +101,7 @@ export function DayView({
   onBookingClick,
   onOpenBookingModal,
   clearPendingTrigger,
+  externalPendingUpdate,
 }: DayViewProps) {
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
   const [hoveredSlot, setHoveredSlot] = useState<{ studioId: string; time: string } | null>(null);
@@ -126,6 +128,18 @@ export function DayView({
       setMoveMode(null);
     }
   }, [clearPendingTrigger]);
+
+  // Sync pending booking with external duration updates from modal
+  useEffect(() => {
+    if (externalPendingUpdate && pendingBooking) {
+      setPendingBooking(prev => prev ? {
+        ...prev,
+        studioIds: externalPendingUpdate.studioIds,
+        startSlot: externalPendingUpdate.startTime,
+        endSlot: externalPendingUpdate.endTime,
+      } : null);
+    }
+  }, [externalPendingUpdate]);
 
   const timeSlots = useMemo(
     () => generateTimeSlots(operatingStart, operatingEnd),
