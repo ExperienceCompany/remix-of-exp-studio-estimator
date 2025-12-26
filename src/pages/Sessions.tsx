@@ -1,0 +1,475 @@
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { format, subDays, startOfDay } from 'date-fns';
+import type { EstimatorSelection } from '@/types/estimator';
+import { STUDIO_LABELS, StudioType } from '@/types/estimator';
+
+type SessionStatus = 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
+
+interface Session {
+  id: string;
+  quote_id: string | null;
+  status: SessionStatus;
+  started_at: string | null;
+  paused_at: string | null;
+  ended_at: string | null;
+  total_paused_seconds: number;
+  actual_duration_seconds: number | null;
+  session_type: string;
+  selections_json: EstimatorSelection | null;
+  original_total: number | null;
+  final_total: number | null;
+  payment_status: string;
+  affiliate_code: string | null;
+  created_at: string;
+}
+
+export default function Sessions() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { isStaff, isAdmin, isLoading: authLoading } = useAuth();
+
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+
+  // Real-time timers
+  const [now, setNow] = useState(Date.now());
+
+  // Update timers every second
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch sessions
+  const { data: sessions = [], isLoading, refetch } = useQuery({
+    queryKey: ['sessions', statusFilter, typeFilter, dateFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('sessions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+      if (typeFilter !== 'all') {
+        query = query.eq('session_type', typeFilter);
+      }
+      if (dateFilter !== 'all') {
+        const now = new Date();
+        let startDate: Date;
+        switch (dateFilter) {
+          case 'today':
+            startDate = startOfDay(now);
+            break;
+          case 'week':
+            startDate = subDays(now, 7);
+            break;
+          case 'month':
+            startDate = subDays(now, 30);
+            break;
+          default:
+            startDate = new Date(0);
+        }
+        query = query.gte('created_at', startDate.toISOString());
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).map(s => ({
+        ...s,
+        selections_json: s.selections_json as unknown as EstimatorSelection | null,
+      })) as Session[];
+    },
+    enabled: isStaff || isAdmin,
+  });
+
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('sessions-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sessions' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  // Update session mutation
+  const updateSession = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+      const { error } = await supabase
+        .from('sessions')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+    onError: () => {
+      toast({ title: 'Failed to update session', variant: 'destructive' });
+    },
+  });
+
+  const handleStart = (session: Session) => {
+    updateSession.mutate({
+      id: session.id,
+      updates: { status: 'active', started_at: new Date().toISOString() },
+    });
+    toast({ title: 'Session started!' });
+  };
+
+  const handlePause = (session: Session) => {
+    updateSession.mutate({
+      id: session.id,
+      updates: { status: 'paused', paused_at: new Date().toISOString() },
+    });
+    toast({ title: 'Session paused' });
+  };
+
+  const handleResume = (session: Session) => {
+    if (!session.paused_at) return;
+    const pausedAt = new Date(session.paused_at).getTime();
+    const additionalPausedSeconds = Math.floor((Date.now() - pausedAt) / 1000);
+
+    updateSession.mutate({
+      id: session.id,
+      updates: {
+        status: 'active',
+        paused_at: null,
+        total_paused_seconds: (session.total_paused_seconds || 0) + additionalPausedSeconds,
+      },
+    });
+    toast({ title: 'Session resumed!' });
+  };
+
+  const handleEnd = (session: Session) => {
+    if (!session.started_at) return;
+    let finalDuration = 0;
+    if (session.status === 'paused' && session.paused_at) {
+      const startTime = new Date(session.started_at).getTime();
+      const pauseTime = new Date(session.paused_at).getTime();
+      finalDuration = Math.floor((pauseTime - startTime) / 1000) - (session.total_paused_seconds || 0);
+    } else {
+      const startTime = new Date(session.started_at).getTime();
+      finalDuration = Math.floor((Date.now() - startTime) / 1000) - (session.total_paused_seconds || 0);
+    }
+
+    updateSession.mutate({
+      id: session.id,
+      updates: {
+        status: 'completed',
+        ended_at: new Date().toISOString(),
+        actual_duration_seconds: finalDuration,
+      },
+    });
+    toast({ title: 'Session ended!' });
+  };
+
+  // Calculate elapsed time for active sessions
+  const getElapsedSeconds = (session: Session): number => {
+    if (!session.started_at) return 0;
+    if (session.status === 'completed' && session.actual_duration_seconds) {
+      return session.actual_duration_seconds;
+    }
+    if (session.status === 'paused' && session.paused_at) {
+      const startTime = new Date(session.started_at).getTime();
+      const pauseTime = new Date(session.paused_at).getTime();
+      return Math.max(0, Math.floor((pauseTime - startTime) / 1000) - (session.total_paused_seconds || 0));
+    }
+    if (session.status === 'active') {
+      const startTime = new Date(session.started_at).getTime();
+      return Math.max(0, Math.floor((now - startTime) / 1000) - (session.total_paused_seconds || 0));
+    }
+    return 0;
+  };
+
+  const formatTime = (seconds: number): string => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hrs > 0) return `${hrs}h ${mins}m`;
+    return `${mins}m`;
+  };
+
+  const getStudioName = (session: Session): string => {
+    const studioType = session.selections_json?.studioType;
+    return studioType ? (STUDIO_LABELS[studioType as StudioType] || studioType) : '—';
+  };
+
+  const getStatusBadge = (status: SessionStatus) => {
+    switch (status) {
+      case 'active':
+        return <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20">● Active</Badge>;
+      case 'paused':
+        return <Badge className="bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20">⏸ Paused</Badge>;
+      case 'pending':
+        return <Badge variant="secondary">○ Pending</Badge>;
+      case 'completed':
+        return <Badge className="bg-blue-500/10 text-blue-600 hover:bg-blue-500/20">✓ Completed</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">✗ Cancelled</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  // Redirect non-staff users
+  if (!authLoading && !isStaff && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="pt-6 text-center">
+            <p className="text-destructive mb-4">Access denied. Staff only.</p>
+            <Button onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Separate active/paused from history
+  const activeSessions = sessions.filter(s => s.status === 'active' || s.status === 'paused' || s.status === 'pending');
+  const historySessions = sessions.filter(s => s.status === 'completed' || s.status === 'cancelled');
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-6xl mx-auto py-8 px-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Studio Sessions</h1>
+              <p className="text-sm text-muted-foreground">
+                Monitor active sessions and view history
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="diy">DIY</SelectItem>
+              <SelectItem value="serviced">EXP Session</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Active Sessions */}
+        {activeSessions.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Timer className="h-5 w-5" />
+                Active Sessions ({activeSessions.length})
+              </CardTitle>
+              <CardDescription>Live sessions with real-time timers</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {activeSessions.map(session => (
+                <div
+                  key={session.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      {getStatusBadge(session.status)}
+                      <span className="font-medium">
+                        {session.session_type === 'diy' ? 'DIY' : 'EXP'}
+                      </span>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-muted-foreground">{getStudioName(session)}</span>
+                    </div>
+                    <div className="text-2xl font-mono font-bold">
+                      ⏱ {formatTime(getElapsedSeconds(session))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {session.status === 'pending' && (
+                      <Button size="sm" onClick={() => handleStart(session)} disabled={updateSession.isPending}>
+                        <Play className="h-4 w-4 mr-1" />
+                        Start
+                      </Button>
+                    )}
+                    {session.status === 'active' && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => handlePause(session)} disabled={updateSession.isPending}>
+                          <Pause className="h-4 w-4 mr-1" />
+                          Pause
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleEnd(session)} disabled={updateSession.isPending}>
+                          <Square className="h-4 w-4 mr-1" />
+                          End
+                        </Button>
+                      </>
+                    )}
+                    {session.status === 'paused' && (
+                      <>
+                        <Button size="sm" onClick={() => handleResume(session)} disabled={updateSession.isPending}>
+                          <Play className="h-4 w-4 mr-1" />
+                          Resume
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleEnd(session)} disabled={updateSession.isPending}>
+                          <Square className="h-4 w-4 mr-1" />
+                          End
+                        </Button>
+                      </>
+                    )}
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link to={`/session/${session.id}`}>
+                        <ExternalLink className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sessions History */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Session History</CardTitle>
+            <CardDescription>All recorded studio sessions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>
+            ) : sessions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No sessions found</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Studio</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sessions.map(session => (
+                    <TableRow key={session.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/session/${session.id}`)}>
+                      <TableCell>{format(new Date(session.created_at), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>{session.session_type === 'diy' ? 'DIY' : 'EXP'}</TableCell>
+                      <TableCell>{getStudioName(session)}</TableCell>
+                      <TableCell>{getStatusBadge(session.status)}</TableCell>
+                      <TableCell>
+                        {session.actual_duration_seconds
+                          ? formatDuration(session.actual_duration_seconds)
+                          : session.status === 'active' || session.status === 'paused'
+                          ? formatTime(getElapsedSeconds(session))
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {session.final_total != null
+                          ? `$${session.final_total.toFixed(2)}`
+                          : session.original_total != null
+                          ? `$${session.original_total.toFixed(2)}`
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="ghost" asChild onClick={e => e.stopPropagation()}>
+                          <Link to={`/session/${session.id}`}>
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

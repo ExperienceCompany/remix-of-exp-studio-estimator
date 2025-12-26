@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calculator, Users, Settings, LogIn, Scissors, DollarSign, Layers } from 'lucide-react';
+import { Calculator, Users, Settings, LogIn, Scissors, DollarSign, Layers, Timer } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Index() {
@@ -102,6 +102,26 @@ export default function Index() {
               <CardContent>
                 <Button asChild variant="secondary" className="w-full">
                   <Link to="/projects">Calculate Payouts</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Studio Sessions */}
+          {isStaff && (
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-orange-500/10 flex items-center justify-center mb-2">
+                  <Timer className="h-6 w-6 text-orange-600" />
+                </div>
+                <CardTitle>Studio Sessions</CardTitle>
+                <CardDescription>
+                  View active timers and session history
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="secondary" className="w-full">
+                  <Link to="/sessions">View Sessions</Link>
                 </Button>
               </CardContent>
             </Card>

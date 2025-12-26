@@ -14,7 +14,7 @@ import {
   TimeSlotType,
   ProviderLevel,
 } from '@/types/estimator';
-import { ArrowLeft, Copy, FileText, RotateCcw, Download, Save, Timer } from 'lucide-react';
+import { ArrowLeft, FileText, RotateCcw, Download, Save, Timer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuotePdf } from '@/lib/generateQuotePdf';
 import { format } from 'date-fns';
@@ -296,11 +296,7 @@ export function StepSummary() {
       <AffiliateEarningsCard customerTotal={totals.customerTotal} />
 
       {/* Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Button variant="outline" onClick={handleCopyQuote}>
-          <Copy className="h-4 w-4 mr-2" />
-          Copy
-        </Button>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Button variant="outline" onClick={handleDownloadQuote}>
           <Download className="h-4 w-4 mr-2" />
           Download
