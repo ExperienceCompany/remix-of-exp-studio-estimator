@@ -25,6 +25,7 @@ interface DayViewProps {
   onSlotClick?: (studioId: string, time: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
   onOpenBookingModal?: (studioIds: string[], startTime: string, endTime: string, estimatedCost: number) => void;
+  clearPendingTrigger?: number; // Increment to trigger clearing pending booking
 }
 
 interface PendingBooking {
@@ -98,6 +99,7 @@ export function DayView({
   onSlotClick,
   onBookingClick,
   onOpenBookingModal,
+  clearPendingTrigger,
 }: DayViewProps) {
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
   const [hoveredSlot, setHoveredSlot] = useState<{ studioId: string; time: string } | null>(null);
@@ -114,6 +116,15 @@ export function DayView({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
+
+  // Clear pending booking when trigger changes (from parent after successful booking)
+  useEffect(() => {
+    if (clearPendingTrigger && clearPendingTrigger > 0) {
+      setPendingBooking(null);
+      setResizeMode(null);
+      setMoveMode(null);
+    }
+  }, [clearPendingTrigger]);
 
   const timeSlots = useMemo(
     () => generateTimeSlots(operatingStart, operatingEnd),
@@ -445,9 +456,9 @@ export function DayView({
     const startTime = minutesToTime(pendingRange.minSlot);
     const endTime = minutesToTime(pendingRange.maxSlot + 15);
     
-    // Open modal with prefilled data instead of direct booking creation
+    // Open modal with prefilled data - don't clear pending booking yet
+    // It will be cleared when booking is successfully created via onClearPendingBooking
     onOpenBookingModal?.(pendingBooking.studioIds, startTime, endTime, estimatedCost);
-    setPendingBooking(null);
   };
 
   const handleCancelPending = () => {

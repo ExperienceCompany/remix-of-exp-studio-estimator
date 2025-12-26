@@ -59,6 +59,7 @@ export function BookingCalendar({
   const [showNewBookingModal, setShowNewBookingModal] = useState(false);
   const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
   const [editingBooking, setEditingBooking] = useState<StudioBooking | null>(null);
+  const [clearPendingTrigger, setClearPendingTrigger] = useState(0);
 
   const { isStaff } = useAuth();
   const { data: studios = [] } = useStudios();
@@ -307,6 +308,7 @@ export function BookingCalendar({
               onSlotClick={(studioId, time) => onDateSelect?.(currentDate, studioId)}
               onBookingClick={handleBookingClickForEdit}
               onOpenBookingModal={handleOpenModalFromDayView}
+              clearPendingTrigger={clearPendingTrigger}
             />
           )}
           {viewMode === 'grid' && (
@@ -358,7 +360,10 @@ export function BookingCalendar({
             existingBooking={editingBooking}
             operatingStart={defaultSettings.operatingStart}
             operatingEnd={defaultSettings.operatingEnd}
-            onBookingCreated={handleCloseModal}
+            onBookingCreated={() => {
+              setClearPendingTrigger(prev => prev + 1);
+              handleCloseModal();
+            }}
           />
         </>
       )}
