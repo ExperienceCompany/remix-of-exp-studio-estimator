@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, CalendarDays, ChevronRight } from 'lucide-react';
@@ -10,9 +9,9 @@ import { useStudios } from '@/hooks/useEstimatorData';
 import { useCalendarSettingsByStudio } from '@/hooks/useCalendarSettings';
 import { useStudioBookings, useBlockedDates } from '@/hooks/useStudioBookings';
 import { TimeSlotGrid } from '@/components/booking/TimeSlotGrid';
+import { TimeInputFields } from '@/components/booking/TimeInputFields';
 import { BookingForm } from '@/components/booking/BookingForm';
 import { format, addDays, startOfDay, isSameDay } from 'date-fns';
-import { cn } from '@/lib/utils';
 
 type BookingStep = 'select-studio' | 'select-date' | 'select-time' | 'booking-form' | 'confirmation';
 
@@ -106,8 +105,54 @@ export default function BookStudio() {
     }
   };
 
+  // Handle input field changes (syncs with grid)
+  const handleStartTimeInputChange = (time: string) => {
+    setSelectedStartTime(time);
+    // Reset end time if it's now invalid
+    if (selectedEndTime) {
+      const [startH, startM] = time.split(':').map(Number);
+      const [endH, endM] = selectedEndTime.split(':').map(Number);
+      if (endH * 60 + endM <= startH * 60 + startM) {
+        setSelectedEndTime(null);
+      }
+    }
+  };
+
+  const handleEndTimeInputChange = (time: string) => {
+    setSelectedEndTime(time);
+  };
+
+  // Validation check for enabling continue button
+  const isTimeSelectionValid = useMemo(() => {
+    if (!selectedStartTime || !selectedEndTime || !settings) return false;
+    
+    const [startH, startM] = selectedStartTime.split(':').map(Number);
+    const [endH, endM] = selectedEndTime.split(':').map(Number);
+    const startMins = startH * 60 + startM;
+    const endMins = endH * 60 + endM;
+    const durationHours = (endMins - startMins) / 60;
+    
+    if (endMins <= startMins) return false;
+    if (durationHours < settings.min_booking_hours) return false;
+    if (durationHours > settings.max_booking_hours) return false;
+    
+    // Check for overlapping bookings
+    for (const booking of bookings) {
+      const [bsH, bsM] = booking.start_time.split(':').map(Number);
+      const [beH, beM] = booking.end_time.split(':').map(Number);
+      const bookingStart = bsH * 60 + bsM;
+      const bookingEnd = beH * 60 + beM;
+      
+      if (startMins < bookingEnd && endMins > bookingStart) {
+        return false;
+      }
+    }
+    
+    return true;
+  }, [selectedStartTime, selectedEndTime, settings, bookings]);
+
   const handleContinueToForm = () => {
-    if (selectedStartTime && selectedEndTime) {
+    if (isTimeSelectionValid) {
       setStep('booking-form');
     }
   };
@@ -247,7 +292,23 @@ export default function BookStudio() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-4">
+              {/* Time Input Fields */}
+              <TimeInputFields
+                startTime={selectedStartTime}
+                endTime={selectedEndTime}
+                onStartChange={handleStartTimeInputChange}
+                onEndChange={handleEndTimeInputChange}
+                operatingStart={settings.operating_start_time}
+                operatingEnd={settings.operating_end_time}
+                timeIncrement={settings.time_increment_minutes}
+                bookings={bookings}
+                minBookingHours={settings.min_booking_hours}
+                maxBookingHours={settings.max_booking_hours}
+                selectedDate={selectedDate}
+              />
+
+              {/* Legend */}
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 rounded bg-primary" />
                   Selected
@@ -262,6 +323,7 @@ export default function BookStudio() {
                 </div>
               </div>
 
+              {/* Time Slot Grid */}
               <TimeSlotGrid
                 date={selectedDate}
                 settings={settings}
@@ -272,30 +334,14 @@ export default function BookStudio() {
                 isBlocked={isDateBlocked(selectedDate)}
               />
 
-              {selectedStartTime && (
-                <div className="border-t pt-4 mt-4">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {selectedEndTime 
-                      ? `Selected: ${formatTimeDisplay(selectedStartTime)} – ${formatTimeDisplay(selectedEndTime)}`
-                      : `Start: ${formatTimeDisplay(selectedStartTime)} (click another slot to set end time)`
-                    }
-                  </p>
-                  {settings.min_booking_hours && selectedEndTime && (
-                    <p className="text-xs text-muted-foreground">
-                      Min booking: {settings.min_booking_hours} hour(s)
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-between pt-4">
+              <div className="flex justify-between pt-4 border-t">
                 <Button variant="outline" onClick={() => setStep('select-date')}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Change Date
                 </Button>
                 <Button 
                   onClick={handleContinueToForm}
-                  disabled={!selectedStartTime || !selectedEndTime}
+                  disabled={!isTimeSelectionValid}
                 >
                   Continue
                   <ChevronRight className="h-4 w-4 ml-2" />
