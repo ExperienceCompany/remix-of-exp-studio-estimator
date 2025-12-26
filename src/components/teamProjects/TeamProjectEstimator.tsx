@@ -5,6 +5,7 @@ import {
   ProjectTask,
   calculatePhaseTotals,
   calculateRevenueByStatus,
+  syncTasksWithMemberCounts,
   EXAMPLE_WEBSITE_PROJECT,
   EXAMPLE_MARKETING_CAMPAIGN,
   TASK_POINTS
@@ -81,10 +82,23 @@ export function TeamProjectEstimator() {
   const updateMember = (phaseId: string, memberId: string, updates: TeamMember) => {
     const phase = phases.find(p => p.id === phaseId);
     if (phase) {
+      const oldMember = phase.teamMembers.find(m => m.id === memberId);
+      
+      // Check if task counts changed
+      const countsChanged = oldMember && (
+        oldMember.tasksLv1 !== updates.tasksLv1 ||
+        oldMember.tasksLv2 !== updates.tasksLv2 ||
+        oldMember.tasksLv3 !== updates.tasksLv3
+      );
+      
+      let updatedTasks = phase.tasks || [];
+      if (countsChanged) {
+        updatedTasks = syncTasksWithMemberCounts(updates, phase.tasks || []);
+      }
+      
       updatePhase(phaseId, {
-        teamMembers: phase.teamMembers.map(m =>
-          m.id === memberId ? updates : m
-        )
+        teamMembers: phase.teamMembers.map(m => m.id === memberId ? updates : m),
+        tasks: updatedTasks
       });
     }
   };
