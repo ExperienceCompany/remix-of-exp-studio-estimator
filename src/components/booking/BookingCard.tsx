@@ -26,14 +26,14 @@ const formatTime = (time: string) => {
 };
 
 const getBookingTypeColor = (type: string, status: string) => {
-  if (status === 'cancelled') return 'bg-muted text-muted-foreground';
+  if (status === 'cancelled') return 'bg-muted text-muted-foreground line-through';
   switch (type) {
     case 'customer':
-      return 'bg-primary/10 text-primary border-primary/20';
+      return 'bg-primary text-primary-foreground border-primary shadow-sm';
     case 'internal':
-      return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+      return 'bg-accent text-accent-foreground border-accent shadow-sm';
     case 'unavailable':
-      return 'bg-destructive/10 text-destructive border-destructive/20';
+      return 'bg-destructive text-destructive-foreground border-destructive shadow-sm';
     default:
       return 'bg-muted text-muted-foreground';
   }
@@ -69,15 +69,15 @@ export function BookingCard({ booking, studioName, compact = false, onClick }: B
         <span className="font-medium text-sm truncate">
           {booking.customer_name || booking.booking_type}
         </span>
-        <Badge variant="outline" className="text-xs shrink-0">
+        <Badge variant="secondary" className="text-xs shrink-0">
           {booking.session_type === 'serviced' ? 'EXP' : 'DIY'}
         </Badge>
       </div>
-      <div className="text-xs opacity-80 mt-1">
+      <div className="text-xs mt-1 opacity-90">
         {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
       </div>
       {studioName && (
-        <div className="text-xs opacity-60 mt-0.5">{studioName}</div>
+        <div className="text-xs mt-0.5 opacity-80">{studioName}</div>
       )}
     </div>
   );
