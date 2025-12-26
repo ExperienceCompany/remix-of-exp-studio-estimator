@@ -435,6 +435,130 @@ export function NewBookingModal({
 
   const displayPrice = manualPrice !== '' ? parseFloat(manualPrice) || 0 : calculatedPrice;
 
+  // Compute end time based on start time + duration
+  const computedEndTime = useMemo(() => {
+    const durationHours = sessionType === 'serviced' ? sessionDuration : hours;
+    if (durationHours <= 0) return startTime;
+    
+    const startTime24 = to24Hour(startTime);
+    const [startH, startM] = startTime24.split(':').map(Number);
+    const endMinutes = startH * 60 + startM + durationHours * 60;
+    const endH = Math.floor(endMinutes / 60);
+    const endM = Math.round(endMinutes % 60);
+    const ampm = endH >= 12 ? 'PM' : 'AM';
+    const hour12 = endH % 12 || 12;
+    return `${hour12}:${endM.toString().padStart(2, '0')} ${ampm}`;
+  }, [startTime, sessionDuration, hours, sessionType]);
+
+  // Generate line items for cost breakdown
+  const lineItems = useMemo(() => {
+    if (!date || selectedStudios.length === 0) return [];
+    
+    const items: { label: string; amount: number }[] = [];
+    const slotType = getTimeSlotType(date, startTime);
+    const durationHours = sessionType === 'serviced' ? sessionDuration : hours;
+    
+    if (durationHours <= 0) return [];
+    
+    // Studio rates
+    for (const studioId of selectedStudios) {
+      const studio = studios.find(s => s.id === studioId);
+      const rate = diyRates.find(
+        r => r.studio_id === studioId && r.time_slots?.type === slotType
+      );
+      
+      if (rate && studio) {
+        let studioTotal = 0;
+        let label = studio.name;
+        
+        if (durationHours <= 1) {
+          studioTotal = rate.first_hour_rate;
+          label += ` (${formatDuration(durationHours)} @ $${rate.first_hour_rate})`;
+        } else if (rate.after_first_hour_rate !== null) {
+          const firstHour = rate.first_hour_rate;
+          const additionalHours = durationHours - 1;
+          const additionalCost = additionalHours * rate.after_first_hour_rate;
+          studioTotal = firstHour + additionalCost;
+          label += ` (1hr @ $${firstHour} + ${formatDuration(additionalHours)} @ $${rate.after_first_hour_rate})`;
+        } else {
+          studioTotal = durationHours * rate.first_hour_rate;
+          label += ` (${formatDuration(durationHours)} @ $${rate.first_hour_rate}/hr)`;
+        }
+        
+        items.push({ label, amount: studioTotal });
+      }
+    }
+    
+    // Provider rates (serviced only)
+    if (sessionType === 'serviced' && bookingType === 'customer') {
+      for (const level of ['lv1', 'lv2', 'lv3'] as const) {
+        const count = crewAllocation[level];
+        if (count > 0) {
+          const provider = providerLevels.find(p => p.level === level);
+          if (provider) {
+            const levelLabels = { lv1: 'Entry', lv2: 'Exp', lv3: 'Expert' };
+            const cost = Number(provider.hourly_rate) * durationHours * count;
+            items.push({
+              label: `${levelLabels[level]} Crew × ${count} (${formatDuration(durationHours)} @ $${provider.hourly_rate}/hr)`,
+              amount: cost,
+            });
+          }
+        }
+      }
+      
+      // Camera addon for vodcast
+      if (serviceType === 'vodcast' && cameraCount > 0) {
+        const cameraAddon = vodcastCameraAddons.find(c => c.cameras === cameraCount);
+        if (cameraAddon) {
+          items.push({
+            label: `Camera Fee (${cameraCount} cam${cameraCount > 1 ? 's' : ''})`,
+            amount: Number(cameraAddon.customer_addon_amount),
+          });
+        }
+      }
+    }
+    
+    // Session addons
+    for (const addonId of selectedAddons) {
+      const addon = sessionAddonsData.find(a => a.id === addonId);
+      if (addon) {
+        const durationToUse = sessionType === 'serviced' ? sessionDuration : hours;
+        const cost = addon.is_hourly ? Number(addon.flat_amount) * durationToUse : Number(addon.flat_amount);
+        items.push({
+          label: addon.name + (addon.is_hourly ? ` (${formatDuration(durationToUse)} @ $${addon.flat_amount}/hr)` : ''),
+          amount: cost,
+        });
+      }
+    }
+    
+    return items;
+  }, [date, selectedStudios, startTime, sessionType, sessionDuration, hours, bookingType, crewAllocation, serviceType, cameraCount, selectedAddons, studios, diyRates, providerLevels, vodcastCameraAddons, sessionAddonsData]);
+
+  // Get studio rates for display
+  const studioRatesDisplay = useMemo(() => {
+    if (!date || selectedStudios.length === 0) return [];
+    
+    const slotType = getTimeSlotType(date, startTime);
+    
+    return selectedStudios.map(studioId => {
+      const studio = studios.find(s => s.id === studioId);
+      const rate = diyRates.find(
+        r => r.studio_id === studioId && r.time_slots?.type === slotType
+      );
+      
+      if (studio && rate) {
+        const hasAfterRate = rate.after_first_hour_rate !== null;
+        return {
+          name: studio.name,
+          rateText: hasAfterRate 
+            ? `$${rate.first_hour_rate} (1st hr) + $${rate.after_first_hour_rate}/addl`
+            : `$${rate.first_hour_rate}/hr`,
+        };
+      }
+      return { name: studio?.name || 'Unknown', rateText: '-' };
+    });
+  }, [date, selectedStudios, startTime, studios, diyRates]);
+
   const handleStudioToggle = (studioId: string) => {
     setSelectedStudios(prev => 
       prev.includes(studioId)
@@ -1342,7 +1466,7 @@ export function NewBookingModal({
                   onValueChange={([value]) => setSessionDuration(value)}
                   min={1}
                   max={8}
-                  step={0.5}
+                  step={0.25}
                   className="py-4"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -1469,6 +1593,28 @@ export function NewBookingModal({
                   })}
                 </div>
               )}
+
+              {/* Line Items Breakdown for DIY */}
+              {sessionType === 'diy' && lineItems.length > 0 && (
+                <Card className="mt-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Cost Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {lineItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{item.label}</span>
+                        <span>${item.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-semibold">
+                      <span>Estimated Total</span>
+                      <span className="text-lg">${calculatedPrice.toFixed(2)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
 
@@ -1488,20 +1634,32 @@ export function NewBookingModal({
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Date</span>
-                    <span>{date ? format(date, 'MMM d, yyyy') : '-'}</span>
+                    <span>{date ? format(date, 'EEEE, MMM d, yyyy') : '-'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Start Time</span>
-                    <span>{startTime}</span>
+                    <span className="text-muted-foreground">Time</span>
+                    <span>{startTime} – {computedEndTime}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Duration</span>
                     <span>{formatDuration(sessionDuration)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Spaces</span>
-                    <span>{selectedStudios.map(id => studios.find(s => s.id === id)?.name).join(', ') || '-'}</span>
+                  
+                  <Separator className="my-2" />
+                  
+                  {/* Spaces with rates */}
+                  <div className="space-y-2">
+                    <span className="text-sm text-muted-foreground">Spaces</span>
+                    {studioRatesDisplay.map((studio, idx) => (
+                      <div key={idx} className="flex justify-between text-sm pl-2">
+                        <span>{studio.name}</span>
+                        <span className="text-muted-foreground">{studio.rateText}</span>
+                      </div>
+                    ))}
                   </div>
+                  
+                  <Separator className="my-2" />
+                  
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Crew</span>
                     <span>
@@ -1525,6 +1683,23 @@ export function NewBookingModal({
                 </CardContent>
               </Card>
 
+              {/* Detailed Cost Breakdown */}
+              {lineItems.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Cost Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {lineItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{item.label}</span>
+                        <span>${item.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Total */}
               <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg">
                 <span className="font-medium">Estimated Total</span>
@@ -1543,8 +1718,8 @@ export function NewBookingModal({
             </div>
           )}
 
-          {/* Running Total (for multi-step) */}
-          {isMultiStep && step !== 'basic' && step !== 'summary' && (
+          {/* Running Total (for multi-step serviced sessions, not on summary or addons for DIY) */}
+          {isMultiStep && step !== 'basic' && step !== 'summary' && !(sessionType === 'diy' && step === 'addons') && (
             <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
               <span className="text-sm text-muted-foreground">Running total</span>
               <span className="font-semibold">${calculatedPrice.toFixed(2)}</span>
