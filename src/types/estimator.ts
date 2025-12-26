@@ -39,6 +39,8 @@ export interface EstimatorSelection {
   editingItems: EditingItem[];
   sessionAddons: SessionAddon[];
   packagePricing: PackagePricing | null;
+  affiliateCode: string | null;
+  affiliateLeadCount: number;
 }
 
 export interface SessionAddon {
@@ -98,6 +100,11 @@ export interface InternalTotals extends QuoteTotals {
   marginPercent: number;
   crewPayoutBreakdown: CrewPayoutDetail[];
   editorPayout: number;
+  affiliateCommissionRate: number;
+  affiliatePayout: number;
+  adjustedGrossMargin: number;
+  adjustedMarginPerHour: number;
+  adjustedMarginPercent: number;
 }
 
 export interface Package {

@@ -50,6 +50,8 @@ const initialSelection: EstimatorSelection = {
   editingItems: [],
   sessionAddons: [],
   packagePricing: null,
+  affiliateCode: null,
+  affiliateLeadCount: 0,
 };
 
 const EstimatorContext = createContext<EstimatorContextValue | undefined>(undefined);
@@ -438,6 +440,20 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
     const marginPerHour = selection.hours > 0 ? grossMargin / selection.hours : 0;
     const marginPercent = customerTotal > 0 ? (grossMargin / customerTotal) * 100 : 0;
 
+    // Affiliate commission calculation
+    const getCommissionRate = (leadCount: number): number => {
+      if (leadCount >= 30) return 0.30;
+      if (leadCount >= 21) return 0.20;
+      if (leadCount >= 10) return 0.10;
+      return 0.05;
+    };
+
+    const affiliateCommissionRate = selection.affiliateCode ? getCommissionRate(selection.affiliateLeadCount) : 0;
+    const affiliatePayout = selection.affiliateCode ? customerTotal * affiliateCommissionRate : 0;
+    const adjustedGrossMargin = grossMargin - affiliatePayout;
+    const adjustedMarginPerHour = selection.hours > 0 ? adjustedGrossMargin / selection.hours : 0;
+    const adjustedMarginPercent = customerTotal > 0 ? (adjustedGrossMargin / customerTotal) * 100 : 0;
+
     return {
       totals: {
         studioTotal: packageTotal || studioTotal,
@@ -466,6 +482,11 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
         marginPercent,
         crewPayoutBreakdown,
         editorPayout,
+        affiliateCommissionRate,
+        affiliatePayout,
+        adjustedGrossMargin,
+        adjustedMarginPerHour,
+        adjustedMarginPercent,
       },
     };
   }, [selection, diyRates, providerLevels, cameraAddons]);

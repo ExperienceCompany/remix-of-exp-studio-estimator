@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, TrendingUp, DollarSign, Percent, Clock, AlertCircle, Building, Save } from 'lucide-react';
+import { ArrowLeft, TrendingUp, DollarSign, Percent, Clock, AlertCircle, Building, Save, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOpsSettings } from '@/hooks/useOpsSettings';
 import { EstimatorProvider, useEstimator } from '@/contexts/EstimatorContext';
@@ -11,20 +11,45 @@ import { PackageShortcuts } from '@/components/estimator/PackageShortcuts';
 import { EstimatorStepper } from '@/components/estimator/EstimatorStepper';
 import { useCreateAdminLog } from '@/hooks/useAdminLogs';
 import { useToast } from '@/hooks/use-toast';
+import { AffiliateCodeInput } from '@/components/AffiliateCodeInput';
+import { supabase } from '@/integrations/supabase/client';
 import {
   STUDIO_LABELS,
   SERVICE_LABELS,
 } from '@/types/estimator';
 
 function InternalDashboard({ isAdmin }: { isAdmin: boolean }) {
-  const { internalTotals, selection, totals } = useEstimator();
+  const { internalTotals, selection, totals, updateSelection } = useEstimator();
   const { hourlyOverheadRate, totalMonthlyExpenses, settings } = useOpsSettings();
   const createLog = useCreateAdminLog();
   const { toast } = useToast();
+  const [affiliateCode, setAffiliateCode] = useState<string>('');
 
-  // Net profit calculations (admin only)
+  // Handle affiliate code change - fetch lead count and update selection
+  const handleAffiliateChange = useCallback(async (code: string, affiliateName: string | null) => {
+    setAffiliateCode(code);
+    
+    if (!code || !affiliateName) {
+      updateSelection({ affiliateCode: null, affiliateLeadCount: 0 });
+      return;
+    }
+
+    // Fetch the lead count for this affiliate
+    const { data } = await supabase
+      .from('profiles')
+      .select('lead_count')
+      .eq('affiliate_code', code)
+      .single();
+    
+    updateSelection({
+      affiliateCode: code,
+      affiliateLeadCount: data?.lead_count || 0,
+    });
+  }, [updateSelection]);
+
+  // Net profit calculations (admin only) - use adjusted margin
   const overheadAllocation = hourlyOverheadRate * selection.hours;
-  const netProfit = internalTotals.grossMargin - overheadAllocation;
+  const netProfit = internalTotals.adjustedGrossMargin - overheadAllocation;
   const netMarginPercent = internalTotals.customerTotal > 0 
     ? (netProfit / internalTotals.customerTotal) * 100 
     : 0;
@@ -142,15 +167,51 @@ function InternalDashboard({ isAdmin }: { isAdmin: boolean }) {
               </>
             )}
 
+            {/* Affiliate Code Input */}
+            <div className="space-y-2">
+              <AffiliateCodeInput
+                value={affiliateCode}
+                onChange={handleAffiliateChange}
+              />
+            </div>
+
             {/* Margin Metrics */}
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-success" />
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">Gross Margin</span>
                 </div>
-                <span className="font-bold text-success">
+                <span className="font-medium">
                   ${internalTotals.grossMargin.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Affiliate Payout Deduction */}
+              {internalTotals.affiliatePayout > 0 && (
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">
+                      Affiliate ({(internalTotals.affiliateCommissionRate * 100).toFixed(0)}%)
+                    </span>
+                  </div>
+                  <span className="text-destructive">
+                    -${internalTotals.affiliatePayout.toFixed(2)}
+                  </span>
+                </div>
+              )}
+
+              {/* Adjusted Gross Margin */}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-success" />
+                  <span className="text-sm font-medium">
+                    {internalTotals.affiliatePayout > 0 ? 'Adjusted Margin' : 'Gross Margin'}
+                  </span>
+                </div>
+                <span className="font-bold text-success">
+                  ${internalTotals.adjustedGrossMargin.toFixed(2)}
                 </span>
               </div>
 
@@ -160,7 +221,7 @@ function InternalDashboard({ isAdmin }: { isAdmin: boolean }) {
                   <span className="text-sm">Margin/Hour</span>
                 </div>
                 <span className="font-medium">
-                  ${internalTotals.marginPerHour.toFixed(2)}
+                  ${internalTotals.adjustedMarginPerHour.toFixed(2)}
                 </span>
               </div>
 
@@ -170,7 +231,7 @@ function InternalDashboard({ isAdmin }: { isAdmin: boolean }) {
                   <span className="text-sm">Margin %</span>
                 </div>
                 <span className="font-medium">
-                  {internalTotals.marginPercent.toFixed(1)}%
+                  {internalTotals.adjustedMarginPercent.toFixed(1)}%
                 </span>
               </div>
             </div>
