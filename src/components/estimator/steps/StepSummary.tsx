@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import {
   TimeSlotType,
   ProviderLevel,
 } from '@/types/estimator';
-import { ArrowLeft, Copy, FileText, RotateCcw, Download, Save } from 'lucide-react';
+import { ArrowLeft, Copy, FileText, RotateCcw, Download, Save, Timer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuotePdf } from '@/lib/generateQuotePdf';
 import { format } from 'date-fns';
@@ -28,9 +29,11 @@ export function StepSummary() {
   const { selection, totals, internalTotals, setCurrentStep, resetSelection } = useEstimator();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const createLog = useCreateAdminLog();
   const [affiliateCode, setAffiliateCode] = useState('');
   const [affiliateName, setAffiliateName] = useState<string | null>(null);
+  const [isBooking, setIsBooking] = useState(false);
 
   const handleCopyQuote = () => {
     const lines = [
