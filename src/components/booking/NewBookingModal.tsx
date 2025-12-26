@@ -70,7 +70,8 @@ import {
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons, useEditingMenu } from '@/hooks/useEstimatorData';
 import { Switch } from '@/components/ui/switch';
-import { useCreateBooking, useUpdateBooking, useCancelBooking, StudioBooking } from '@/hooks/useStudioBookings';
+import { useCreateBooking, useUpdateBooking, useCancelBooking, useStudioBookings, StudioBooking } from '@/hooks/useStudioBookings';
+import { AffiliateCodeInput } from '@/components/AffiliateCodeInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RepeatOptions, RepeatConfig, createDefaultRepeatConfig, calculateRepeatDates } from './RepeatOptions';
@@ -113,6 +114,7 @@ interface NewBookingModalProps {
   operatingStart: string;
   operatingEnd: string;
   onBookingCreated?: () => void;
+  onDurationChange?: (studioIds: string[], newStartTime: string, newEndTime: string) => void;
 }
 
 // Service icon mapping
@@ -238,6 +240,7 @@ export function NewBookingModal({
   operatingStart,
   operatingEnd,
   onBookingCreated,
+  onDurationChange,
 }: NewBookingModalProps) {
   const { toast } = useToast();
   const createBooking = useCreateBooking();
@@ -287,10 +290,12 @@ export function NewBookingModal({
   const [cameraCount, setCameraCount] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [affiliateCode, setAffiliateCode] = useState('');
+  const [affiliateName, setAffiliateName] = useState<string | null>(null);
   const [editingItems, setEditingItems] = useState<EditingItem[]>([]);
   const [addonHours, setAddonHours] = useState<Record<string, number>>({});
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [overlapError, setOverlapError] = useState<string | null>(null);
 
   // Reset form when opened - or pre-fill with existing booking or prefill data
   useEffect(() => {
@@ -387,17 +392,17 @@ export function NewBookingModal({
     });
   }, [sessionAddonsData, sessionType]);
 
-  // Get auto-included addons (like Set Design fee for photoshoot)
+  // Get auto-included addons (like Set Design fee for photoshoot) - both DIY and serviced
   const autoIncludedAddons = useMemo(() => {
     return sessionAddonsData.filter(addon => {
       if (!addon.is_active) return false;
-      // Set Design + Props is auto-included for serviced photoshoot
-      if (sessionType === 'serviced' && serviceType === 'photoshoot' && addon.name.includes('Set Design')) {
+      // Set Design + Props is auto-included for photoshoot (both DIY and serviced)
+      if (serviceType === 'photoshoot' && addon.name.includes('Set Design')) {
         return true;
       }
       return false;
     });
-  }, [sessionAddonsData, sessionType, serviceType]);
+  }, [sessionAddonsData, serviceType]);
 
   // Filter photo editing items (only for photoshoot)
   const photoEditingItems = useMemo(() => {
@@ -510,11 +515,26 @@ export function NewBookingModal({
   const lineItems = useMemo(() => {
     if (!date || selectedStudios.length === 0) return [];
     
-    const items: { label: string; amount: number }[] = [];
+    const items: { label: string; amount: number; isHeader?: boolean }[] = [];
     const slotType = getTimeSlotType(date, startTime);
     const durationHours = sessionType === 'serviced' ? sessionDuration : hours;
     
     if (durationHours <= 0) return [];
+    
+    // Add service type header for serviced sessions
+    if (sessionType === 'serviced' && serviceType) {
+      const serviceLabels: Record<string, string> = {
+        photoshoot: 'Photoshoot (Unedited – edits sold separately)',
+        vodcast: 'Vodcast Production',
+        audio_podcast: 'Audio Podcast',
+        recording_session: 'Recording Session',
+      };
+      items.push({
+        label: `Service: ${serviceLabels[serviceType] || serviceType}`,
+        amount: 0,
+        isHeader: true,
+      });
+    }
     
     // Studio rates
     for (const studioId of selectedStudios) {
@@ -701,11 +721,108 @@ export function NewBookingModal({
     setAddonHours(prev => ({ ...prev, [addonId]: Math.max(1, hours) }));
   };
 
+  // Helper to check if new booking overlaps with existing bookings
+  const checkOverlapConflicts = async (): Promise<{ hasConflict: boolean; message?: string }> => {
+    if (!date || selectedStudios.length === 0) return { hasConflict: false };
+    
+    const bookingDate = format(date, 'yyyy-MM-dd');
+    const startTime24 = to24Hour(startTime);
+    const endTime24 = to24Hour(computedEndTime);
+    
+    const startMins = parseInt(startTime24.split(':')[0]) * 60 + parseInt(startTime24.split(':')[1]);
+    const endMins = parseInt(endTime24.split(':')[0]) * 60 + parseInt(endTime24.split(':')[1]);
+    
+    // Fetch existing bookings for the date
+    const { data: existingBookings, error } = await supabase
+      .from('studio_bookings')
+      .select('*')
+      .eq('booking_date', bookingDate)
+      .in('studio_id', selectedStudios)
+      .neq('status', 'cancelled');
+    
+    if (error) {
+      console.error('Error checking overlaps:', error);
+      return { hasConflict: false };
+    }
+    
+    // Check for time overlaps
+    for (const booking of existingBookings || []) {
+      // Skip if editing the same booking
+      if (existingBooking && booking.id === existingBooking.id) continue;
+      
+      const bookingStartMins = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+      const bookingEndMins = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+      
+      // Check overlap: not (new ends before existing starts OR new starts after existing ends)
+      const hasOverlap = !(endMins <= bookingStartMins || startMins >= bookingEndMins);
+      
+      if (hasOverlap) {
+        const studioName = studios.find(s => s.id === booking.studio_id)?.name || 'Studio';
+        return { 
+          hasConflict: true, 
+          message: `${studioName} already has a booking from ${booking.start_time.slice(0,5)} to ${booking.end_time.slice(0,5)}` 
+        };
+      }
+    }
+    
+    // Check Full Studio Buyout conflicts
+    const buyoutStudio = studios.find(s => s.type === 'full_studio_buyout');
+    if (buyoutStudio) {
+      const isBuyoutSelected = selectedStudios.includes(buyoutStudio.id);
+      
+      // If buyout is selected, check if any OTHER studio has bookings in that time
+      if (isBuyoutSelected) {
+        const { data: otherBookings } = await supabase
+          .from('studio_bookings')
+          .select('*, studios!inner(name)')
+          .eq('booking_date', bookingDate)
+          .not('studio_id', 'eq', buyoutStudio.id)
+          .neq('status', 'cancelled');
+        
+        for (const booking of otherBookings || []) {
+          const bookingStartMins = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+          const bookingEndMins = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+          const hasOverlap = !(endMins <= bookingStartMins || startMins >= bookingEndMins);
+          
+          if (hasOverlap) {
+            return { 
+              hasConflict: true, 
+              message: `Full Studio Buyout conflicts with existing booking in another space` 
+            };
+          }
+        }
+      } else {
+        // If not buyout, check if buyout is booked in that time
+        const { data: buyoutBookings } = await supabase
+          .from('studio_bookings')
+          .select('*')
+          .eq('booking_date', bookingDate)
+          .eq('studio_id', buyoutStudio.id)
+          .neq('status', 'cancelled');
+        
+        for (const booking of buyoutBookings || []) {
+          const bookingStartMins = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+          const bookingEndMins = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+          const hasOverlap = !(endMins <= bookingStartMins || startMins >= bookingEndMins);
+          
+          if (hasOverlap) {
+            return { 
+              hasConflict: true, 
+              message: `This time is blocked by a Full Studio Buyout` 
+            };
+          }
+        }
+      }
+    }
+    
+    return { hasConflict: false };
+  };
+
   // Get current step index based on session type
   const activeSteps = sessionType === 'diy' ? DIY_STEPS : SERVICED_STEPS;
   const currentStepIndex = activeSteps.findIndex(s => s.key === step);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Validate basic step for all session types
     if (step === 'basic') {
       if (!date) {
@@ -718,6 +835,15 @@ export function NewBookingModal({
       }
       if (hours <= 0) {
         toast({ title: 'End time must be after start time', variant: 'destructive' });
+        return;
+      }
+      
+      // Check for overlap conflicts
+      setOverlapError(null);
+      const overlapResult = await checkOverlapConflicts();
+      if (overlapResult.hasConflict) {
+        setOverlapError(overlapResult.message || 'Time slot conflicts with existing booking');
+        toast({ title: 'Booking Conflict', description: overlapResult.message, variant: 'destructive' });
         return;
       }
       
@@ -1553,9 +1679,11 @@ export function NewBookingModal({
                           </div>
                           <div className="flex-1">
                             <CardTitle className="text-sm">{service.name}</CardTitle>
-                            {service.description && (
-                              <CardDescription className="text-xs">{service.description}</CardDescription>
-                            )}
+                            <CardDescription className="text-xs">
+                              {service.type === 'photoshoot' 
+                                ? 'Unedited photos only – editing add-on sold separately' 
+                                : service.description}
+                            </CardDescription>
                           </div>
                           {isSelected && (
                             <Check className="h-5 w-5 text-primary" />
@@ -1580,7 +1708,19 @@ export function NewBookingModal({
                 </div>
                 <Slider
                   value={[sessionDuration]}
-                  onValueChange={([value]) => setSessionDuration(value)}
+                  onValueChange={([value]) => {
+                    setSessionDuration(value);
+                    // Sync with DayView temp booking
+                    if (onDurationChange && date) {
+                      const startTime24 = to24Hour(startTime);
+                      const [startH, startM] = startTime24.split(':').map(Number);
+                      const endMinutes = startH * 60 + startM + value * 60;
+                      const endH = Math.floor(endMinutes / 60);
+                      const endM = Math.round(endMinutes % 60);
+                      const newEndTime24 = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+                      onDurationChange(selectedStudios, startTime24, newEndTime24);
+                    }
+                  }}
                   min={1}
                   max={8}
                   step={0.25}
@@ -2001,9 +2141,12 @@ export function NewBookingModal({
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {lineItems.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{item.label}</span>
-                        <span>${item.amount.toFixed(2)}</span>
+                      <div key={idx} className={cn(
+                        "flex justify-between text-sm",
+                        item.isHeader && "font-medium text-foreground"
+                      )}>
+                        <span className={item.isHeader ? "" : "text-muted-foreground"}>{item.label}</span>
+                        {!item.isHeader && <span>${item.amount.toFixed(2)}</span>}
                       </div>
                     ))}
                   </CardContent>
@@ -2016,24 +2159,40 @@ export function NewBookingModal({
                 <span className="text-2xl font-bold">${displayPrice.toFixed(2)}</span>
               </div>
 
-              {/* Affiliate Code */}
-              <div className="space-y-2">
-                <Label>Affiliate code (optional)</Label>
-                <Input
-                  value={affiliateCode}
-                  onChange={(e) => setAffiliateCode(e.target.value)}
-                  placeholder="Enter code"
-                />
-              </div>
+              {/* Affiliate Code with auto-validation */}
+              <AffiliateCodeInput
+                value={affiliateCode}
+                onChange={(code, name) => {
+                  setAffiliateCode(code);
+                  setAffiliateName(name);
+                }}
+              />
             </div>
           )}
 
-          {/* Running Total (for multi-step serviced sessions, not on summary or addons for DIY) */}
-          {isMultiStep && step !== 'basic' && step !== 'summary' && !(sessionType === 'diy' && step === 'addons') && (
-            <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-              <span className="text-sm text-muted-foreground">Running total</span>
-              <span className="font-semibold">${calculatedPrice.toFixed(2)}</span>
-            </div>
+          {/* Running Total + Cost Breakdown (for multi-step serviced sessions on service/duration steps) */}
+          {isMultiStep && (step === 'service' || step === 'duration') && lineItems.length > 0 && (
+            <Card className="bg-muted/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Cost Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {lineItems.map((item, idx) => (
+                  <div key={idx} className={cn(
+                    "flex justify-between text-sm",
+                    item.isHeader && "font-medium text-foreground"
+                  )}>
+                    <span className={item.isHeader ? "" : "text-muted-foreground"}>{item.label}</span>
+                    {!item.isHeader && <span>${item.amount.toFixed(2)}</span>}
+                  </div>
+                ))}
+                <Separator className="my-2" />
+                <div className="flex justify-between items-center font-medium">
+                  <span>Estimated Total</span>
+                  <span className="text-lg">${calculatedPrice.toFixed(2)}</span>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
 

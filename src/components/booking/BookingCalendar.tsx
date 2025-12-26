@@ -60,6 +60,7 @@ export function BookingCalendar({
   const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
   const [editingBooking, setEditingBooking] = useState<StudioBooking | null>(null);
   const [clearPendingTrigger, setClearPendingTrigger] = useState(0);
+  const [pendingDurationUpdate, setPendingDurationUpdate] = useState<{ studioIds: string[]; startTime: string; endTime: string } | null>(null);
   
   // List view date range state
   const [listStartDate, setListStartDate] = useState<Date>(new Date());
@@ -316,6 +317,7 @@ export function BookingCalendar({
               onBookingClick={handleBookingClickForEdit}
               onOpenBookingModal={handleOpenModalFromDayView}
               clearPendingTrigger={clearPendingTrigger}
+              externalPendingUpdate={pendingDurationUpdate}
             />
           )}
           {viewMode === 'grid' && (
@@ -375,7 +377,11 @@ export function BookingCalendar({
             operatingEnd={defaultSettings.operatingEnd}
             onBookingCreated={() => {
               setClearPendingTrigger(prev => prev + 1);
+              setPendingDurationUpdate(null);
               handleCloseModal();
+            }}
+            onDurationChange={(studioIds, startTime, endTime) => {
+              setPendingDurationUpdate({ studioIds, startTime, endTime });
             }}
           />
         </>
