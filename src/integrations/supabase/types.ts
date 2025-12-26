@@ -654,11 +654,13 @@ export type Database = {
           end_time: string
           id: string
           notes: string | null
+          people_count: number | null
           quote_id: string | null
           session_type: string | null
           start_time: string
           status: Database["public"]["Enums"]["booking_status"]
           studio_id: string
+          title: string | null
           updated_at: string
         }
         Insert: {
@@ -672,11 +674,13 @@ export type Database = {
           end_time: string
           id?: string
           notes?: string | null
+          people_count?: number | null
           quote_id?: string | null
           session_type?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["booking_status"]
           studio_id: string
+          title?: string | null
           updated_at?: string
         }
         Update: {
@@ -690,11 +694,13 @@ export type Database = {
           end_time?: string
           id?: string
           notes?: string | null
+          people_count?: number | null
           quote_id?: string | null
           session_type?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"]
           studio_id?: string
+          title?: string | null
           updated_at?: string
         }
         Relationships: [
