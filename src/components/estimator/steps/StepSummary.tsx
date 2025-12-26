@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,12 +22,15 @@ import type { Json } from '@/integrations/supabase/types';
 import { useCreateAdminLog } from '@/hooks/useAdminLogs';
 import { useAuth } from '@/hooks/useAuth';
 import { AffiliateEarningsCard } from '@/components/AffiliateEarningsCard';
+import { AffiliateCodeInput } from '@/components/AffiliateCodeInput';
 
 export function StepSummary() {
   const { selection, totals, internalTotals, setCurrentStep, resetSelection } = useEstimator();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const createLog = useCreateAdminLog();
+  const [affiliateCode, setAffiliateCode] = useState('');
+  const [affiliateName, setAffiliateName] = useState<string | null>(null);
 
   const handleCopyQuote = () => {
     const lines = [
@@ -58,7 +62,8 @@ export function StepSummary() {
         selections_json: JSON.parse(JSON.stringify(selection)) as Json,
         totals_json: JSON.parse(JSON.stringify(totals)) as Json,
         customer_total: totals.customerTotal,
-        status: 'draft' as const
+        status: 'draft' as const,
+        affiliate_code: affiliateCode || null,
       };
       
       const { data: quote, error } = await supabase
@@ -107,10 +112,13 @@ export function StepSummary() {
         provider_payout: internalTotals.providerPayout,
         gross_margin: internalTotals.grossMargin,
         hours: selection.hours,
+        affiliate_code: affiliateCode || null,
         data_json: {
           selection,
           totals,
           internalTotals,
+          affiliateCode: affiliateCode || null,
+          affiliateName: affiliateName || null,
         },
       });
       toast({ title: 'Saved to Admin Logs!' });
@@ -212,6 +220,15 @@ export function StepSummary() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Affiliate Code Input */}
+      <AffiliateCodeInput 
+        value={affiliateCode} 
+        onChange={(code, name) => {
+          setAffiliateCode(code);
+          setAffiliateName(name);
+        }} 
+      />
 
       {/* Affiliate Earnings Card */}
       <AffiliateEarningsCard customerTotal={totals.customerTotal} />
