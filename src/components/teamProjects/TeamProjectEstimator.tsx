@@ -1,21 +1,26 @@
 import { useState } from "react";
 import { 
   TeamMember, 
-  ProjectPhase, 
+  ProjectPhase,
+  ProjectTask,
   calculatePhaseTotals,
   EXAMPLE_WEBSITE_PROJECT,
-  EXAMPLE_MARKETING_CAMPAIGN
+  EXAMPLE_MARKETING_CAMPAIGN,
+  TASK_POINTS
 } from "@/types/teamProject";
 import { MemberTaskInput } from "./MemberTaskInput";
 import { PayoutDashboard } from "./PayoutDashboard";
+import { TaskBoardView } from "./TaskBoardView";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, UserPlus, Layers, Sparkles, FileDown } from "lucide-react";
+import { Plus, UserPlus, Layers, Sparkles, FileDown, Users, ClipboardList } from "lucide-react";
 import { generateProjectPayoutPdf } from "@/lib/generateProjectPayoutPdf";
 import { format } from "date-fns";
+
+type ViewMode = 'team' | 'tasks';
 
 export function TeamProjectEstimator() {
   const [projectName, setProjectName] = useState("");
@@ -24,9 +29,11 @@ export function TeamProjectEstimator() {
       id: crypto.randomUUID(),
       name: "Phase 1",
       revenue: 5000,
-      teamMembers: []
+      teamMembers: [],
+      tasks: []
     }
   ]);
+  const [viewMode, setViewMode] = useState<ViewMode>('team');
 
   const addPhase = () => {
     setPhases([
@@ -35,7 +42,8 @@ export function TeamProjectEstimator() {
         id: crypto.randomUUID(),
         name: `Phase ${phases.length + 1}`,
         revenue: 5000,
-        teamMembers: []
+        teamMembers: [],
+        tasks: []
       }
     ]);
   };
@@ -83,8 +91,101 @@ export function TeamProjectEstimator() {
   const removeMember = (phaseId: string, memberId: string) => {
     const phase = phases.find(p => p.id === phaseId);
     if (phase) {
+      // Also remove tasks assigned to this member
+      const updatedTasks = (phase.tasks || []).map(t => 
+        t.assigneeId === memberId ? { ...t, assigneeId: null } : t
+      );
       updatePhase(phaseId, {
-        teamMembers: phase.teamMembers.filter(m => m.id !== memberId)
+        teamMembers: phase.teamMembers.filter(m => m.id !== memberId),
+        tasks: updatedTasks
+      });
+    }
+  };
+
+  // Task management
+  const addTask = (phaseId: string) => {
+    const phase = phases.find(p => p.id === phaseId);
+    if (phase) {
+      const newTask: ProjectTask = {
+        id: crypto.randomUUID(),
+        title: "",
+        level: 'lv2',
+        status: 'todo',
+        assigneeId: null
+      };
+      updatePhase(phaseId, {
+        tasks: [...(phase.tasks || []), newTask]
+      });
+    }
+  };
+
+  const updateTask = (phaseId: string, taskId: string, updates: Partial<ProjectTask>) => {
+    const phase = phases.find(p => p.id === phaseId);
+    if (phase) {
+      const updatedTasks = (phase.tasks || []).map(t =>
+        t.id === taskId ? { ...t, ...updates } : t
+      );
+      
+      // Sync member task counts based on task assignments
+      const memberTaskCounts = new Map<string, { lv1: number; lv2: number; lv3: number }>();
+      phase.teamMembers.forEach(m => {
+        memberTaskCounts.set(m.id, { lv1: 0, lv2: 0, lv3: 0 });
+      });
+      
+      updatedTasks.forEach(task => {
+        if (task.assigneeId && memberTaskCounts.has(task.assigneeId)) {
+          const counts = memberTaskCounts.get(task.assigneeId)!;
+          if (task.level === 'lv1') counts.lv1++;
+          else if (task.level === 'lv2') counts.lv2++;
+          else if (task.level === 'lv3') counts.lv3++;
+        }
+      });
+
+      const updatedMembers = phase.teamMembers.map(m => {
+        const counts = memberTaskCounts.get(m.id);
+        if (counts) {
+          return {
+            ...m,
+            tasksLv1: counts.lv1,
+            tasksLv2: counts.lv2,
+            tasksLv3: counts.lv3
+          };
+        }
+        return m;
+      });
+
+      updatePhase(phaseId, {
+        tasks: updatedTasks,
+        teamMembers: updatedMembers
+      });
+    }
+  };
+
+  const removeTask = (phaseId: string, taskId: string) => {
+    const phase = phases.find(p => p.id === phaseId);
+    if (phase) {
+      const taskToRemove = (phase.tasks || []).find(t => t.id === taskId);
+      const updatedTasks = (phase.tasks || []).filter(t => t.id !== taskId);
+      
+      // Update member task counts if task was assigned
+      let updatedMembers = phase.teamMembers;
+      if (taskToRemove?.assigneeId) {
+        updatedMembers = phase.teamMembers.map(m => {
+          if (m.id === taskToRemove.assigneeId) {
+            return {
+              ...m,
+              tasksLv1: taskToRemove.level === 'lv1' ? m.tasksLv1 - 1 : m.tasksLv1,
+              tasksLv2: taskToRemove.level === 'lv2' ? m.tasksLv2 - 1 : m.tasksLv2,
+              tasksLv3: taskToRemove.level === 'lv3' ? m.tasksLv3 - 1 : m.tasksLv3
+            };
+          }
+          return m;
+        });
+      }
+      
+      updatePhase(phaseId, {
+        tasks: updatedTasks,
+        teamMembers: updatedMembers
       });
     }
   };
@@ -92,10 +193,18 @@ export function TeamProjectEstimator() {
   const loadExample = (type: 'website' | 'marketing') => {
     if (type === 'website') {
       setProjectName("Website Project");
-      setPhases([{ ...EXAMPLE_WEBSITE_PROJECT, id: crypto.randomUUID() }]);
+      setPhases([{ 
+        ...EXAMPLE_WEBSITE_PROJECT, 
+        id: crypto.randomUUID(),
+        tasks: EXAMPLE_WEBSITE_PROJECT.tasks?.map(t => ({ ...t, id: crypto.randomUUID() })) || []
+      }]);
     } else {
       setProjectName("Marketing Campaign");
-      setPhases(EXAMPLE_MARKETING_CAMPAIGN.map(p => ({ ...p, id: crypto.randomUUID() })));
+      setPhases(EXAMPLE_MARKETING_CAMPAIGN.map(p => ({ 
+        ...p, 
+        id: crypto.randomUUID(),
+        tasks: p.tasks?.map(t => ({ ...t, id: crypto.randomUUID() })) || []
+      })));
     }
   };
 
@@ -149,6 +258,31 @@ export function TeamProjectEstimator() {
               <Sparkles className="h-3 w-3" />
               Marketing Campaign
             </Button>
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <span className="text-sm text-muted-foreground">View:</span>
+            <div className="flex gap-1">
+              <Button
+                variant={viewMode === 'team' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('team')}
+                className="gap-1"
+              >
+                <Users className="h-3 w-3" />
+                Team View
+              </Button>
+              <Button
+                variant={viewMode === 'tasks' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('tasks')}
+                className="gap-1"
+              >
+                <ClipboardList className="h-3 w-3" />
+                Task Board
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -210,90 +344,107 @@ export function TeamProjectEstimator() {
           
           return (
             <TabsContent key={phase.id} value={phase.id} className="mt-0">
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Left: Phase Setup & Members */}
-                <div className="space-y-4">
-                  {/* Phase Config */}
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-center">
-                        <CardTitle className="text-base">Phase Settings</CardTitle>
-                        {phases.length > 1 && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => removePhase(phase.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            Remove Phase
-                          </Button>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <Label htmlFor={`phase-name-${phase.id}`}>Phase Name</Label>
-                        <Input
-                          id={`phase-name-${phase.id}`}
-                          value={phase.name}
-                          onChange={(e) => updatePhase(phase.id, { name: e.target.value })}
-                          placeholder="Phase name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`phase-revenue-${phase.id}`}>Phase Revenue ($)</Label>
-                        <Input
-                          id={`phase-revenue-${phase.id}`}
-                          type="number"
-                          value={phase.revenue}
-                          onChange={(e) => updatePhase(phase.id, { revenue: Number(e.target.value) })}
-                          min={0}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+              {viewMode === 'team' ? (
+                // Team View
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {/* Left: Phase Setup & Members */}
+                  <div className="space-y-4">
+                    {/* Phase Config */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <div className="flex justify-between items-center">
+                          <CardTitle className="text-base">Phase Settings</CardTitle>
+                          {phases.length > 1 && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => removePhase(phase.id)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              Remove Phase
+                            </Button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <Label htmlFor={`phase-name-${phase.id}`}>Phase Name</Label>
+                          <Input
+                            id={`phase-name-${phase.id}`}
+                            value={phase.name}
+                            onChange={(e) => updatePhase(phase.id, { name: e.target.value })}
+                            placeholder="Phase name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`phase-revenue-${phase.id}`}>Phase Revenue ($)</Label>
+                          <Input
+                            id={`phase-revenue-${phase.id}`}
+                            type="number"
+                            value={phase.revenue}
+                            onChange={(e) => updatePhase(phase.id, { revenue: Number(e.target.value) })}
+                            min={0}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                  {/* Team Members */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Team Members</h3>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => addMember(phase.id)}
-                        className="gap-1"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                        Add Member
-                      </Button>
+                    {/* Team Members */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold">Team Members</h3>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => addMember(phase.id)}
+                          className="gap-1"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                          Add Member
+                        </Button>
+                      </div>
+
+                      {phase.teamMembers.length === 0 ? (
+                        <Card className="border-dashed">
+                          <CardContent className="py-8 text-center text-muted-foreground">
+                            <UserPlus className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p>No team members yet</p>
+                            <p className="text-sm">Add members to assign tasks and calculate payouts</p>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        phase.teamMembers.map(member => (
+                          <MemberTaskInput
+                            key={member.id}
+                            member={member}
+                            onUpdate={(updated) => updateMember(phase.id, member.id, updated)}
+                            onRemove={() => removeMember(phase.id, member.id)}
+                          />
+                        ))
+                      )}
                     </div>
+                  </div>
 
-                    {phase.teamMembers.length === 0 ? (
-                      <Card className="border-dashed">
-                        <CardContent className="py-8 text-center text-muted-foreground">
-                          <UserPlus className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>No team members yet</p>
-                          <p className="text-sm">Add members to assign tasks and calculate payouts</p>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      phase.teamMembers.map(member => (
-                        <MemberTaskInput
-                          key={member.id}
-                          member={member}
-                          onUpdate={(updated) => updateMember(phase.id, member.id, updated)}
-                          onRemove={() => removeMember(phase.id, member.id)}
-                        />
-                      ))
-                    )}
+                  {/* Right: Payout Dashboard */}
+                  <div>
+                    <PayoutDashboard phaseTotals={phaseTotals} projectName={projectName} />
                   </div>
                 </div>
-
-                {/* Right: Payout Dashboard */}
-                <div>
-                  <PayoutDashboard phaseTotals={phaseTotals} projectName={projectName} />
+              ) : (
+                // Task Board View
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div className="lg:col-span-2">
+                    <TaskBoardView
+                      phase={phase}
+                      teamPool={phaseTotals.teamPool}
+                      totalPoints={phaseTotals.totalPoints}
+                      onUpdateTask={(taskId, updates) => updateTask(phase.id, taskId, updates)}
+                      onRemoveTask={(taskId) => removeTask(phase.id, taskId)}
+                      onAddTask={() => addTask(phase.id)}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </TabsContent>
           );
         })}
