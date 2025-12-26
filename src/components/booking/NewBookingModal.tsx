@@ -396,13 +396,13 @@ export function NewBookingModal({
   const autoIncludedAddons = useMemo(() => {
     return sessionAddonsData.filter(addon => {
       if (!addon.is_active) return false;
-      // Set Design + Props is auto-included for photoshoot (both DIY and serviced)
-      if (serviceType === 'photoshoot' && addon.name.includes('Set Design')) {
+      // Set Design + Props is auto-included for serviced photoshoots only
+      if (sessionType === 'serviced' && serviceType === 'photoshoot' && addon.name.includes('Set Design')) {
         return true;
       }
       return false;
     });
-  }, [sessionAddonsData, serviceType]);
+  }, [sessionAddonsData, sessionType, serviceType]);
 
   // Filter photo editing items (only for photoshoot)
   const photoEditingItems = useMemo(() => {
