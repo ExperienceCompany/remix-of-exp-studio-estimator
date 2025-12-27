@@ -160,6 +160,45 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_custom_field_values: {
+        Row: {
+          booking_id: string
+          created_at: string | null
+          field_id: string
+          field_value: Json
+          id: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string | null
+          field_id: string
+          field_value: Json
+          id?: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string | null
+          field_id?: string
+          field_value?: Json
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_custom_field_values_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "studio_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_custom_field_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "custom_booking_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_policies: {
         Row: {
           allowed_tags: string[] | null
@@ -245,6 +284,98 @@ export type Database = {
             columns: ["studio_id"]
             isOneToOne: true
             referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_booking_fields: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          field_help_text: string | null
+          field_label: string
+          field_nickname: string
+          field_options: string[] | null
+          field_placeholder: string | null
+          field_type: string
+          id: string
+          is_active: boolean | null
+          is_admin_only: boolean | null
+          is_required: boolean | null
+          max_selections: number | null
+          min_selections: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          field_help_text?: string | null
+          field_label: string
+          field_nickname: string
+          field_options?: string[] | null
+          field_placeholder?: string | null
+          field_type: string
+          id?: string
+          is_active?: boolean | null
+          is_admin_only?: boolean | null
+          is_required?: boolean | null
+          max_selections?: number | null
+          min_selections?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          field_help_text?: string | null
+          field_label?: string
+          field_nickname?: string
+          field_options?: string[] | null
+          field_placeholder?: string | null
+          field_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_admin_only?: boolean | null
+          is_required?: boolean | null
+          max_selections?: number | null
+          min_selections?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      custom_field_conditions: {
+        Row: {
+          condition_field: string
+          condition_group: number | null
+          condition_operator: string
+          condition_values: string[]
+          created_at: string | null
+          field_id: string
+          id: string
+        }
+        Insert: {
+          condition_field: string
+          condition_group?: number | null
+          condition_operator: string
+          condition_values: string[]
+          created_at?: string | null
+          field_id: string
+          id?: string
+        }
+        Update: {
+          condition_field?: string
+          condition_group?: number | null
+          condition_operator?: string
+          condition_values?: string[]
+          created_at?: string | null
+          field_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_conditions_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "custom_booking_fields"
             referencedColumns: ["id"]
           },
         ]
