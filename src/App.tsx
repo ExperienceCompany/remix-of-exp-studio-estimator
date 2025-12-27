@@ -9,6 +9,7 @@ import Estimate from "./pages/Estimate";
 import Services from "./pages/Services";
 import Internal from "./pages/Internal";
 import Admin from "./pages/Admin";
+import CalendarSettings from "./pages/CalendarSettings";
 import NotFound from "./pages/NotFound";
 import QuoteView from "./pages/QuoteView";
 import TeamProjects from "./pages/TeamProjects";
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/services" element={<Services />} />
           <Route path="/internal" element={<Internal />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/calendar-settings" element={<CalendarSettings />} />
           <Route path="/quote/:id" element={<QuoteView />} />
           <Route path="/projects" element={<TeamProjects />} />
           <Route path="/payouts" element={<TeamPayouts />} />
