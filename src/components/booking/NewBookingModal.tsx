@@ -154,8 +154,21 @@ function generateTimeSlots(start: string, end: string): string[] {
 
 // Convert 12-hour time to 24-hour format
 function to24Hour(time12: string): string {
+  // Handle edge cases where time might not have expected format
+  if (!time12 || !time12.includes(' ')) {
+    console.error('Invalid time format:', time12);
+    return '00:00';
+  }
   const [time, period] = time12.split(' ');
+  if (!time || !period) {
+    console.error('Invalid time format:', time12);
+    return '00:00';
+  }
   const [hours, minutes] = time.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) {
+    console.error('Invalid time values:', time12);
+    return '00:00';
+  }
   let hour24 = hours;
   
   if (period === 'PM' && hours !== 12) {
@@ -953,7 +966,9 @@ export function NewBookingModal({
         toast({ title: 'Please select at least one space', variant: 'destructive' });
         return;
       }
-      if (hours <= 0) {
+      // Calculate hours directly to avoid stale memo
+      const calculatedHours = calculateHours(startTime, endTime);
+      if (calculatedHours <= 0) {
         toast({ title: 'End time must be after start time', variant: 'destructive' });
         return;
       }
@@ -988,6 +1003,23 @@ export function NewBookingModal({
       }
       setStep('addons');
     } else if (step === 'addons') {
+      // Validate video editing items have crew assigned (for vodcast)
+      if (sessionType === 'serviced' && serviceType === 'vodcast') {
+        const videoItemsWithNoCrew = editingItems.filter(item => {
+          if (item.category === 'photo_editing') return false;
+          return getVideoEditingCrewTotal(item) === 0;
+        });
+        
+        if (videoItemsWithNoCrew.length > 0) {
+          toast({ 
+            title: 'Crew Required', 
+            description: `Please assign at least one crew member to: ${videoItemsWithNoCrew.map(i => i.name).join(', ')}`,
+            variant: 'destructive' 
+          });
+          return;
+        }
+      }
+      
       // DIY confirms from addons, serviced goes to summary
       if (sessionType === 'diy') {
         handleSubmit();
@@ -2413,6 +2445,59 @@ export function NewBookingModal({
                       <span className="text-muted-foreground">Add-ons</span>
                       <span>{selectedAddons.map(id => sessionAddonsData.find(a => a.id === id)?.name).join(', ')}</span>
                     </div>
+                  )}
+                  
+                  {/* Video Editing Add-ons */}
+                  {editingItems.filter(item => item.category !== 'photo_editing').length > 0 && (
+                    <>
+                      <Separator className="my-2" />
+                      <div className="space-y-2">
+                        <span className="text-sm text-muted-foreground">Video Editing</span>
+                        {editingItems
+                          .filter(item => item.category !== 'photo_editing')
+                          .map((item, idx) => {
+                            const crewParts: string[] = [];
+                            let itemTotal = 0;
+                            if (item.assignedCrew) {
+                              for (const level of ['lv1', 'lv2', 'lv3'] as const) {
+                                const crewCount = item.assignedCrew[level] || 0;
+                                if (crewCount > 0) {
+                                  const provider = providerLevels.find(p => p.level === level);
+                                  const levelLabels: Record<string, string> = { lv1: 'Entry', lv2: 'Exp', lv3: 'Expert' };
+                                  crewParts.push(`${crewCount}× ${levelLabels[level]}`);
+                                  if (provider) {
+                                    itemTotal += item.customerPrice + (Number(provider.hourly_rate) * crewCount);
+                                  }
+                                }
+                              }
+                            }
+                            return (
+                              <div key={idx} className="flex justify-between text-sm pl-2">
+                                <span>{item.name} ({crewParts.join(', ')})</span>
+                                <span className="text-muted-foreground">${itemTotal.toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Photo Editing Add-ons */}
+                  {editingItems.filter(item => item.category === 'photo_editing').length > 0 && (
+                    <>
+                      <Separator className="my-2" />
+                      <div className="space-y-2">
+                        <span className="text-sm text-muted-foreground">Photo Editing</span>
+                        {editingItems
+                          .filter(item => item.category === 'photo_editing')
+                          .map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-sm pl-2">
+                              <span>{item.name} ({item.quantity} edits)</span>
+                              <span className="text-muted-foreground">${(item.quantity * item.customerPrice).toFixed(2)}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </>
                   )}
                 </CardContent>
               </Card>
