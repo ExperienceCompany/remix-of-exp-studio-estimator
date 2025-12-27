@@ -281,7 +281,7 @@ export function StepDuration() {
               <div key={addon.id} className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-primary" />
-                  <span className="text-sm">{addon.name}</span>
+                  <span className="text-sm">{addon.name} (included)</span>
                 </div>
                 <Badge variant="secondary">+${addon.flatAmount}</Badge>
               </div>

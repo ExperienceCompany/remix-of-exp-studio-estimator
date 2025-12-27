@@ -409,12 +409,13 @@ export function NewBookingModal({
     });
   }, [sessionAddonsData, sessionType]);
 
-  // Get auto-included addons (like Set Design fee for photoshoot) - both DIY and serviced
+  // Get auto-included addons (like Photoshoot setup fee) - serviced photoshoots only
   const autoIncludedAddons = useMemo(() => {
     return sessionAddonsData.filter(addon => {
       if (!addon.is_active) return false;
-      // Set Design + Props is auto-included for serviced photoshoots only
-      if (sessionType === 'serviced' && serviceType === 'photoshoot' && addon.name.includes('Set Design')) {
+      // Photoshoot setup fee is auto-included for serviced photoshoots only
+      if (sessionType === 'serviced' && serviceType === 'photoshoot' && 
+          (addon.name.includes('Set Design') || addon.name.includes('Photoshoot setup'))) {
         return true;
       }
       return false;
@@ -627,7 +628,7 @@ export function NewBookingModal({
     // Auto-included addons
     for (const addon of autoIncludedAddons) {
       items.push({
-        label: `${addon.name} (included)`,
+        label: 'Photoshoot setup fee (included)',
         amount: Number(addon.flat_amount),
       });
     }
@@ -1931,7 +1932,7 @@ export function NewBookingModal({
                   <CardContent className="p-4 pt-0">
                     {autoIncludedAddons.map(addon => (
                       <div key={addon.id} className="flex items-center justify-between py-1">
-                        <span className="text-sm">{addon.name}</span>
+                        <span className="text-sm">Photoshoot setup fee (included)</span>
                         <Badge variant="secondary">+${addon.flat_amount}</Badge>
                       </div>
                     ))}

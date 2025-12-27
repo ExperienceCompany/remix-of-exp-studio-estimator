@@ -21,6 +21,11 @@ export function StepAddons() {
       return false;
     }
     
+    // Hide Set Design addon - it's auto-included for photoshoots, not user-selectable
+    if (addon.name.includes('Set Design')) {
+      return false;
+    }
+    
     // Check session type restriction (e.g., 'diy' only)
     if (addon.applies_to_session_type && addon.applies_to_session_type !== selection.sessionType) {
       return false;
@@ -484,8 +489,8 @@ export function StepAddons() {
                 <div className="flex items-center gap-3">
                   <Check className="h-4 w-4 text-primary" />
                   <div>
-                    <p className="text-sm font-medium">{addon.name}</p>
-                    <p className="text-xs text-muted-foreground">Included with photoshoot</p>
+                    <p className="text-sm font-medium">{addon.name} (included)</p>
+                    <p className="text-xs text-muted-foreground">Included with session</p>
                   </div>
                 </div>
                 <Badge variant="secondary">+${addon.flatAmount}</Badge>
