@@ -199,7 +199,7 @@ export default function Index() {
               </CardHeader>
               <CardContent>
                 <Button asChild variant="secondary" className="w-full">
-                  <Link to="/admin?tab=calendar">Configure</Link>
+                  <Link to="/calendar-settings">Configure</Link>
                 </Button>
               </CardContent>
             </Card>
