@@ -312,6 +312,21 @@ export function NewBookingModal({
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [overlapError, setOverlapError] = useState<string | null>(null);
+  const [linkedQuote, setLinkedQuote] = useState<any>(null);
+
+  // Fetch linked quote when editing a booking with a quote_id
+  useEffect(() => {
+    if (open && existingBooking?.quote_id) {
+      supabase
+        .from('quotes')
+        .select('*')
+        .eq('id', existingBooking.quote_id)
+        .maybeSingle()
+        .then(({ data }) => setLinkedQuote(data));
+    } else {
+      setLinkedQuote(null);
+    }
+  }, [open, existingBooking?.quote_id]);
 
   // Force Expert (Lv3) crew for serviced photoshoots
   const isPhotoshootServiced = sessionType === 'serviced' && serviceType === 'photoshoot';
@@ -352,14 +367,48 @@ export function NewBookingModal({
         setDetails(existingBooking.details || '');
         setTitle(existingBooking.title || '');
         setPeopleCount(existingBooking.people_count || 1);
-        setServiceType(null);
-        setSessionDuration(1);
-        setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
-        setCameraCount(1);
-        setSelectedAddons([]);
-        setAffiliateCode('');
-        setEditingItems([]);
-        setAddonHours({});
+        
+        // Restore session details from linked quote if available
+        if (linkedQuote) {
+          const sel = linkedQuote.selections_json || {};
+          
+          // Service & duration
+          setServiceType(sel.serviceType || null);
+          setSessionDuration(linkedQuote.hours || sel.sessionDuration || 1);
+          setCameraCount(linkedQuote.camera_count || sel.cameraCount || 1);
+          
+          // Crew allocation
+          if (sel.crewAllocation) {
+            setCrewAllocation({
+              lv1: sel.crewAllocation.lv1 || 0,
+              lv2: sel.crewAllocation.lv2 || 0,
+              lv3: sel.crewAllocation.lv3 || 0,
+            });
+          } else {
+            setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
+          }
+          
+          // Add-ons
+          setSelectedAddons(sel.selectedAddons || []);
+          setEditingItems(sel.editingItems || []);
+          setAddonHours(sel.addonHours || {});
+          
+          // Affiliate code
+          setAffiliateCode(linkedQuote.affiliate_code || sel.affiliateCode || '');
+          
+          // Holder type
+          if (sel.holderType) setHolderType(sel.holderType);
+        } else {
+          // No linked quote - use defaults
+          setServiceType(null);
+          setSessionDuration(1);
+          setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
+          setCameraCount(1);
+          setSelectedAddons([]);
+          setAffiliateCode('');
+          setEditingItems([]);
+          setAddonHours({});
+        }
       } else {
         // New booking - use prefill data or defaults
         setBookingType('customer');
@@ -389,7 +438,7 @@ export function NewBookingModal({
         setAddonHours({});
       }
     }
-  }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking]);
+  }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking, linkedQuote]);
 
   const timeSlots = useMemo(() => {
     return generateTimeSlots(operatingStart, operatingEnd);
@@ -1166,11 +1215,17 @@ export function NewBookingModal({
             serviceType,
             crewAllocation,
             selectedAddons,
+            editingItems,
+            addonHours,
+            sessionDuration,
+            cameraCount,
             studioIds: selectedStudios,
             date: date ? format(date, 'yyyy-MM-dd') : null,
             startTime,
             customerName,
             customerEmail,
+            affiliateCode,
+            holderType,
           })),
           totals_json: { customerTotal: displayPrice },
         }])
@@ -1243,11 +1298,17 @@ export function NewBookingModal({
             serviceType,
             crewAllocation,
             selectedAddons,
+            editingItems,
+            addonHours,
+            sessionDuration,
+            cameraCount,
             studioIds: selectedStudios,
             date: date ? format(date, 'yyyy-MM-dd') : null,
             startTime,
             customerName,
             customerEmail,
+            affiliateCode,
+            holderType,
             notes,
           })),
           totals_json: { customerTotal: displayPrice },
@@ -1367,6 +1428,36 @@ export function NewBookingModal({
         title: title || null,
         people_count: peopleCount || 1,
       });
+      
+      // Also update the linked quote if it exists
+      if (existingBooking.quote_id) {
+        await supabase
+          .from('quotes')
+          .update({
+            hours: sessionDuration,
+            camera_count: serviceType === 'vodcast' ? cameraCount : 1,
+            customer_total: displayPrice,
+            affiliate_code: affiliateCode || null,
+            selections_json: JSON.parse(JSON.stringify({
+              serviceType,
+              crewAllocation,
+              selectedAddons,
+              editingItems,
+              addonHours,
+              sessionDuration,
+              cameraCount,
+              studioIds: selectedStudios,
+              date: date ? format(date, 'yyyy-MM-dd') : null,
+              startTime,
+              customerName,
+              customerEmail,
+              affiliateCode,
+              holderType,
+            })),
+            totals_json: { customerTotal: displayPrice },
+          })
+          .eq('id', existingBooking.quote_id);
+      }
       
       toast({ title: 'Booking updated successfully' });
       onBookingCreated?.();
