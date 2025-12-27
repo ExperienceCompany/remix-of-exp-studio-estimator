@@ -60,7 +60,10 @@ export function AffiliateCodeInput({ value, onChange }: AffiliateCodeInputProps)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newCode = e.target.value.toUpperCase();
-    onChange(newCode, affiliateName);
+    // Reset validation state when user types a new code
+    setAffiliateName(null);
+    setIsValid(null);
+    onChange(newCode, null);
   };
 
   return (
