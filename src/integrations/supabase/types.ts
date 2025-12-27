@@ -130,6 +130,42 @@ export type Database = {
           },
         ]
       }
+      booking_policies: {
+        Row: {
+          allowed_tags: string[] | null
+          created_at: string | null
+          hours_after_end: number | null
+          hours_before_start: number | null
+          id: string
+          is_active: boolean | null
+          policy_type: string
+          policy_value: string
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_tags?: string[] | null
+          created_at?: string | null
+          hours_after_end?: number | null
+          hours_before_start?: number | null
+          id?: string
+          is_active?: boolean | null
+          policy_type: string
+          policy_value: string
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_tags?: string[] | null
+          created_at?: string | null
+          hours_after_end?: number | null
+          hours_before_start?: number | null
+          id?: string
+          is_active?: boolean | null
+          policy_type?: string
+          policy_value?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       calendar_settings: {
         Row: {
           advance_booking_days: number

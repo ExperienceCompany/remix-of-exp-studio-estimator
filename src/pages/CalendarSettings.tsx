@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, AlertCircle, RefreshCw, DollarSign, Settings, Building2 } from 'lucide-react';
+import { ArrowLeft, AlertCircle, RefreshCw, DollarSign, Settings, Building2, Shield } from 'lucide-react';
 import { RatesEditor } from '@/components/admin/RatesEditor';
 import { CalendarSettingsEditor } from '@/components/admin/CalendarSettingsEditor';
 import { StudiosEditor } from '@/components/admin/StudiosEditor';
+import { BookingPoliciesEditor } from '@/components/admin/BookingPoliciesEditor';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,7 @@ const sections = [
   { id: 'studios', label: 'Studios', icon: Building2 },
   { id: 'diy-rates', label: 'DIY Rates', icon: DollarSign },
   { id: 'studio-settings', label: 'Studio Settings', icon: Settings },
+  { id: 'policies', label: 'Lock-in & Repetition', icon: Shield },
 ];
 
 export default function CalendarSettings() {
@@ -132,6 +134,18 @@ export default function CalendarSettings() {
               </CardHeader>
               <CardContent>
                 <CalendarSettingsEditor />
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'policies' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Lock-in & Repetition Policies</CardTitle>
+                <CardDescription>Configure booking modification rules and repeat booking permissions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BookingPoliciesEditor />
               </CardContent>
             </Card>
           )}
