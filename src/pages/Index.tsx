@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calculator, Users, Settings, LogIn, Scissors, DollarSign, Layers, Timer, CalendarDays } from 'lucide-react';
+import { Calculator, Users, Settings, LogIn, Scissors, DollarSign, Layers, Timer, CalendarDays, CalendarCog } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Index() {
@@ -180,6 +180,26 @@ export default function Index() {
               <CardContent>
                 <Button asChild variant="secondary" className="w-full">
                   <Link to="/internal">Open Dashboard</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Calendar Settings - Admin only */}
+          {isAdmin && (
+            <Card className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="h-12 w-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-2">
+                  <CalendarCog className="h-6 w-6 text-purple-600" />
+                </div>
+                <CardTitle>Calendar Settings</CardTitle>
+                <CardDescription>
+                  Configure studio hours, limits, and blocked dates
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild variant="secondary" className="w-full">
+                  <Link to="/admin?tab=calendar">Configure</Link>
                 </Button>
               </CardContent>
             </Card>
