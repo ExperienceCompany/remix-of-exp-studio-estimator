@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { format, getDay } from 'date-fns';
+import { format, getDay, parseISO } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -352,10 +352,10 @@ export function NewBookingModal({
         // Pre-populate for editing
         setBookingType(existingBooking.booking_type);
         setSessionType((existingBooking.session_type as SessionType) || 'diy');
-        setDate(new Date(existingBooking.booking_date));
+        setDate(parseISO(existingBooking.booking_date));
         setStartTime(to12Hour(existingBooking.start_time));
         setEndTime(to12Hour(existingBooking.end_time));
-        setRepeatConfig(createDefaultRepeatConfig(new Date(existingBooking.booking_date)));
+        setRepeatConfig(createDefaultRepeatConfig(parseISO(existingBooking.booking_date)));
         setSelectedStudios([existingBooking.studio_id]);
         setHolderType(existingBooking.customer_name ? 'customer' : 'casual');
         setCustomerName(existingBooking.customer_name || '');
