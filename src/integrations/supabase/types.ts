@@ -130,6 +130,36 @@ export type Database = {
           },
         ]
       }
+      booking_color_rules: {
+        Row: {
+          color: string
+          conditions: Json
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string
+          conditions?: Json
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string
+          conditions?: Json
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       booking_policies: {
         Row: {
           allowed_tags: string[] | null
