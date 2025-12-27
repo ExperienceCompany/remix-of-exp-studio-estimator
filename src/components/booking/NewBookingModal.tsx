@@ -966,8 +966,10 @@ export function NewBookingModal({
         toast({ title: 'Please select at least one space', variant: 'destructive' });
         return;
       }
-      // Calculate hours directly to avoid stale memo
-      const calculatedHours = calculateHours(startTime, endTime);
+      // Calculate hours using correct end time based on session type
+      // For serviced sessions, endTime state is stale - use computedEndTime instead
+      const effectiveEndTime = sessionType === 'serviced' ? computedEndTime : endTime;
+      const calculatedHours = calculateHours(startTime, effectiveEndTime);
       if (calculatedHours <= 0) {
         toast({ title: 'End time must be after start time', variant: 'destructive' });
         return;
