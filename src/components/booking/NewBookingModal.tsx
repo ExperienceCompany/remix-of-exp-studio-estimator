@@ -418,6 +418,8 @@ export function NewBookingModal({
       // Hide service type addons (like Revisions) - they appear separately
       if (addon.addon_type === 'service') return false;
       if (addon.applies_to_session_type && addon.applies_to_session_type !== sessionType) return false;
+      // Hide Set Design addon - it's auto-included for photoshoots, not user-selectable
+      if (addon.name.includes('Set Design') || addon.name.includes('Photoshoot setup')) return false;
       return true;
     });
   }, [sessionAddonsData, sessionType]);
