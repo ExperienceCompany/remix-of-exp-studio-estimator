@@ -677,6 +677,39 @@ export function NewBookingModal({
     );
   };
 
+  // Handle start time change - for serviced sessions, maintain duration and recalculate end time
+  const handleStartTimeChange = (newStartTime: string) => {
+    setStartTime(newStartTime);
+    if (sessionType === 'serviced' && onDurationChange && selectedStudios.length > 0) {
+      // Recalculate end time based on current duration
+      const startTime24 = to24Hour(newStartTime);
+      const [startH, startM] = startTime24.split(':').map(Number);
+      const endMinutes = startH * 60 + startM + sessionDuration * 60;
+      const endH = Math.floor(endMinutes / 60);
+      const endM = Math.round(endMinutes % 60);
+      const newEndTime24 = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+      onDurationChange(selectedStudios, startTime24, newEndTime24);
+    }
+  };
+
+  // Handle end time change - for serviced sessions, calculate new duration from start/end times
+  const handleEndTimeChange = (newEndTime: string) => {
+    if (sessionType === 'serviced') {
+      // Calculate new duration from start and end times
+      const newDuration = calculateHours(startTime, newEndTime);
+      // Clamp duration between 1 and 8 hours
+      if (newDuration >= 1 && newDuration <= 8) {
+        setSessionDuration(newDuration);
+        // Notify calendar view
+        if (onDurationChange && selectedStudios.length > 0) {
+          onDurationChange(selectedStudios, to24Hour(startTime), to24Hour(newEndTime));
+        }
+      }
+    } else {
+      setEndTime(newEndTime);
+    }
+  };
+
   const updateCrewLevel = (level: keyof CrewAllocation, delta: number) => {
     setCrewAllocation(prev => {
       const newValue = Math.max(0, prev[level] + delta);
@@ -1448,7 +1481,7 @@ export function NewBookingModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs text-muted-foreground">From</Label>
-                    <Select value={startTime} onValueChange={setStartTime}>
+                    <Select value={startTime} onValueChange={handleStartTimeChange}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -1461,29 +1494,26 @@ export function NewBookingModal({
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">To</Label>
-                    {sessionType === 'diy' ? (
-                      <Select value={endTime} onValueChange={setEndTime}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timeSlots.map(slot => (
-                            <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="h-10 px-3 py-2 rounded-md border border-input bg-muted/50 text-sm flex items-center">
-                        {computedEndTime}
-                      </div>
-                    )}
+                    <Select 
+                      value={sessionType === 'serviced' ? computedEndTime : endTime} 
+                      onValueChange={handleEndTimeChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlots.map(slot => (
+                          <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 {sessionType === 'diy' && hours > 0 && (
                   <p className="text-xs text-muted-foreground">{hours} hour{hours !== 1 ? 's' : ''}</p>
                 )}
-                {sessionType === 'serviced' && (
-                  <p className="text-xs text-muted-foreground">Duration set in Duration step</p>
+                {sessionType === 'serviced' && sessionDuration > 0 && (
+                  <p className="text-xs text-muted-foreground">{formatDuration(sessionDuration)} — synced with Duration step</p>
                 )}
               </div>
 
