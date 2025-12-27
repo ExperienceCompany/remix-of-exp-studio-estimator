@@ -484,20 +484,7 @@ export function NewBookingModal({
         }
       }
       
-      // Add selected session addons
-      for (const addonId of selectedAddons) {
-        const addon = sessionAddonsData.find(a => a.id === addonId);
-        if (addon) {
-          if (addon.is_hourly) {
-            const hrs = addonHours[addonId] || 1;
-            total += Number(addon.flat_amount) * hrs;
-          } else {
-            total += Number(addon.flat_amount);
-          }
-        }
-      }
-
-      // Add auto-included addons
+      // Add auto-included addons (serviced only - like Set Design for photoshoots)
       for (const addon of autoIncludedAddons) {
         total += Number(addon.flat_amount);
       }
@@ -505,6 +492,19 @@ export function NewBookingModal({
       // Add editing items (photo editing)
       for (const editItem of editingItems) {
         total += editItem.quantity * editItem.customerPrice;
+      }
+    }
+    
+    // Add selected session addons (for BOTH DIY and serviced sessions)
+    for (const addonId of selectedAddons) {
+      const addon = sessionAddonsData.find(a => a.id === addonId);
+      if (addon) {
+        if (addon.is_hourly) {
+          const hrs = addonHours[addonId] || 1;
+          total += Number(addon.flat_amount) * hrs;
+        } else {
+          total += Number(addon.flat_amount);
+        }
       }
     }
     
