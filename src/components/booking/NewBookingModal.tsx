@@ -428,6 +428,12 @@ export function NewBookingModal({
     return editingMenuData.filter(item => item.category === 'photo_editing');
   }, [editingMenuData, serviceType]);
 
+  // Filter video editing items (only for vodcast)
+  const videoEditingItems = useMemo(() => {
+    if (serviceType !== 'vodcast') return [];
+    return editingMenuData.filter(item => item.category !== 'photo_editing');
+  }, [editingMenuData, serviceType]);
+
   // Filter revision addon (hourly)
   const revisionsAddon = useMemo(() => {
     return sessionAddonsData.find(addon => addon.is_active && addon.name === 'Revisions');
@@ -490,9 +496,28 @@ export function NewBookingModal({
         total += Number(addon.flat_amount);
       }
 
-      // Add editing items (photo editing)
+      // Add editing items (photo and video editing)
       for (const editItem of editingItems) {
-        total += editItem.quantity * editItem.customerPrice;
+        if (editItem.category === 'photo_editing') {
+          // Photo editing: quantity × price
+          total += editItem.quantity * editItem.customerPrice;
+        } else {
+          // Video editing: crew-based pricing
+          // For each assigned crew member, multiply their hourly rate by estimated hours
+          // Using base price as the hourly cost factor
+          if (editItem.assignedCrew) {
+            for (const level of ['lv1', 'lv2', 'lv3'] as const) {
+              const crewCount = editItem.assignedCrew[level] || 0;
+              if (crewCount > 0) {
+                const provider = providerLevels.find(p => p.level === level);
+                if (provider) {
+                  // Base price from menu + provider hourly rate
+                  total += editItem.customerPrice + (Number(provider.hourly_rate) * crewCount);
+                }
+              }
+            }
+          }
+        }
       }
     }
     
@@ -633,13 +658,38 @@ export function NewBookingModal({
       });
     }
 
-    // Editing items (photo editing)
+    // Editing items (photo and video editing)
     for (const editItem of editingItems) {
-      const total = editItem.quantity * editItem.customerPrice;
-      items.push({
-        label: `${editItem.name} (${editItem.quantity} edits @ $${editItem.customerPrice}/edit)`,
-        amount: total,
-      });
+      if (editItem.category === 'photo_editing') {
+        const total = editItem.quantity * editItem.customerPrice;
+        items.push({
+          label: `${editItem.name} (${editItem.quantity} edits @ $${editItem.customerPrice}/edit)`,
+          amount: total,
+        });
+      } else {
+        // Video editing with crew assignment
+        let crewStr = '';
+        let itemTotal = 0;
+        if (editItem.assignedCrew) {
+          const crewParts: string[] = [];
+          for (const level of ['lv1', 'lv2', 'lv3'] as const) {
+            const crewCount = editItem.assignedCrew[level] || 0;
+            if (crewCount > 0) {
+              const provider = providerLevels.find(p => p.level === level);
+              if (provider) {
+                const levelLabels: Record<string, string> = { lv1: 'Lv1', lv2: 'Lv2', lv3: 'Lv3' };
+                crewParts.push(crewCount > 1 ? `${levelLabels[level]} ×${crewCount}` : levelLabels[level]);
+                itemTotal += editItem.customerPrice + (Number(provider.hourly_rate) * crewCount);
+              }
+            }
+          }
+          if (crewParts.length > 0) crewStr = ` • ${crewParts.join(', ')}`;
+        }
+        items.push({
+          label: `${editItem.name}${crewStr}`,
+          amount: itemTotal,
+        });
+      }
     }
     
     return items;
@@ -735,12 +785,13 @@ export function NewBookingModal({
   };
 
   // Toggle a photo editing item on/off
-  const toggleEditingItem = (item: { id: string; name: string; category: string; base_price: number; customer_price: number | null }) => {
+  const toggleEditingItem = (item: { id: string; name: string; category: string; base_price: number; customer_price: number | null; increment_price?: number | null }) => {
     const existing = editingItems.find(e => e.id === item.id);
     if (existing) {
       setEditingItems(prev => prev.filter(e => e.id !== item.id));
     } else {
       const isEnhance = item.name === 'Enhance Edit';
+      const isVideoEditing = item.category !== 'photo_editing';
       const customerPrice = Number(item.customer_price || item.base_price * 2);
       setEditingItems(prev => [
         ...prev,
@@ -751,10 +802,28 @@ export function NewBookingModal({
           quantity: isEnhance ? 10 : 1,
           basePrice: Number(item.base_price),
           customerPrice,
-          incrementPrice: null,
+          incrementPrice: item.increment_price ? Number(item.increment_price) : null,
+          // For video editing, add crew assignment with default of 1 Lv2
+          assignedCrew: isVideoEditing ? { lv1: 0, lv2: 1, lv3: 0 } : undefined,
         },
       ]);
     }
+  };
+
+  // Update crew assignment for a video editing item
+  const updateEditingCrewAssignment = (itemId: string, level: keyof CrewAllocation, delta: number) => {
+    setEditingItems(prev => prev.map(e => {
+      if (e.id !== itemId) return e;
+      const currentCrew = e.assignedCrew || { lv1: 0, lv2: 0, lv3: 0 };
+      const newValue = Math.max(0, (currentCrew[level] || 0) + delta);
+      return { ...e, assignedCrew: { ...currentCrew, [level]: newValue } };
+    }));
+  };
+
+  // Get total crew for a video editing item
+  const getVideoEditingCrewTotal = (item: EditingItem) => {
+    if (!item.assignedCrew) return 0;
+    return (item.assignedCrew.lv1 || 0) + (item.assignedCrew.lv2 || 0) + (item.assignedCrew.lv3 || 0);
   };
 
   // Update quantity for an editing item
@@ -2082,6 +2151,115 @@ export function NewBookingModal({
                                 </Button>
                               </div>
                               <span className="text-sm font-bold">= ${itemTotal}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Video Editing (for vodcast service) */}
+              {videoEditingItems.length > 0 && (
+                <Card>
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Video className="h-4 w-4" />
+                      Video Editing
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Select editing services and assign production crew
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-3">
+                    {videoEditingItems.map(item => {
+                      const selectedItem = editingItems.find(e => e.id === item.id);
+                      const isSelected = !!selectedItem;
+                      const itemCrew = selectedItem?.assignedCrew || { lv1: 0, lv2: 0, lv3: 0 };
+                      const crewTotal = (itemCrew.lv1 || 0) + (itemCrew.lv2 || 0) + (itemCrew.lv3 || 0);
+                      const customerPrice = Number(item.customer_price || item.base_price * 2);
+                      
+                      // Calculate item total with crew
+                      let itemTotal = 0;
+                      if (isSelected && selectedItem) {
+                        for (const level of ['lv1', 'lv2', 'lv3'] as const) {
+                          const crewCount = itemCrew[level] || 0;
+                          if (crewCount > 0) {
+                            const provider = providerLevels.find(p => p.level === level);
+                            if (provider) {
+                              itemTotal += customerPrice + (Number(provider.hourly_rate) * crewCount);
+                            }
+                          }
+                        }
+                      }
+
+                      return (
+                        <div key={item.id} className="space-y-2 py-2 border-b last:border-0">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                checked={isSelected}
+                                onCheckedChange={() => toggleEditingItem(item)}
+                              />
+                              <div>
+                                <p className="text-sm font-medium">{item.name}</p>
+                                <p className="text-xs text-muted-foreground">{item.description}</p>
+                              </div>
+                            </div>
+                            <span className="text-sm font-medium">${customerPrice}</span>
+                          </div>
+
+                          {/* Crew Assignment when selected */}
+                          {isSelected && (
+                            <div className="pl-12 space-y-2">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Users className="h-4 w-4" />
+                                <span>Assign Production Crew:</span>
+                                {crewTotal === 0 && (
+                                  <span className="text-xs text-destructive">(min 1 required)</span>
+                                )}
+                              </div>
+                              
+                              {(['lv1', 'lv2', 'lv3'] as const).map(level => {
+                                const provider = providerLevels.find(p => p.level === level);
+                                const levelLabels: Record<string, string> = { lv1: 'Lv1 Entry', lv2: 'Lv2 Experienced', lv3: 'Lv3 Expert' };
+                                const count = itemCrew[level] || 0;
+                                
+                                return (
+                                  <div key={level} className="flex items-center justify-between pl-4">
+                                    <span className="text-xs text-muted-foreground">
+                                      {levelLabels[level]} (${provider?.hourly_rate || 0}/hr)
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => updateEditingCrewAssignment(item.id, level, -1)}
+                                        disabled={count <= 0}
+                                      >
+                                        <Minus className="h-2 w-2" />
+                                      </Button>
+                                      <span className="w-5 text-center text-xs font-medium">{count}</span>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => updateEditingCrewAssignment(item.id, level, 1)}
+                                      >
+                                        <Plus className="h-2 w-2" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              
+                              {itemTotal > 0 && (
+                                <div className="flex justify-end pt-2">
+                                  <span className="text-sm font-bold">= ${itemTotal}</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
