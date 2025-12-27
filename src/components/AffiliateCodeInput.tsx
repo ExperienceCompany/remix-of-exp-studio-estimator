@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Link, Loader2, CheckCircle, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -66,6 +66,12 @@ export function AffiliateCodeInput({ value, onChange }: AffiliateCodeInputProps)
     onChange(newCode, null);
   };
 
+  const handleClear = () => {
+    setAffiliateName(null);
+    setIsValid(null);
+    onChange('', null);
+  };
+
   return (
     <Card className="border-dashed">
       <CardHeader className="pb-3">
@@ -85,18 +91,25 @@ export function AffiliateCodeInput({ value, onChange }: AffiliateCodeInputProps)
               placeholder="Enter affiliate code"
               value={value}
               onChange={handleChange}
-              className="pr-10 uppercase"
+              className="pr-16 uppercase"
               maxLength={20}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {isValidating && (
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               )}
               {!isValidating && isValid === true && (
                 <CheckCircle className="h-4 w-4 text-green-500" />
               )}
-              {!isValidating && isValid === false && value.trim() && (
-                <XCircle className="h-4 w-4 text-destructive" />
+              {!isValidating && value.trim() && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="p-0.5 rounded hover:bg-muted transition-colors"
+                  aria-label="Clear affiliate code"
+                >
+                  <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </button>
               )}
             </div>
           </div>
@@ -110,7 +123,7 @@ export function AffiliateCodeInput({ value, onChange }: AffiliateCodeInputProps)
         
         {isValid === false && value.trim() && !isValidating && (
           <p className="text-sm text-destructive">
-            Invalid affiliate code
+            Invalid affiliate code - click X to clear
           </p>
         )}
       </CardContent>
