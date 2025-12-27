@@ -1270,28 +1270,28 @@ export function NewBookingModal({
   };
 
   // Determine if we should show the multi-step flow
-  // Both DIY and Serviced customer bookings are now multi-step
-  const isMultiStep = bookingType === 'customer' && !isEditing;
+  // Both DIY and Serviced customer bookings are now multi-step (including editing)
+  const isMultiStep = bookingType === 'customer';
   const isDiyMultiStep = isMultiStep && sessionType === 'diy';
 
   // Get dialog title based on step
   const getDialogTitle = () => {
-    if (isEditing) return 'Edit booking';
-    if (!isMultiStep) return 'New booking';
+    if (!isMultiStep) return isEditing ? 'Edit booking' : 'New booking';
+    const prefix = isEditing ? 'Edit' : 'New';
     if (isDiyMultiStep) {
       switch (step) {
-        case 'basic': return 'New DIY booking';
+        case 'basic': return `${prefix} DIY booking`;
         case 'addons': return 'Add-ons';
-        default: return 'New booking';
+        default: return `${prefix} booking`;
       }
     }
     switch (step) {
-      case 'basic': return 'New booking';
+      case 'basic': return `${prefix} booking`;
       case 'service': return 'Select service';
       case 'duration': return 'Duration & crew';
       case 'addons': return 'Add-ons';
       case 'summary': return 'Booking summary';
-      default: return 'New booking';
+      default: return `${prefix} booking`;
     }
   };
 
@@ -2570,77 +2570,63 @@ export function NewBookingModal({
         </div>
 
         <DialogFooter className="flex flex-col gap-4 pt-4">
-          {/* Edit mode: single Save Changes button */}
-          {isEditing && (
-            <>
-              {bookingType === 'customer' && (
-                <div className="text-lg font-semibold text-center sm:text-right">
-                  Total: ${displayPrice.toFixed(2)}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2 justify-end">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={isSubmitting}>
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Cancel
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will mark the booking as cancelled. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Keep Booking</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={async () => {
-                          if (existingBooking) {
-                            try {
-                              await cancelBooking.mutateAsync(existingBooking.id);
-                              toast({ title: 'Booking cancelled' });
-                              onClose();
-                              onBookingCreated?.();
-                            } catch (error) {
-                              toast({ title: 'Error', description: 'Failed to cancel booking', variant: 'destructive' });
-                            }
-                          }
-                        }}
-                      >
-                        Yes, Cancel
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-                <Button size="sm" onClick={handleUpdateBooking} disabled={isSubmitting}>
-                  <Save className="h-4 w-4 mr-1" />
-                  {isSubmitting ? 'Saving...' : 'Save'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
-                  Close
-                </Button>
-              </div>
-            </>
-          )}
-          
-          {/* DIY or non-customer booking: single-step (not editing) */}
-          {!isMultiStep && !isEditing && (
+          {/* Non-customer booking (internal/unavailable): single-step */}
+          {!isMultiStep && (
             <>
               <div className="flex gap-2 w-full sm:w-auto">
-                <Button onClick={handleSubmit} disabled={isSubmitting}>
-                  {isSubmitting ? 'Creating...' : 'Confirm booking'}
-                </Button>
-                <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-                  Cancel
-                </Button>
+                {isEditing ? (
+                  <>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" disabled={isSubmitting}>
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Cancel Booking
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will mark the booking as cancelled. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              if (existingBooking) {
+                                try {
+                                  await cancelBooking.mutateAsync(existingBooking.id);
+                                  toast({ title: 'Booking cancelled' });
+                                  onClose();
+                                  onBookingCreated?.();
+                                } catch (error) {
+                                  toast({ title: 'Error', description: 'Failed to cancel booking', variant: 'destructive' });
+                                }
+                              }
+                            }}
+                          >
+                            Yes, Cancel
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <Button onClick={handleUpdateBooking} disabled={isSubmitting}>
+                      <Save className="h-4 w-4 mr-1" />
+                      {isSubmitting ? 'Saving...' : 'Update Booking'}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button onClick={handleSubmit} disabled={isSubmitting}>
+                      {isSubmitting ? 'Creating...' : 'Confirm booking'}
+                    </Button>
+                    <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+                      Cancel
+                    </Button>
+                  </>
+                )}
               </div>
-              {bookingType === 'customer' && (
-                <div className="text-lg font-semibold">
-                  Total: ${displayPrice.toFixed(2)}
-                </div>
-              )}
             </>
           )}
 
@@ -2658,25 +2644,69 @@ export function NewBookingModal({
               
               <div className="flex gap-2">
                 {step === 'summary' ? (
-                  // Serviced session summary step
-                  <>
-                    <Button variant="outline" onClick={handleSaveToDrafts} disabled={isSubmitting}>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save to Drafts
-                    </Button>
-                    <Button onClick={handleAddToCalendar} disabled={isSubmitting}>
-                      <CalendarPlus className="h-4 w-4 mr-2" />
-                      {isSubmitting ? 'Adding...' : 'Add to Calendar'}
-                    </Button>
-                  </>
+                  // Summary step - different buttons for editing vs new
+                  isEditing ? (
+                    <>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" disabled={isSubmitting}>
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Cancel Booking
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will mark the booking as cancelled. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={async () => {
+                                if (existingBooking) {
+                                  try {
+                                    await cancelBooking.mutateAsync(existingBooking.id);
+                                    toast({ title: 'Booking cancelled' });
+                                    onClose();
+                                    onBookingCreated?.();
+                                  } catch (error) {
+                                    toast({ title: 'Error', description: 'Failed to cancel booking', variant: 'destructive' });
+                                  }
+                                }
+                              }}
+                            >
+                              Yes, Cancel
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <Button onClick={handleUpdateBooking} disabled={isSubmitting}>
+                        <Save className="h-4 w-4 mr-2" />
+                        {isSubmitting ? 'Updating...' : 'Update Booking'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={handleSaveToDrafts} disabled={isSubmitting}>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save to Drafts
+                      </Button>
+                      <Button onClick={handleAddToCalendar} disabled={isSubmitting}>
+                        <CalendarPlus className="h-4 w-4 mr-2" />
+                        {isSubmitting ? 'Adding...' : 'Add to Calendar'}
+                      </Button>
+                    </>
+                  )
                 ) : sessionType === 'diy' && step === 'addons' ? (
-                  // DIY session on add-ons step - show Confirm Booking
+                  // DIY session on add-ons step - show Confirm/Update Booking
                   <>
                     <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
                       Cancel
                     </Button>
                     <Button onClick={handleNext} disabled={isSubmitting}>
-                      {isSubmitting ? 'Creating...' : 'Confirm Booking'}
+                      {isSubmitting ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Booking' : 'Confirm Booking')}
                     </Button>
                   </>
                 ) : (
