@@ -300,6 +300,14 @@ export function NewBookingModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [overlapError, setOverlapError] = useState<string | null>(null);
 
+  // Force Expert (Lv3) crew for serviced photoshoots
+  const isPhotoshootServiced = sessionType === 'serviced' && serviceType === 'photoshoot';
+  useEffect(() => {
+    if (isPhotoshootServiced) {
+      setCrewAllocation({ lv1: 0, lv2: 0, lv3: 1 });
+    }
+  }, [isPhotoshootServiced]);
+
   // Reset form when opened - or pre-fill with existing booking or prefill data
   useEffect(() => {
     if (open) {
@@ -1798,16 +1806,22 @@ export function NewBookingModal({
               <div className="space-y-4">
                 <Label>Production crew</Label>
                 <p className="text-xs text-muted-foreground">
-                  At least one crew member is required for serviced sessions.
+                  {isPhotoshootServiced 
+                    ? 'Photoshoots require an Expert Photographer.' 
+                    : 'At least one crew member is required for serviced sessions.'}
                 </p>
                 
                 {(['lv1', 'lv2', 'lv3'] as const).map(level => {
                   const provider = providerLevels.find(p => p.level === level);
                   const count = crewAllocation[level];
                   const levelLabels = { lv1: 'Entry Level', lv2: 'Experienced', lv3: 'Expert' };
+                  const isLevelDisabled = isPhotoshootServiced && level !== 'lv3';
                   
                   return (
-                    <div key={level} className="flex items-center justify-between p-3 border rounded-md">
+                    <div key={level} className={cn(
+                      "flex items-center justify-between p-3 border rounded-md",
+                      isLevelDisabled && "opacity-50"
+                    )}>
                       <div>
                         <p className="text-sm font-medium">{levelLabels[level]}</p>
                         <p className="text-xs text-muted-foreground">
@@ -1820,7 +1834,7 @@ export function NewBookingModal({
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => updateCrewLevel(level, -1)}
-                          disabled={count === 0 || (totalCrew === 1 && count === 1)}
+                          disabled={isLevelDisabled || count === 0 || (totalCrew === 1 && count === 1)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -1830,6 +1844,7 @@ export function NewBookingModal({
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => updateCrewLevel(level, 1)}
+                          disabled={isLevelDisabled}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
