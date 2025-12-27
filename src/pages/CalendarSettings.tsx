@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, AlertCircle, RefreshCw, DollarSign, Settings, Building2, Shield } from 'lucide-react';
+import { ArrowLeft, AlertCircle, RefreshCw, DollarSign, Settings, Building2, Shield, Palette } from 'lucide-react';
 import { RatesEditor } from '@/components/admin/RatesEditor';
 import { CalendarSettingsEditor } from '@/components/admin/CalendarSettingsEditor';
 import { StudiosEditor } from '@/components/admin/StudiosEditor';
 import { BookingPoliciesEditor } from '@/components/admin/BookingPoliciesEditor';
+import { ColoringEditor } from '@/components/admin/ColoringEditor';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -16,6 +17,7 @@ const sections = [
   { id: 'diy-rates', label: 'DIY Rates', icon: DollarSign },
   { id: 'studio-settings', label: 'Studio Settings', icon: Settings },
   { id: 'policies', label: 'Lock-in & Repetition', icon: Shield },
+  { id: 'coloring', label: 'Coloring', icon: Palette },
 ];
 
 export default function CalendarSettings() {
@@ -146,6 +148,18 @@ export default function CalendarSettings() {
               </CardHeader>
               <CardContent>
                 <BookingPoliciesEditor />
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'coloring' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Venue's Color Scheme</CardTitle>
+                <CardDescription>Define colors for bookings based on conditions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ColoringEditor />
               </CardContent>
             </Card>
           )}
