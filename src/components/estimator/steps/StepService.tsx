@@ -75,12 +75,12 @@ export function StepService() {
       cameraCount: service.type === 'vodcast' ? 1 : 1,
     };
     
-    // Auto-include Set Design + Lv1 Props Access for photoshoots
+    // Auto-include Photoshoot setup fee for photoshoots
     if (service.type === 'photoshoot') {
       updates.sessionAddons = [
         {
           id: 'set-design-photoshoot',
-          name: 'Set Design + Lv1 Props Access',
+          name: 'Photoshoot setup fee',
           flatAmount: 60,
           isHourly: false,
           isAutoIncluded: true,
