@@ -85,16 +85,16 @@ export function GridView({
 
   return (
     <div className="border rounded-lg overflow-x-auto">
-      <table className="w-full min-w-[800px]">
-        <thead>
+      <table className="w-full">
+        <thead className="sticky top-0 z-20">
           <tr className="bg-muted">
-            <th className="w-32 py-3 px-2 text-left text-sm font-medium text-muted-foreground border-b border-r">
+            <th className="min-w-[80px] max-w-[80px] py-3 px-2 text-left text-sm font-medium text-muted-foreground border-b border-r sticky left-0 bg-muted z-30">
               Date
             </th>
             {studios.map((studio) => (
               <th
                 key={studio.id}
-                className="py-3 px-2 text-center text-sm font-medium border-b border-r"
+                className="py-3 px-2 text-center text-sm font-medium border-b border-r bg-muted"
               >
                 <div>{studio.name}</div>
                 <div className="text-xs text-muted-foreground font-normal">
@@ -120,8 +120,10 @@ export function GridView({
               >
                 <td
                   className={cn(
-                    "py-2 px-2 border-r cursor-pointer",
-                    isTodayDate && "font-bold"
+                    "py-2 px-2 border-r cursor-pointer sticky left-0 z-10 min-w-[80px] max-w-[80px]",
+                    isTodayDate && "font-bold",
+                    isWeekend ? "bg-muted/30" : "bg-background",
+                    isTodayDate && "!bg-primary/10"
                   )}
                   onClick={() => onDateClick?.(date)}
                 >

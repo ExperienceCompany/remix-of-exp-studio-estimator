@@ -580,16 +580,16 @@ export function DayView({
       )}
 
       <div className="overflow-x-auto flex-1" ref={containerRef}>
-        <table className="w-full min-w-[800px]" ref={tableRef}>
-          <thead>
+        <table className="w-full" ref={tableRef}>
+          <thead className="sticky top-0 z-30 bg-muted">
             <tr className="bg-muted">
-              <th className="w-20 py-3 px-2 text-left text-sm font-medium text-muted-foreground border-b border-r sticky left-0 bg-muted z-10">
+              <th className="w-20 py-3 px-2 text-left text-sm font-medium text-muted-foreground border-b border-r sticky left-0 bg-muted z-40">
                 Time
               </th>
               {studios.map((studio) => (
                 <th
                   key={studio.id}
-                  className="py-3 px-2 text-left text-sm font-medium border-b border-r"
+                  className="py-3 px-2 text-left text-sm font-medium border-b border-r bg-muted"
                 >
                   <div className="flex items-center gap-2">
                     {studio.name}

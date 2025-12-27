@@ -208,7 +208,7 @@ export function BookingCalendar({
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             {/* View Switcher */}
-            <div className="flex items-center gap-1 border rounded-lg p-1">
+            <div className="flex flex-wrap items-center gap-1 border rounded-lg p-1">
               <Button
                 variant={viewMode === 'day' ? 'secondary' : 'ghost'}
                 size="sm"
