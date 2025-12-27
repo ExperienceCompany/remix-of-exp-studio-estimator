@@ -725,29 +725,35 @@ export type Database = {
       }
       studios: {
         Row: {
+          calendar_color: string | null
           created_at: string | null
           description: string | null
           id: string
           is_active: boolean | null
           name: string
+          thumbnail_url: string | null
           type: Database["public"]["Enums"]["studio_type"]
           updated_at: string | null
         }
         Insert: {
+          calendar_color?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           name: string
+          thumbnail_url?: string | null
           type: Database["public"]["Enums"]["studio_type"]
           updated_at?: string | null
         }
         Update: {
+          calendar_color?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
+          thumbnail_url?: string | null
           type?: Database["public"]["Enums"]["studio_type"]
           updated_at?: string | null
         }
