@@ -33,13 +33,23 @@ export function RatesEditor() {
   };
 
   const handleRateChange = (rateId: string, field: 'first' | 'after', value: string) => {
-    setEditedRates(prev => ({
-      ...prev,
-      [rateId]: {
-        ...prev[rateId],
-        [field]: value,
-      },
-    }));
+    const currentRate = rates?.find(r => r.id === rateId);
+    
+    setEditedRates(prev => {
+      // Initialize with current values if first edit for this rate
+      const existing = prev[rateId] ?? {
+        first: String(currentRate?.first_hour_rate ?? ''),
+        after: String(currentRate?.after_first_hour_rate ?? ''),
+      };
+      
+      return {
+        ...prev,
+        [rateId]: {
+          ...existing,
+          [field]: value,
+        },
+      };
+    });
   };
 
   const handleSaveRate = async (rateId: string) => {
