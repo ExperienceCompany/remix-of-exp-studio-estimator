@@ -41,7 +41,9 @@ export function useDiyRates() {
           studios(name, type),
           time_slots(name, type, display_name)
         `)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('studio_id')
+        .order('time_slot_id');
       if (error) throw error;
       return data;
     },
