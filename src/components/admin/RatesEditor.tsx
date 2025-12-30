@@ -89,6 +89,15 @@ export function RatesEditor() {
     return acc;
   }, {} as Record<string, typeof rates>);
 
+  // Sort each studio's rates by time slot sort_order (Mon-Wed → Sat-Sun)
+  Object.values(groupedRates || {}).forEach(studioRates => {
+    studioRates?.sort((a, b) => {
+      const orderA = (a.time_slots as any)?.sort_order ?? 99;
+      const orderB = (b.time_slots as any)?.sort_order ?? 99;
+      return orderA - orderB;
+    });
+  });
+
   return (
     <div className="space-y-6">
       {Object.entries(groupedRates || {}).map(([studioId, studioRates]) => (
