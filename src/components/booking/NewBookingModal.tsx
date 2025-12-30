@@ -336,6 +336,29 @@ export function NewBookingModal({
     }
   }, [isPhotoshootServiced]);
 
+  // Auto-enable Enhance Edit with 10 edits for serviced photoshoots
+  useEffect(() => {
+    if (isPhotoshootServiced && editingMenuData.length > 0) {
+      const enhanceItem = editingMenuData.find(item => item.name === 'Enhance Edit');
+      const alreadySelected = editingItems.some(e => e.name === 'Enhance Edit');
+      
+      if (enhanceItem && !alreadySelected) {
+        setEditingItems(prev => [
+          ...prev,
+          {
+            id: enhanceItem.id,
+            name: enhanceItem.name,
+            category: enhanceItem.category,
+            quantity: 10,
+            basePrice: Number(enhanceItem.base_price),
+            customerPrice: Number(enhanceItem.customer_price || enhanceItem.base_price * 2),
+            incrementPrice: null,
+          },
+        ]);
+      }
+    }
+  }, [isPhotoshootServiced, editingMenuData]);
+
   // Reset form when opened - or pre-fill with existing booking or prefill data
   useEffect(() => {
     if (open) {
