@@ -1,11 +1,11 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { useTimeSlots, useDiyRates } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { TimeSlotType } from '@/types/estimator';
-import { Sun, Moon, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Sun, Moon, ArrowLeft, ArrowRight, Check, Camera, Sparkles } from 'lucide-react';
 
 const formatTime12Hour = (time24: string): string => {
   const [hours, minutes] = time24.split(':').map(Number);
@@ -40,6 +40,33 @@ export function StepTimeSlot() {
   const rateRange = getRateRange();
   const isServiced = selection.sessionType === 'serviced';
 
+  // Calculate running total from session add-ons and editing items
+  const calculateRunningTotal = () => {
+    let total = 0;
+    
+    // Session add-ons
+    selection.sessionAddons.forEach(addon => {
+      total += addon.flatAmount;
+    });
+    
+    // Editing items
+    selection.editingItems.forEach(item => {
+      total += item.quantity * (item.customerPrice || item.basePrice);
+    });
+    
+    return total;
+  };
+
+  const runningTotal = calculateRunningTotal();
+
+  // Separate included (auto-added) vs optional add-ons
+  const includedAddons = selection.sessionAddons.filter(addon => 
+    addon.name.toLowerCase().includes('setup') || addon.name.toLowerCase().includes('set design')
+  );
+  const optionalAddons = selection.sessionAddons.filter(addon => 
+    !addon.name.toLowerCase().includes('setup') && !addon.name.toLowerCase().includes('set design')
+  );
+
   const handleSelect = (slot: any) => {
     updateSelection({
       timeSlotId: slot.id,
@@ -72,6 +99,95 @@ export function StepTimeSlot() {
 
   return (
     <div className="space-y-6">
+      {/* Running Total Summary Section */}
+      {runningTotal > 0 && (
+        <div className="space-y-4">
+          {/* Included with Session */}
+          {includedAddons.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                  <Check className="h-4 w-4" />
+                  Included with Session
+                </CardTitle>
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Automatically included with your selected service
+                </p>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-1">
+                {includedAddons.map(addon => (
+                  <div key={addon.id} className="flex justify-between items-center py-2 border-t border-amber-200 dark:border-amber-800 first:border-t-0">
+                    <div className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      <span className="text-sm text-amber-800 dark:text-amber-200">{addon.name}</span>
+                    </div>
+                    <span className="font-medium text-amber-800 dark:text-amber-200">+${addon.flatAmount}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Optional Add-ons */}
+          {optionalAddons.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Session Add-ons
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-1">
+                {optionalAddons.map(addon => (
+                  <div key={addon.id} className="flex justify-between items-center py-2 border-t first:border-t-0">
+                    <span className="text-sm">{addon.name}</span>
+                    <span className="font-medium">+${addon.flatAmount}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Photo/Video Editing */}
+          {selection.wantsEditing && selection.editingItems.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  {selection.serviceType === 'photoshoot' ? 'Photo Editing' : 'Video Editing'}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Selected editing services
+                </p>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-2">
+                {selection.editingItems.map(item => (
+                  <div key={item.id} className="flex justify-between items-center py-2 border-t first:border-t-0">
+                    <div>
+                      <span className="text-sm font-medium">{item.name}</span>
+                      <p className="text-xs text-muted-foreground">
+                        {item.quantity} {selection.serviceType === 'photoshoot' ? 'edits' : 'sec'} × ${item.customerPrice || item.basePrice}/{selection.serviceType === 'photoshoot' ? 'edit' : 'unit'}
+                      </p>
+                    </div>
+                    <span className="font-medium">= ${item.quantity * (item.customerPrice || item.basePrice)}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Running Total Banner */}
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 text-center">
+            <p className="text-lg font-semibold">
+              Estimate so far: ${runningTotal}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              + studio reservation time (select below)
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Contextual info banner */}
       {rateRange && (
         <div className="bg-muted/50 border rounded-lg p-3 text-sm">
