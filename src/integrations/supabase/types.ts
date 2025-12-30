@@ -963,6 +963,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          sort_order: number | null
           start_time: string
           type: Database["public"]["Enums"]["time_slot_type"]
         }
@@ -972,6 +973,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          sort_order?: number | null
           start_time: string
           type: Database["public"]["Enums"]["time_slot_type"]
         }
@@ -981,6 +983,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          sort_order?: number | null
           start_time?: string
           type?: Database["public"]["Enums"]["time_slot_type"]
         }

@@ -39,7 +39,7 @@ export function useDiyRates() {
         .select(`
           *,
           studios(name, type),
-          time_slots(name, type, display_name)
+          time_slots(name, type, display_name, sort_order)
         `)
         .eq('is_active', true)
         .order('studio_id')
