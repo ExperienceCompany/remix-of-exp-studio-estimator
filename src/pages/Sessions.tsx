@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays, User, Clock } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays, User, Clock, Calculator } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay } from 'date-fns';
 import type { EstimatorSelection } from '@/types/estimator';
@@ -296,6 +296,30 @@ export default function Sessions() {
            null;
   };
 
+  const getSessionSource = (session: Session): 'estimate' | 'booking' => {
+    if (session.quote_id) return 'estimate';
+    if ((session.selections_json as any)?.bookingId) return 'booking';
+    return 'estimate';
+  };
+
+  const getSourceBadge = (session: Session) => {
+    const source = getSessionSource(session);
+    if (source === 'booking') {
+      return (
+        <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-500/10">
+          <CalendarDays className="h-3 w-3 mr-1" />
+          Booking
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10">
+        <Calculator className="h-3 w-3 mr-1" />
+        Estimate
+      </Badge>
+    );
+  };
+
   const getStatusBadge = (status: SessionStatus) => {
     switch (status) {
       case 'active':
@@ -438,12 +462,13 @@ export default function Sessions() {
                   className="flex flex-col sm:flex-row sm:items-start justify-between p-4 border rounded-lg gap-4"
                 >
                   <div className="flex-1 space-y-2">
-                    {/* Row 1: Status, Type, Studio */}
+                    {/* Row 1: Status, Type, Source, Studio */}
                     <div className="flex items-center gap-2 flex-wrap">
                       {getStatusBadge(session.status)}
                       <span className="font-medium">
                         {session.session_type === 'diy' ? 'DIY' : 'EXP'}
                       </span>
+                      {getSourceBadge(session)}
                       <span className="text-muted-foreground">•</span>
                       <span className="text-muted-foreground">{getStudioName(session)}</span>
                     </div>
@@ -562,6 +587,7 @@ export default function Sessions() {
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Studio</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Duration</TableHead>
@@ -574,6 +600,7 @@ export default function Sessions() {
                     <TableRow key={session.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/session/${session.id}`)}>
                       <TableCell>{format(new Date(session.created_at), 'MMM d, yyyy')}</TableCell>
                       <TableCell>{session.session_type === 'diy' ? 'DIY' : 'EXP'}</TableCell>
+                      <TableCell>{getSourceBadge(session)}</TableCell>
                       <TableCell>{getStudioName(session)}</TableCell>
                       <TableCell>{getStatusBadge(session.status)}</TableCell>
                       <TableCell>
