@@ -1,10 +1,10 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
-import { useServices } from '@/hooks/useEstimatorData';
+import { useServices, useStudios } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { SERVICE_LABELS, ServiceType } from '@/types/estimator';
+import { SERVICE_LABELS, ServiceType, StudioType } from '@/types/estimator';
 import { Mic, Video, Music, Camera, ArrowLeft, ArrowRight } from 'lucide-react';
 
 const SERVICE_ICONS: Record<ServiceType, typeof Mic> = {
@@ -14,64 +14,29 @@ const SERVICE_ICONS: Record<ServiceType, typeof Mic> = {
   photoshoot: Camera,
 };
 
+// Services with only one valid studio option - auto-select and skip studio step
+const SINGLE_STUDIO_SERVICES: Record<string, StudioType> = {
+  photoshoot: 'multimedia_studio',
+  recording_session: 'audio_studio',
+  audio_podcast: 'podcast_room',
+};
+
+// Services with multiple studio options - require studio selection
+const MULTI_STUDIO_SERVICES: Record<string, StudioType[]> = {
+  vodcast: ['multimedia_studio', 'full_studio_buyout'],
+};
+
 export function StepService() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: services, isLoading } = useServices();
-
-  // Service to Studio restrictions:
-  // - photoshoot -> multimedia_studio
-  // - recording_session -> audio_studio
-  // - audio_podcast -> podcast_room
-  // - vodcast -> multimedia_studio
-  const SERVICE_STUDIO_MAP: Record<string, string> = {
-    photoshoot: 'multimedia_studio',
-    recording_session: 'audio_studio',
-    audio_podcast: 'podcast_room',
-    vodcast: 'multimedia_studio',
-  };
-
-  const availableServices = services?.filter(service => {
-    // Full Studio Buyout has access to ALL services (includes all spaces)
-    if (selection.studioType === 'full_studio_buyout') {
-      return true;
-    }
-    const requiredStudio = SERVICE_STUDIO_MAP[service.type];
-    if (requiredStudio && selection.studioType !== requiredStudio) {
-      return false;
-    }
-    return true;
-  });
-
-  const getRestrictionMessage = () => {
-    // No restrictions for Full Studio Buyout - all spaces included
-    if (selection.studioType === 'full_studio_buyout') {
-      return [];
-    }
-    const messages: string[] = [];
-    if (selection.studioType !== 'multimedia_studio') {
-      messages.push('Photoshoot & Vodcast available in Multimedia Studio only');
-    }
-    if (selection.studioType !== 'audio_studio') {
-      messages.push('Recording Sessions available in Audio Studio only');
-    }
-    if (selection.studioType !== 'podcast_room') {
-      messages.push('Podcasts available in Podcast Room only');
-    }
-    return messages.filter(m => {
-      // Only show relevant restrictions for current studio
-      if (selection.studioType === 'multimedia_studio') return m.includes('Recording') || m.includes('Podcast');
-      if (selection.studioType === 'audio_studio') return m.includes('Photoshoot') || m.includes('Podcast');
-      if (selection.studioType === 'podcast_room') return m.includes('Photoshoot') || m.includes('Recording');
-      return true;
-    }).slice(0, 2);
-  };
-
-  const restrictionMessages = getRestrictionMessage();
+  const { data: studios } = useStudios();
 
   const handleSelect = (service: any) => {
+    const serviceType = service.type as ServiceType;
+    
     const updates: any = {
       serviceId: service.id,
-      serviceType: service.type as ServiceType,
+      serviceType: serviceType,
       cameraCount: service.type === 'vodcast' ? 1 : 1,
     };
     
@@ -91,12 +56,32 @@ export function StepService() {
       updates.sessionAddons = selection.sessionAddons.filter(a => !a.isAutoIncluded);
     }
     
+    // If single-studio service, auto-select the studio
+    if (SINGLE_STUDIO_SERVICES[serviceType]) {
+      const studioType = SINGLE_STUDIO_SERVICES[serviceType];
+      const studio = studios?.find(s => s.type === studioType);
+      if (studio) {
+        updates.studioId = studio.id;
+        updates.studioType = studioType;
+      }
+    } else {
+      // Clear studio selection for multi-studio services so user must choose
+      updates.studioId = null;
+      updates.studioType = null;
+    }
+    
     updateSelection(updates);
   };
 
   const handleNext = () => {
     if (selection.serviceType) {
-      setCurrentStep(3);
+      // If single-studio service, skip studio step and go to Day & Time (step 3)
+      if (SINGLE_STUDIO_SERVICES[selection.serviceType]) {
+        setCurrentStep(3);
+      } else {
+        // Multi-studio service - go to studio selection (step 2)
+        setCurrentStep(2);
+      }
     }
   };
 
@@ -113,7 +98,7 @@ export function StepService() {
   return (
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-4">
-        {availableServices?.map(service => {
+        {services?.map(service => {
           const Icon = SERVICE_ICONS[service.type as ServiceType] || Mic;
           
           return (
@@ -147,16 +132,8 @@ export function StepService() {
         })}
       </div>
 
-      {restrictionMessages.length > 0 && (
-        <div className="text-sm text-muted-foreground text-center space-y-1">
-          {restrictionMessages.map((msg, i) => (
-            <p key={i}>💡 {msg}</p>
-          ))}
-        </div>
-      )}
-
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setCurrentStep(1)}>
+        <Button variant="outline" onClick={() => setCurrentStep(0)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
