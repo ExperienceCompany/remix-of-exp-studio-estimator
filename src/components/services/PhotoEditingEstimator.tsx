@@ -13,7 +13,7 @@ import { AffiliateCodeInput } from '@/components/AffiliateCodeInput';
 
 // Minimum edits for Enhance tier
 const ENHANCE_MINIMUM = 10;
-const ENHANCE_MINIMUM_PRICE = 50;
+const ENHANCE_MINIMUM_PRICE = 100; // Customer-facing price ($10/edit × 10 edits)
 
 interface EstimatorState {
   step: number;
@@ -134,7 +134,7 @@ export function PhotoEditingEstimator() {
                     )}
                     <p className="text-xs font-medium text-primary mt-2">
                       ${service.customer_price || service.base_price}/edit
-                      {isEnhanceItem && <span className="text-muted-foreground ml-1">($50 minimum)</span>}
+                      {isEnhanceItem && <span className="text-muted-foreground ml-1">($100 minimum)</span>}
                     </p>
                   </div>
                 </div>
