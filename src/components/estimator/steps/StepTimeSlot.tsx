@@ -174,18 +174,49 @@ export function StepTimeSlot() {
               </div>
             )}
             
+            {/* Studio time - show when time slot is selected */}
+            {selection.timeSlotId && (() => {
+              const selectedSlot = timeSlots?.find(s => s.id === selection.timeSlotId);
+              const selectedRate = selection.timeSlotType ? getRate(selection.timeSlotType) : null;
+              if (!selectedRate) return null;
+              return (
+                <div className="flex justify-between items-center py-2 border-b last:border-b-0">
+                  <span className="text-sm">
+                    Studio Time
+                    <span className="text-xs text-muted-foreground ml-1">
+                      ({selectedSlot?.name || 'Selected'})
+                    </span>
+                  </span>
+                  <span className="text-sm font-medium">+${selectedRate}/hr</span>
+                </div>
+              );
+            })()}
+            
             {/* Subtotal footer */}
             <div className="pt-3 mt-2 border-t">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Subtotal</span>
-                <span className="font-semibold">
-                  ${runningTotal}
-                  {isServiced && providerRate > 0 && (
-                    <span className="font-normal text-muted-foreground"> + ${providerRate}/hr</span>
-                  )}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">+ studio time (select below)</p>
+              {(() => {
+                const selectedRate = selection.timeSlotType ? getRate(selection.timeSlotType) : null;
+                const totalHourly = (isServiced && providerRate > 0 ? providerRate : 0) + (selectedRate || 0);
+                
+                return (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Subtotal</span>
+                      <span className="font-semibold">
+                        ${runningTotal}
+                        {totalHourly > 0 && (
+                          <span className="font-normal text-muted-foreground"> + ${totalHourly}/hr</span>
+                        )}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {selectedRate 
+                        ? '(hourly rates apply to session duration)'
+                        : '+ studio time (select below)'}
+                    </p>
+                  </>
+                );
+              })()}
             </div>
           </CardContent>
         </Card>
