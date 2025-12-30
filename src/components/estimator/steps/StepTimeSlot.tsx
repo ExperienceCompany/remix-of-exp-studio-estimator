@@ -63,9 +63,22 @@ export function StepTimeSlot() {
   const includedAddons = selection.sessionAddons.filter(addon => 
     addon.name.toLowerCase().includes('setup') || addon.name.toLowerCase().includes('set design')
   );
-  const optionalAddons = selection.sessionAddons.filter(addon => 
-    !addon.name.toLowerCase().includes('setup') && !addon.name.toLowerCase().includes('set design')
-  );
+  
+  // Filter optional add-ons to only show those applicable to current studio
+  // Event Setup & Breakdown only applies to full_studio_buyout or multimedia_studio
+  const optionalAddons = selection.sessionAddons.filter(addon => {
+    // Skip included addons
+    if (addon.name.toLowerCase().includes('setup') || addon.name.toLowerCase().includes('set design')) {
+      return false;
+    }
+    
+    // Event Setup & Breakdown only for full studio or multimedia
+    if (addon.name.toLowerCase().includes('event setup')) {
+      return selection.studioType === 'full_studio_buyout' || selection.studioType === 'multimedia_studio';
+    }
+    
+    return true;
+  });
 
   const handleSelect = (slot: any) => {
     updateSelection({
