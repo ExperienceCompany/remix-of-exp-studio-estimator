@@ -22,11 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays, User, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay } from 'date-fns';
 import type { EstimatorSelection } from '@/types/estimator';
-import { STUDIO_LABELS, StudioType } from '@/types/estimator';
+import { STUDIO_LABELS, StudioType, SERVICE_LABELS, ServiceType } from '@/types/estimator';
 import { BookingCalendar } from '@/components/booking/BookingCalendar';
 
 type SessionStatus = 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
@@ -241,6 +241,61 @@ export default function Sessions() {
     return studioType ? (STUDIO_LABELS[studioType as StudioType] || studioType) : '—';
   };
 
+  const formatTime12Hour = (time: string): string => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hrs12 = hours % 12 || 12;
+    return `${hrs12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
+  const getSessionDate = (session: Session): string => {
+    const bookingDate = (session.selections_json as any)?.bookingDate;
+    if (bookingDate) {
+      return format(new Date(bookingDate), 'MMM d, yyyy');
+    }
+    return format(new Date(session.created_at), 'MMM d, yyyy');
+  };
+
+  const getTimeRange = (session: Session): string | null => {
+    const start = (session.selections_json as any)?.startTime;
+    const end = (session.selections_json as any)?.endTime;
+    if (start && end) {
+      return `${formatTime12Hour(start)} - ${formatTime12Hour(end)}`;
+    }
+    return null;
+  };
+
+  const getServiceName = (session: Session): string | null => {
+    const serviceType = session.selections_json?.serviceType;
+    return serviceType ? (SERVICE_LABELS[serviceType as ServiceType] || serviceType) : null;
+  };
+
+  const getCustomerName = (session: Session): string | null => {
+    return (session.selections_json as any)?.customerName || null;
+  };
+
+  const getCrewDisplay = (session: Session): string | null => {
+    const crew = session.selections_json?.crewAllocation;
+    if (crew && (crew.lv1 > 0 || crew.lv2 > 0 || crew.lv3 > 0)) {
+      const parts = [];
+      if (crew.lv1 > 0) parts.push(`Lv1 ×${crew.lv1}`);
+      if (crew.lv2 > 0) parts.push(`Lv2 ×${crew.lv2}`);
+      if (crew.lv3 > 0) parts.push(`Lv3 ×${crew.lv3}`);
+      return parts.join(', ');
+    }
+    return null;
+  };
+
+  const getSessionHours = (session: Session): number | null => {
+    return session.selections_json?.hours || null;
+  };
+
+  const getEstimateTotal = (session: Session): number | null => {
+    return session.original_total || 
+           (session.selections_json as any)?.totals?.customerTotal ||
+           null;
+  };
+
   const getStatusBadge = (status: SessionStatus) => {
     switch (status) {
       case 'active':
@@ -380,10 +435,11 @@ export default function Sessions() {
               {activeSessions.map(session => (
                 <div
                   key={session.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
+                  className="flex flex-col sm:flex-row sm:items-start justify-between p-4 border rounded-lg gap-4"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 space-y-2">
+                    {/* Row 1: Status, Type, Studio */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       {getStatusBadge(session.status)}
                       <span className="font-medium">
                         {session.session_type === 'diy' ? 'DIY' : 'EXP'}
@@ -391,11 +447,62 @@ export default function Sessions() {
                       <span className="text-muted-foreground">•</span>
                       <span className="text-muted-foreground">{getStudioName(session)}</span>
                     </div>
+
+                    {/* Row 2: Date, Time Range, Service */}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {getSessionDate(session)}
+                      </span>
+                      {getTimeRange(session) && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            {getTimeRange(session)}
+                          </span>
+                        </>
+                      )}
+                      {getServiceName(session) && (
+                        <>
+                          <span>•</span>
+                          <span>{getServiceName(session)}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Row 3: Customer, Crew, Duration, Estimate */}
+                    <div className="flex items-center gap-3 text-sm flex-wrap">
+                      {getCustomerName(session) && (
+                        <span className="flex items-center gap-1 text-foreground">
+                          <User className="h-3.5 w-3.5" />
+                          {getCustomerName(session)}
+                        </span>
+                      )}
+                      {getCrewDisplay(session) && (
+                        <Badge variant="outline" className="text-xs">
+                          {getCrewDisplay(session)}
+                        </Badge>
+                      )}
+                      {getSessionHours(session) && (
+                        <span className="text-muted-foreground">
+                          {getSessionHours(session)}hr{getSessionHours(session)! > 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {getEstimateTotal(session) && (
+                        <span className="font-medium text-primary">
+                          Est: ${getEstimateTotal(session)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Timer - prominent display */}
                     <div className="text-2xl font-mono font-bold">
                       ⏱ {formatTime(getElapsedSeconds(session))}
                     </div>
                   </div>
-                  <div className="flex gap-2 flex-wrap">
+
+                  <div className="flex gap-2 flex-wrap sm:flex-col sm:items-end">
                     {session.status === 'pending' && (
                       <Button size="sm" onClick={() => handleStart(session)} disabled={updateSession.isPending}>
                         <Play className="h-4 w-4 mr-1" />
