@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { useEditingMenu, useSessionAddons, useProviderLevels } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, ArrowRight, Camera, Settings, Minus, Plus, Video, Users, AlertCircle, Check } from 'lucide-react';
 import { VIDEO_EDITING_CONFIG } from './StepConfigure';
 import { CrewAllocation } from '@/types/estimator';
+
 export function StepAddons() {
   const { selection, updateSelection, setCurrentStep, totals } = useEstimator();
   const { data: editingMenu } = useEditingMenu();
@@ -63,6 +65,59 @@ export function StepAddons() {
 
   // Show video editing for vodcast (both DIY and Serviced)
   const showVideoEditing = selection.serviceType === 'vodcast';
+
+  // Auto-add editing items when user said "yes" to editing in service step
+  useEffect(() => {
+    if (selection.wantsEditing !== true || !editingMenu) return;
+    
+    // For photoshoot: auto-add Enhance Edit with 10 edits
+    if (selection.serviceType === 'photoshoot') {
+      const enhanceItem = editingMenu.find(item => item.name === 'Enhance Edit');
+      const alreadySelected = selection.editingItems.some(e => e.name === 'Enhance Edit');
+      
+      if (enhanceItem && !alreadySelected) {
+        updateSelection({
+          editingItems: [
+            ...selection.editingItems,
+            {
+              id: enhanceItem.id,
+              name: enhanceItem.name,
+              category: enhanceItem.category,
+              quantity: 10, // 10 edit minimum
+              basePrice: Number(enhanceItem.base_price),
+              customerPrice: Number(enhanceItem.customer_price || enhanceItem.base_price * 2),
+              incrementPrice: null,
+            },
+          ],
+        });
+      }
+    }
+    
+    // For vodcast: auto-add long form simple editing
+    if (selection.serviceType === 'vodcast') {
+      const longFormItem = editingMenu.find(item => item.category === 'long_form_simple');
+      const alreadySelected = selection.editingItems.some(e => e.category?.startsWith('long_form'));
+      
+      if (longFormItem && !alreadySelected) {
+        const sessionDurationSeconds = selection.hours * 3600;
+        updateSelection({
+          editingItems: [
+            ...selection.editingItems,
+            {
+              id: longFormItem.id,
+              name: longFormItem.name,
+              category: longFormItem.category,
+              quantity: Math.max(900, sessionDurationSeconds), // Start at session duration
+              basePrice: Number(longFormItem.base_price),
+              customerPrice: Number(longFormItem.customer_price),
+              incrementPrice: longFormItem.increment_price ? Number(longFormItem.increment_price) : null,
+              assignedCrew: { lv1: 0, lv2: 0, lv3: 0 },
+            },
+          ],
+        });
+      }
+    }
+  }, [selection.wantsEditing, selection.serviceType, editingMenu]);
 
   // Calculate assigned crew across all editing items
   const getAssignedCrew = (): CrewAllocation => {
