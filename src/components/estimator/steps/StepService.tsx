@@ -1,11 +1,11 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { useServices, useStudios } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { SERVICE_LABELS, ServiceType, StudioType } from '@/types/estimator';
-import { Mic, Video, Music, Camera, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Mic, Video, Music, Camera, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 
 const SERVICE_ICONS: Record<ServiceType, typeof Mic> = {
   audio_podcast: Mic,
@@ -26,6 +26,62 @@ const MULTI_STUDIO_SERVICES: Record<string, StudioType[]> = {
   vodcast: ['multimedia_studio', 'full_studio_buyout'],
 };
 
+// Follow-up question helpers
+const getFollowUpQuestion = (serviceType: ServiceType): string => {
+  switch (serviceType) {
+    case 'photoshoot':
+      return 'Do you want photo editing included?';
+    case 'vodcast':
+      return 'Do you want video editing included?';
+    case 'recording_session':
+      return 'Need any post-production?';
+    case 'audio_podcast':
+      return 'Need any post-production?';
+    default:
+      return 'Need any post-production services?';
+  }
+};
+
+const getNoEditOption = (serviceType: ServiceType): { label: string; description: string } => {
+  switch (serviceType) {
+    case 'photoshoot':
+      return { 
+        label: 'Just unedited photos', 
+        description: "I'll edit myself or don't need edits" 
+      };
+    case 'vodcast':
+      return { 
+        label: 'Just raw recording', 
+        description: "I'll handle editing myself" 
+      };
+    default:
+      return { 
+        label: 'No, just the session', 
+        description: "I'll handle post-production myself" 
+      };
+  }
+};
+
+const getYesEditOption = (serviceType: ServiceType): { label: string; description: string } => {
+  switch (serviceType) {
+    case 'photoshoot':
+      return { 
+        label: 'Include photo editing', 
+        description: 'Starting at $10/edit, 10 minimum' 
+      };
+    case 'vodcast':
+      return { 
+        label: 'Include video editing', 
+        description: 'Add editing services (configured in add-ons)' 
+      };
+    default:
+      return { 
+        label: 'Yes, show me options', 
+        description: 'Add post-production services' 
+      };
+  }
+};
+
 export function StepService() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: services, isLoading } = useServices();
@@ -38,6 +94,7 @@ export function StepService() {
       serviceId: service.id,
       serviceType: serviceType,
       cameraCount: service.type === 'vodcast' ? 1 : 1,
+      wantsEditing: null, // Reset when service changes
     };
     
     // Auto-include Photoshoot setup fee for photoshoots
@@ -73,8 +130,12 @@ export function StepService() {
     updateSelection(updates);
   };
 
+  const handleEditingChoice = (wantsEditing: boolean) => {
+    updateSelection({ wantsEditing });
+  };
+
   const handleNext = () => {
-    if (selection.serviceType) {
+    if (selection.serviceType && selection.wantsEditing !== null) {
       // If single-studio service, skip studio step and go to Day & Time (step 3)
       if (SINGLE_STUDIO_SERVICES[selection.serviceType]) {
         setCurrentStep(3);
@@ -94,6 +155,9 @@ export function StepService() {
       </div>
     );
   }
+
+  const noEditOption = selection.serviceType ? getNoEditOption(selection.serviceType) : null;
+  const yesEditOption = selection.serviceType ? getYesEditOption(selection.serviceType) : null;
 
   return (
     <div className="space-y-6">
@@ -132,12 +196,80 @@ export function StepService() {
         })}
       </div>
 
+      {/* Follow-up question about editing */}
+      {selection.serviceType && noEditOption && yesEditOption && (
+        <Card className="border-primary/20 bg-muted/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              {getFollowUpQuestion(selection.serviceType)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {/* No editing option */}
+            <div 
+              className={cn(
+                "p-3 rounded-lg border cursor-pointer transition-all",
+                selection.wantsEditing === false 
+                  ? "border-primary bg-primary/5" 
+                  : "border-border hover:border-primary/50"
+              )}
+              onClick={() => handleEditingChoice(false)}
+            >
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                  selection.wantsEditing === false 
+                    ? "border-primary bg-primary" 
+                    : "border-muted-foreground"
+                )}>
+                  {selection.wantsEditing === false && (
+                    <Check className="h-3 w-3 text-primary-foreground" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{noEditOption.label}</p>
+                  <p className="text-xs text-muted-foreground">{noEditOption.description}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Yes editing option */}
+            <div 
+              className={cn(
+                "p-3 rounded-lg border cursor-pointer transition-all",
+                selection.wantsEditing === true 
+                  ? "border-primary bg-primary/5" 
+                  : "border-border hover:border-primary/50"
+              )}
+              onClick={() => handleEditingChoice(true)}
+            >
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                  selection.wantsEditing === true 
+                    ? "border-primary bg-primary" 
+                    : "border-muted-foreground"
+                )}>
+                  {selection.wantsEditing === true && (
+                    <Check className="h-3 w-3 text-primary-foreground" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{yesEditOption.label}</p>
+                  <p className="text-xs text-muted-foreground">{yesEditOption.description}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => setCurrentStep(0)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <Button onClick={handleNext} disabled={!selection.serviceType}>
+        <Button onClick={handleNext} disabled={!selection.serviceType || selection.wantsEditing === null}>
           Next
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
