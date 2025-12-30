@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calculator, Users, Settings, LogIn, Scissors, DollarSign, Layers, Timer, CalendarDays, CalendarCog } from 'lucide-react';
+import { Calculator, Users, Settings, LogIn, Scissors, DollarSign, Layers, Timer, CalendarDays, CalendarCog, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Index() {
@@ -65,6 +65,24 @@ export default function Index() {
             <CardContent>
               <Button asChild className="w-full">
                 <Link to="/estimate">Start Estimate</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Quick Packages */}
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="h-12 w-12 rounded-lg bg-amber-500/10 flex items-center justify-center mb-2">
+                <Package className="h-6 w-6 text-amber-600" />
+              </div>
+              <CardTitle>Quick Packages</CardTitle>
+              <CardDescription>
+                Pre-configured studio packages for common sessions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="secondary" className="w-full">
+                <Link to="/packages">Browse Packages</Link>
               </Button>
             </CardContent>
           </Card>
