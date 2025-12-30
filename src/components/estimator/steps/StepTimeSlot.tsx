@@ -124,118 +124,71 @@ export function StepTimeSlot() {
 
   return (
     <div className="space-y-6">
-      {/* Running Total Summary Section */}
-      {(runningTotal > 0 || providerRate > 0) && (
-        <div className="space-y-4">
-          {/* Included with Session */}
-          {includedAddons.length > 0 && (
-            <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                  <Check className="h-4 w-4" />
-                  Included with Session
-                </CardTitle>
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Automatically included with your selected service
-                </p>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-1">
-                {includedAddons.map(addon => (
-                  <div key={addon.id} className="flex justify-between items-center py-2 border-t border-amber-200 dark:border-amber-800 first:border-t-0">
-                    <div className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      <span className="text-sm text-amber-800 dark:text-amber-200">{addon.name}</span>
-                    </div>
-                    <span className="font-medium text-amber-800 dark:text-amber-200">+${addon.flatAmount}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Optional Add-ons */}
-          {optionalAddons.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Session Add-ons
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-1">
-                {optionalAddons.map(addon => (
-                  <div key={addon.id} className="flex justify-between items-center py-2 border-t first:border-t-0">
-                    <span className="text-sm">{addon.name}</span>
-                    <span className="font-medium">+${addon.flatAmount}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Photo/Video Editing */}
-          {selection.wantsEditing && selection.editingItems.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  {selection.serviceType === 'photoshoot' ? 'Photo Editing' : 'Video Editing'}
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  Selected editing services
-                </p>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-2">
-                {selection.editingItems.map(item => (
-                  <div key={item.id} className="flex justify-between items-center py-2 border-t first:border-t-0">
-                    <div>
-                      <span className="text-sm font-medium">{item.name}</span>
-                      <p className="text-xs text-muted-foreground">
-                        {item.quantity} {selection.serviceType === 'photoshoot' ? 'edits' : 'sec'} × ${item.customerPrice || item.basePrice}/{selection.serviceType === 'photoshoot' ? 'edit' : 'unit'}
-                      </p>
-                    </div>
-                    <span className="font-medium">= ${item.quantity * (item.customerPrice || item.basePrice)}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Provider Crew (if serviced and provider selected) */}
-          {isServiced && selection.providerLevel && providerRate > 0 && (
-            <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-blue-800 dark:text-blue-200">
-                  <Users className="h-4 w-4" />
+      {/* Consolidated Running Total Summary */}
+      {(runningTotal > 0 || providerRate > 0 || includedAddons.length > 0) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Your Selections So Far</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-0">
+            {/* Included items */}
+            {includedAddons.map(addon => (
+              <div key={addon.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                <span className="text-sm">
+                  {addon.name}
+                  <span className="text-xs text-muted-foreground ml-1">(included)</span>
+                </span>
+                <span className="text-sm font-medium">+${addon.flatAmount}</span>
+              </div>
+            ))}
+            
+            {/* Optional add-ons */}
+            {optionalAddons.map(addon => (
+              <div key={addon.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                <span className="text-sm">{addon.name}</span>
+                <span className="text-sm font-medium">+${addon.flatAmount}</span>
+              </div>
+            ))}
+            
+            {/* Editing items */}
+            {selection.wantsEditing && selection.editingItems.map(item => (
+              <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                <span className="text-sm">
+                  {item.name}
+                  <span className="text-xs text-muted-foreground ml-1">
+                    ({item.quantity} {selection.serviceType === 'photoshoot' ? 'edits' : 'sec'})
+                  </span>
+                </span>
+                <span className="text-sm font-medium">+${item.quantity * (item.customerPrice || item.basePrice)}</span>
+              </div>
+            ))}
+            
+            {/* Production crew */}
+            {isServiced && selection.providerLevel && providerRate > 0 && (
+              <div className="flex justify-between items-center py-2 border-b last:border-b-0">
+                <span className="text-sm">
                   Production Crew
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-blue-800 dark:text-blue-200">
-                    {PROVIDER_LEVEL_LABELS[selection.providerLevel]}
-                  </span>
-                  <span className="font-medium text-blue-800 dark:text-blue-200">
-                    +${providerRate}/hr
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Running Total Banner */}
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 text-center">
-            <p className="text-lg font-semibold">
-              Estimate so far: ${runningTotal}
-              {isServiced && providerRate > 0 && (
-                <span className="text-base font-normal text-muted-foreground"> + ${providerRate}/hr crew</span>
-              )}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              + studio reservation time (select below)
-            </p>
-          </div>
-        </div>
+                  <span className="text-xs text-muted-foreground ml-1">({PROVIDER_LEVEL_LABELS[selection.providerLevel]})</span>
+                </span>
+                <span className="text-sm font-medium">+${providerRate}/hr</span>
+              </div>
+            )}
+            
+            {/* Subtotal footer */}
+            <div className="pt-3 mt-2 border-t">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Subtotal</span>
+                <span className="font-semibold">
+                  ${runningTotal}
+                  {isServiced && providerRate > 0 && (
+                    <span className="font-normal text-muted-foreground"> + ${providerRate}/hr</span>
+                  )}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">+ studio time (select below)</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Contextual info banner */}
