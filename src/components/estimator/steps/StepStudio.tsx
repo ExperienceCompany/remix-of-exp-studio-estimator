@@ -15,11 +15,18 @@ const STUDIO_ICONS: Record<StudioType, typeof Mic> = {
   full_studio_buyout: Building,
 };
 
+// Services with multiple studio options
+const SERVICE_STUDIO_OPTIONS: Record<string, StudioType[]> = {
+  vodcast: ['multimedia_studio', 'full_studio_buyout'],
+};
+
 export function StepStudio() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: studios, isLoading } = useStudios();
   const { data: rates } = useDiyRates();
   const { data: timeSlots } = useTimeSlots();
+
+  const isDiy = selection.sessionType === 'diy';
 
   const getStartingPrice = (studioType: string) => {
     if (!rates || !timeSlots) return null;
@@ -29,50 +36,40 @@ export function StepStudio() {
     return minRate;
   };
 
-  // Service to Studio restrictions
-  const SERVICE_STUDIO_MAP: Record<string, string> = {
-    photoshoot: 'multimedia_studio',
-    recording_session: 'audio_studio',
-    audio_podcast: 'podcast_room',
-    vodcast: 'multimedia_studio',
-  };
-
-  const requiredStudioForService = selection.serviceType ? SERVICE_STUDIO_MAP[selection.serviceType] : null;
-
-  const getDisabledMessage = (studioType: string) => {
-    if (!requiredStudioForService || studioType === requiredStudioForService) return null;
-    const serviceLabels: Record<string, string> = {
-      photoshoot: 'Photoshoot',
-      recording_session: 'Recording Session',
-      audio_podcast: 'Podcast',
-      vodcast: 'Vodcast',
-    };
-    const studioLabels: Record<string, string> = {
-      multimedia_studio: 'Multimedia Studio',
-      audio_studio: 'Audio Studio',
-      podcast_room: 'Podcast Room',
-      digital_edit_studio: 'Digital/Edit Studio',
-    };
-    return `${serviceLabels[selection.serviceType!]} requires ${studioLabels[requiredStudioForService]}`;
-  };
+  // Filter studios based on context
+  const filteredStudios = studios?.filter(studio => {
+    // For DIY, show all studios
+    if (isDiy) return true;
+    
+    // For serviced with a service selected, filter to valid options
+    if (selection.serviceType && SERVICE_STUDIO_OPTIONS[selection.serviceType]) {
+      return SERVICE_STUDIO_OPTIONS[selection.serviceType].includes(studio.type as StudioType);
+    }
+    
+    return true;
+  });
 
   const handleSelect = (studio: any) => {
-    const newStudioType = studio.type as StudioType;
-    
-    // Clear service if changing to incompatible studio
-    const shouldClearService = requiredStudioForService && newStudioType !== requiredStudioForService;
-    
     updateSelection({
       studioId: studio.id,
-      studioType: newStudioType,
-      ...(shouldClearService && { serviceId: null, serviceType: null }),
+      studioType: studio.type as StudioType,
     });
   };
 
   const handleNext = () => {
     if (selection.studioType) {
-      // DIY sessions skip the Service step
-      setCurrentStep(selection.sessionType === 'diy' ? 3 : 2);
+      // Go to Day & Time (step 3)
+      setCurrentStep(3);
+    }
+  };
+
+  const handleBack = () => {
+    if (isDiy) {
+      // DIY: go back to Session Type (step 0)
+      setCurrentStep(0);
+    } else {
+      // Serviced: go back to Service (step 1)
+      setCurrentStep(1);
     }
   };
 
@@ -89,23 +86,18 @@ export function StepStudio() {
   return (
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-4">
-        {studios?.map(studio => {
+        {filteredStudios?.map(studio => {
           const Icon = STUDIO_ICONS[studio.type as StudioType] || Mic;
           const startingPrice = getStartingPrice(studio.type);
-          const disabledMessage = getDisabledMessage(studio.type);
-          const isDisabled = !!disabledMessage;
           
           return (
             <Card 
               key={studio.id}
               className={cn(
-                "transition-all",
-                isDisabled 
-                  ? "opacity-50 cursor-not-allowed" 
-                  : "cursor-pointer hover:shadow-md",
+                "cursor-pointer transition-all hover:shadow-md",
                 selection.studioId === studio.id && "ring-2 ring-primary"
               )}
-              onClick={() => !isDisabled && handleSelect(studio)}
+              onClick={() => handleSelect(studio)}
             >
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -121,11 +113,6 @@ export function StepStudio() {
                 <CardTitle className="text-lg">{studio.name}</CardTitle>
                 <CardDescription>
                   {studio.description}
-                  {disabledMessage && (
-                    <span className="block text-xs mt-1 text-destructive">
-                      {disabledMessage}
-                    </span>
-                  )}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -134,7 +121,7 @@ export function StepStudio() {
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setCurrentStep(0)}>
+        <Button variant="outline" onClick={handleBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>

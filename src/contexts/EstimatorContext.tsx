@@ -76,10 +76,17 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const applyPackage = useCallback((preset: any, packageData?: any) => {
-    // If photoshoot, force multimedia_studio
-    const studioType = preset.service_type === 'photoshoot' 
-      ? 'multimedia_studio' 
-      : (preset.studio_type || null);
+    // Determine studio type based on service type restrictions
+    const getStudioType = () => {
+      // Services with single studio requirement
+      if (preset.service_type === 'photoshoot') return 'multimedia_studio';
+      if (preset.service_type === 'recording_session') return 'audio_studio';
+      if (preset.service_type === 'audio_podcast') return 'podcast_room';
+      // For vodcast or others, use provided studio_type
+      return preset.studio_type || null;
+    };
+    
+    const studioType = getStudioType();
     
     // Build package pricing if this is a fixed-price package
     let packagePricing: PackagePricing | null = null;
@@ -97,6 +104,7 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
     }
     
     const isServiced = preset.session_type === 'serviced';
+    const isDiy = preset.session_type === 'diy';
     
     setSelection({
       ...initialSelection,
@@ -108,7 +116,15 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       cameraCount: preset.camera_count || 1,
       packagePricing,
     });
-    setCurrentStep(3); // Go to time slot selection
+    
+    // Navigate to the appropriate step
+    // For DIY: step 2 is Day/Time
+    // For serviced: step 3 is Day/Time
+    if (isDiy) {
+      setCurrentStep(2); // DIY: Day/Time is step 2
+    } else {
+      setCurrentStep(3); // Serviced: Day/Time is step 3
+    }
   }, []);
 
   // Calculate totals

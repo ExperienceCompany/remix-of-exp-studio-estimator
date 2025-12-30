@@ -130,8 +130,8 @@ export interface Package {
 
 export const STEP_LABELS = [
   'Session Type',
-  'Studio',
   'Service',
+  'Studio',
   'Day & Time',
   'Duration',
   'Add-ons',
