@@ -1,11 +1,11 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
-import { useTimeSlots, useDiyRates } from '@/hooks/useEstimatorData';
+import { useTimeSlots, useDiyRates, useProviderLevels } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { TimeSlotType } from '@/types/estimator';
-import { Sun, Moon, ArrowLeft, ArrowRight, Check, Camera, Sparkles } from 'lucide-react';
+import { TimeSlotType, PROVIDER_LEVEL_LABELS } from '@/types/estimator';
+import { Sun, Moon, ArrowLeft, ArrowRight, Check, Camera, Sparkles, Users } from 'lucide-react';
 
 const formatTime12Hour = (time24: string): string => {
   const [hours, minutes] = time24.split(':').map(Number);
@@ -18,6 +18,7 @@ export function StepTimeSlot() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: timeSlots, isLoading } = useTimeSlots();
   const { data: rates } = useDiyRates();
+  const { data: providerLevels } = useProviderLevels();
 
   const getRate = (timeSlotType: string) => {
     if (!rates || !selection.studioType) return null;
@@ -40,13 +41,24 @@ export function StepTimeSlot() {
   const rateRange = getRateRange();
   const isServiced = selection.sessionType === 'serviced';
 
-  // Calculate running total from session add-ons and editing items
+  // Get provider hourly rate if selected
+  const getProviderRate = () => {
+    if (!selection.providerLevel || !providerLevels) return 0;
+    const provider = providerLevels.find(p => p.level === selection.providerLevel);
+    return provider ? Number(provider.hourly_rate) : 0;
+  };
+
+  const providerRate = getProviderRate();
+
+  // Calculate running total from session add-ons, editing items, and provider (note: provider is per hour, shown separately)
   const calculateRunningTotal = () => {
     let total = 0;
     
-    // Session add-ons
+    // Session add-ons (flat fees only - hourly addons depend on duration)
     selection.sessionAddons.forEach(addon => {
-      total += addon.flatAmount;
+      if (!addon.isHourly) {
+        total += addon.flatAmount;
+      }
     });
     
     // Editing items
@@ -113,7 +125,7 @@ export function StepTimeSlot() {
   return (
     <div className="space-y-6">
       {/* Running Total Summary Section */}
-      {runningTotal > 0 && (
+      {(runningTotal > 0 || providerRate > 0) && (
         <div className="space-y-4">
           {/* Included with Session */}
           {includedAddons.length > 0 && (
@@ -189,10 +201,35 @@ export function StepTimeSlot() {
             </Card>
           )}
 
+          {/* Provider Crew (if serviced and provider selected) */}
+          {isServiced && selection.providerLevel && providerRate > 0 && (
+            <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                  <Users className="h-4 w-4" />
+                  Production Crew
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-blue-800 dark:text-blue-200">
+                    {PROVIDER_LEVEL_LABELS[selection.providerLevel]}
+                  </span>
+                  <span className="font-medium text-blue-800 dark:text-blue-200">
+                    +${providerRate}/hr
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Running Total Banner */}
           <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 text-center">
             <p className="text-lg font-semibold">
               Estimate so far: ${runningTotal}
+              {isServiced && providerRate > 0 && (
+                <span className="text-base font-normal text-muted-foreground"> + ${providerRate}/hr crew</span>
+              )}
             </p>
             <p className="text-sm text-muted-foreground">
               + studio reservation time (select below)
