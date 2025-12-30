@@ -1,5 +1,5 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
-import { useServices, useStudios } from '@/hooks/useEstimatorData';
+import { useServices, useStudios, useEditingMenu } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -86,6 +86,7 @@ export function StepService() {
   const { selection, updateSelection, setCurrentStep } = useEstimator();
   const { data: services, isLoading } = useServices();
   const { data: studios } = useStudios();
+  const { data: editingMenu } = useEditingMenu();
 
   const handleSelect = (service: any) => {
     const serviceType = service.type as ServiceType;
@@ -131,7 +132,53 @@ export function StepService() {
   };
 
   const handleEditingChoice = (wantsEditing: boolean) => {
-    updateSelection({ wantsEditing });
+    const updates: any = { wantsEditing };
+    
+    // When user says "yes", immediately add editing items so they show in running total
+    if (wantsEditing && editingMenu) {
+      // For photoshoot: auto-add Enhance Edit with 10 edits
+      if (selection.serviceType === 'photoshoot') {
+        const enhanceItem = editingMenu.find(item => item.name === 'Enhance Edit');
+        if (enhanceItem) {
+          updates.editingItems = [
+            {
+              id: enhanceItem.id,
+              name: enhanceItem.name,
+              category: enhanceItem.category,
+              quantity: 10, // 10 edit minimum
+              basePrice: Number(enhanceItem.base_price),
+              customerPrice: Number(enhanceItem.customer_price || enhanceItem.base_price * 2),
+              incrementPrice: null,
+            },
+          ];
+        }
+      }
+      
+      // For vodcast: auto-add long form simple editing
+      if (selection.serviceType === 'vodcast') {
+        const longFormItem = editingMenu.find(item => item.category === 'long_form_simple');
+        if (longFormItem) {
+          const sessionDurationSeconds = selection.hours * 3600;
+          updates.editingItems = [
+            {
+              id: longFormItem.id,
+              name: longFormItem.name,
+              category: longFormItem.category,
+              quantity: Math.max(900, sessionDurationSeconds),
+              basePrice: Number(longFormItem.base_price),
+              customerPrice: Number(longFormItem.customer_price),
+              incrementPrice: longFormItem.increment_price ? Number(longFormItem.increment_price) : null,
+              assignedCrew: { lv1: 0, lv2: 0, lv3: 0 },
+            },
+          ];
+        }
+      }
+    } else if (!wantsEditing) {
+      // Clear editing items when user says "no"
+      updates.editingItems = [];
+    }
+    
+    updateSelection(updates);
   };
 
   const handleNext = () => {
