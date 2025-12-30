@@ -214,6 +214,12 @@ export function StepTimeSlot() {
                         ? '(hourly rates apply to session duration)'
                         : '+ studio time (select below)'}
                     </p>
+                    {selectedRate && totalHourly > 0 && (
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                        <span className="text-sm font-semibold">Estimate Grand Total for 1 hr</span>
+                        <span className="font-bold text-primary text-lg">${runningTotal + totalHourly}</span>
+                      </div>
+                    )}
                   </>
                 );
               })()}
