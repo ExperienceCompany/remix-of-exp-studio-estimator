@@ -199,8 +199,7 @@ export function StepAddons() {
     }
   };
 
-  // Get auto-included session addons (like photoshoot set design fee)
-  const autoIncludedAddons = selection.sessionAddons.filter(a => a.isAutoIncluded);
+  // Note: Auto-included addons are shown on the TimeSlot step, not here
 
   const updateRevisionHours = (addonId: string, newHours: number) => {
     updateSelection({
@@ -481,35 +480,7 @@ export function StepAddons() {
 
   return (
     <div className="space-y-6">
-      {/* Auto-included Add-ons (e.g., Photoshoot Set Design Fee) */}
-      {autoIncludedAddons.length > 0 && (
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Check className="h-4 w-4 text-primary" />
-              Included with Session
-            </CardTitle>
-            <CardDescription>
-              These are automatically included with your selected service
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {autoIncludedAddons.map(addon => (
-              <div key={addon.id} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-3">
-                  <Check className="h-4 w-4 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium">{addon.name} (included)</p>
-                    <p className="text-xs text-muted-foreground">Included with session</p>
-                  </div>
-                </div>
-                <Badge variant="secondary">+${addon.flatAmount}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
+      {/* Note: Auto-included add-ons are shown on the TimeSlot step */}
       {/* Session Add-ons */}
       {availableSessionAddons.length > 0 && (
         <Card>
