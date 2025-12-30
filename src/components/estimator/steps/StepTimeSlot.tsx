@@ -27,6 +27,19 @@ export function StepTimeSlot() {
     return rate ? Number(rate.first_hour_rate) : null;
   };
 
+  // Get the min/max rates for context message
+  const getRateRange = () => {
+    if (!rates || !selection.studioType) return null;
+    const studioRates = rates.filter(r => r.studios?.type === selection.studioType);
+    if (!studioRates.length) return null;
+    const min = Math.min(...studioRates.map(r => Number(r.first_hour_rate)));
+    const max = Math.max(...studioRates.map(r => Number(r.first_hour_rate)));
+    return { min, max };
+  };
+
+  const rateRange = getRateRange();
+  const isServiced = selection.sessionType === 'serviced';
+
   const handleSelect = (slot: any) => {
     updateSelection({
       timeSlotId: slot.id,
@@ -59,6 +72,22 @@ export function StepTimeSlot() {
 
   return (
     <div className="space-y-6">
+      {/* Contextual info banner */}
+      {rateRange && (
+        <div className="bg-muted/50 border rounded-lg p-3 text-sm">
+          <p className="text-muted-foreground">
+            <span className="font-medium text-foreground">
+              Base Rate: ${rateRange.min}{rateRange.max > rateRange.min ? `–$${rateRange.max}` : ''}/hr
+            </span>
+            {isServiced ? (
+              <span className="ml-1">(space only – service & crew additional)</span>
+            ) : (
+              <span className="ml-1">(space & equipment)</span>
+            )}
+          </p>
+        </div>
+      )}
+
       {dayGroups.map(group => (
         <div key={group.label}>
           <h3 className="text-sm font-medium text-muted-foreground mb-2">{group.label}</h3>

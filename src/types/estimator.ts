@@ -133,7 +133,7 @@ export const STEP_LABELS = [
   'Session Type',
   'Service',
   'Studio',
-  'Day & Time',
+  'Studio Reservation Day & Time',
   'Duration',
   'Add-ons',
   'Configure',
@@ -143,7 +143,7 @@ export const STEP_LABELS = [
 export const DIY_STEP_LABELS = [
   'Session Type',
   'Studio',
-  'Day & Time',
+  'Studio Reservation Day & Time',
   'Duration',
   'Add-ons',
   'Configure',
