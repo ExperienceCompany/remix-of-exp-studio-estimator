@@ -238,7 +238,12 @@ export function StepAddons() {
             Photo Editing
           </CardTitle>
           <CardDescription>
-            {includedEdits > 0 
+            {selection.wantsEditing ? (
+              <>
+                <span className="text-green-600 dark:text-green-400">You selected to include editing.</span>
+                {' '}Adjust quantities below.
+              </>
+            ) : includedEdits > 0 
               ? `${includedEdits} enhance edits included with package. Add more below.`
               : 'Select editing services and quantity'}
           </CardDescription>
@@ -305,7 +310,7 @@ export function StepAddons() {
                       </Button>
                     </div>
                     <span className="text-sm font-bold">
-                      = ${itemTotal}
+                      +${itemTotal}
                     </span>
                   </div>
                 )}
