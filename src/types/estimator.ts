@@ -41,6 +41,7 @@ export interface EstimatorSelection {
   packagePricing: PackagePricing | null;
   affiliateCode: string | null;
   affiliateLeadCount: number;
+  wantsEditing: boolean | null;  // User's editing preference from service step
 }
 
 export interface SessionAddon {

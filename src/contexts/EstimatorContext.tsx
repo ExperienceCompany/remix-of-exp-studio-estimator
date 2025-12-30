@@ -52,6 +52,7 @@ const initialSelection: EstimatorSelection = {
   packagePricing: null,
   affiliateCode: null,
   affiliateLeadCount: 0,
+  wantsEditing: null,
 };
 
 const EstimatorContext = createContext<EstimatorContextValue | undefined>(undefined);
