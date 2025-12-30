@@ -62,9 +62,6 @@ export function StepDuration() {
   const lv3Rate = providerLevels?.find(p => p.level === 'lv3')?.hourly_rate || 40;
   const totalCrewCostPerHour = lv1 * Number(lv1Rate) + lv2 * Number(lv2Rate) + lv3 * Number(lv3Rate);
 
-  // Get auto-included session addons (like photoshoot set design fee)
-  const autoIncludedAddons = selection.sessionAddons.filter(a => a.isAutoIncluded);
-
   return (
     <div className="space-y-6">
       {/* Hours */}
@@ -267,28 +264,6 @@ export function StepDuration() {
         </Card>
       )}
 
-      {/* Auto-included Addons (e.g., Photoshoot Set Design Fee) */}
-      {autoIncludedAddons.length > 0 && (
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Check className="h-4 w-4 text-primary" />
-              Included with Session
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {autoIncludedAddons.map(addon => (
-              <div key={addon.id} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-primary" />
-                  <span className="text-sm">{addon.name} (included)</span>
-                </div>
-                <Badge variant="secondary">+${addon.flatAmount}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Running Total */}
       <Card className="bg-muted/50">
