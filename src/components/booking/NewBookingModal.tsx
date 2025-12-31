@@ -309,6 +309,7 @@ export function NewBookingModal({
   const [affiliateName, setAffiliateName] = useState<string | null>(null);
   const [editingItems, setEditingItems] = useState<EditingItem[]>([]);
   const [addonHours, setAddonHours] = useState<Record<string, number>>({});
+  const [wantsEditing, setWantsEditing] = useState<boolean | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [overlapError, setOverlapError] = useState<string | null>(null);
@@ -336,28 +337,52 @@ export function NewBookingModal({
     }
   }, [isPhotoshootServiced]);
 
-  // Auto-enable Enhance Edit with 10 edits for serviced photoshoots
+  // Auto-add Simple Retouch Edit with 5 edits when wantsEditing is true for serviced photoshoots
   useEffect(() => {
-    if (isPhotoshootServiced && editingMenuData.length > 0) {
-      const enhanceItem = editingMenuData.find(item => item.name === 'Enhance Edit');
-      const alreadySelected = editingItems.some(e => e.name === 'Enhance Edit');
+    if (isPhotoshootServiced && wantsEditing === true && editingMenuData.length > 0) {
+      const simpleRetouchItem = editingMenuData.find(item => item.name === 'Simple Retouch Edit');
+      const alreadySelected = editingItems.some(e => e.name === 'Simple Retouch Edit');
       
-      if (enhanceItem && !alreadySelected) {
+      if (simpleRetouchItem && !alreadySelected) {
         setEditingItems(prev => [
           ...prev,
           {
-            id: enhanceItem.id,
-            name: enhanceItem.name,
-            category: enhanceItem.category,
-            quantity: 10,
-            basePrice: Number(enhanceItem.base_price),
-            customerPrice: Number(enhanceItem.customer_price || enhanceItem.base_price * 2),
+            id: simpleRetouchItem.id,
+            name: simpleRetouchItem.name,
+            category: simpleRetouchItem.category,
+            quantity: 5, // 5 edit minimum for regular serviced photoshoot
+            basePrice: Number(simpleRetouchItem.base_price),
+            customerPrice: Number(simpleRetouchItem.customer_price || simpleRetouchItem.base_price * 2),
             incrementPrice: null,
           },
         ]);
       }
     }
-  }, [isPhotoshootServiced, editingMenuData]);
+  }, [isPhotoshootServiced, wantsEditing, editingMenuData]);
+
+  // Auto-add Long Form Simple when wantsEditing is true for vodcast
+  useEffect(() => {
+    if (sessionType === 'serviced' && serviceType === 'vodcast' && wantsEditing === true && editingMenuData.length > 0) {
+      const longFormItem = editingMenuData.find(item => item.name === 'Long Form Simple');
+      const alreadySelected = editingItems.some(e => e.name === 'Long Form Simple');
+      
+      if (longFormItem && !alreadySelected) {
+        setEditingItems(prev => [
+          ...prev,
+          {
+            id: longFormItem.id,
+            name: longFormItem.name,
+            category: longFormItem.category,
+            quantity: 1,
+            basePrice: Number(longFormItem.base_price),
+            customerPrice: Number(longFormItem.customer_price || longFormItem.base_price * 2),
+            incrementPrice: longFormItem.increment_price ? Number(longFormItem.increment_price) : null,
+            crewLevel: 'lv2', // Default to Lv2
+          },
+        ]);
+      }
+    }
+  }, [sessionType, serviceType, wantsEditing, editingMenuData]);
 
   // Reset form when opened - or pre-fill with existing booking or prefill data
   useEffect(() => {
@@ -459,6 +484,7 @@ export function NewBookingModal({
         setAffiliateCode('');
         setEditingItems([]);
         setAddonHours({});
+        setWantsEditing(null);
       }
     }
   }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking, linkedQuote]);
@@ -512,13 +538,13 @@ export function NewBookingModal({
   // Filter photo editing items (only for photoshoot)
   const photoEditingItems = useMemo(() => {
     if (serviceType !== 'photoshoot') return [];
-    return editingMenuData.filter(item => item.category === 'photo_editing');
+    return editingMenuData.filter(item => item.category === 'photo');
   }, [editingMenuData, serviceType]);
 
   // Filter video editing items (only for vodcast)
   const videoEditingItems = useMemo(() => {
     if (serviceType !== 'vodcast') return [];
-    return editingMenuData.filter(item => item.category !== 'photo_editing');
+    return editingMenuData.filter(item => item.category !== 'photo');
   }, [editingMenuData, serviceType]);
 
   // Filter revision addon (hourly)
@@ -585,7 +611,7 @@ export function NewBookingModal({
 
       // Add editing items (photo and video editing)
       for (const editItem of editingItems) {
-        if (editItem.category === 'photo_editing') {
+        if (editItem.category === 'photo') {
           // Photo editing: quantity × price
           total += editItem.quantity * editItem.customerPrice;
         } else {
@@ -747,7 +773,7 @@ export function NewBookingModal({
 
     // Editing items (photo and video editing)
     for (const editItem of editingItems) {
-      if (editItem.category === 'photo_editing') {
+      if (editItem.category === 'photo') {
         const total = editItem.quantity * editItem.customerPrice;
         items.push({
           label: `${editItem.name} (${editItem.quantity} edits @ $${editItem.customerPrice}/edit)`,
@@ -877,8 +903,8 @@ export function NewBookingModal({
     if (existing) {
       setEditingItems(prev => prev.filter(e => e.id !== item.id));
     } else {
-      const isEnhance = item.name === 'Enhance Edit';
-      const isVideoEditing = item.category !== 'photo_editing';
+      const isSimpleRetouch = item.name === 'Simple Retouch Edit';
+      const isVideoEditing = item.category !== 'photo';
       const customerPrice = Number(item.customer_price || item.base_price * 2);
       setEditingItems(prev => [
         ...prev,
@@ -886,7 +912,7 @@ export function NewBookingModal({
           id: item.id,
           name: item.name,
           category: item.category,
-          quantity: isEnhance ? 10 : 1,
+          quantity: isSimpleRetouch ? 5 : 1, // 5 edit minimum for Simple Retouch in booking modal
           basePrice: Number(item.base_price),
           customerPrice,
           incrementPrice: item.increment_price ? Number(item.increment_price) : null,
@@ -917,8 +943,8 @@ export function NewBookingModal({
   const updateEditingQuantity = (itemId: string, newQuantity: number) => {
     setEditingItems(prev => prev.map(e => {
       if (e.id !== itemId) return e;
-      const isEnhance = e.name === 'Enhance Edit';
-      const minQuantity = isEnhance ? 10 : 1;
+      const isSimpleRetouch = e.name === 'Simple Retouch Edit';
+      const minQuantity = isSimpleRetouch ? 5 : 1; // 5 edit minimum for Simple Retouch
       return { ...e, quantity: Math.max(minQuantity, newQuantity) };
     }));
   };
@@ -1069,6 +1095,11 @@ export function NewBookingModal({
     } else if (step === 'service') {
       if (!serviceType) {
         toast({ title: 'Please select a service', variant: 'destructive' });
+        return;
+      }
+      // Require editing preference selection for photoshoot and vodcast
+      if ((serviceType === 'photoshoot' || serviceType === 'vodcast') && wantsEditing === null) {
+        toast({ title: 'Please select whether you want editing included', variant: 'destructive' });
         return;
       }
       setStep('duration');
@@ -1985,7 +2016,11 @@ export function NewBookingModal({
                         "cursor-pointer transition-all hover:shadow-md",
                         isSelected && "ring-2 ring-primary"
                       )}
-                      onClick={() => setServiceType(service.type)}
+                      onClick={() => {
+                        setServiceType(service.type);
+                        setWantsEditing(null); // Reset editing preference when service changes
+                        setEditingItems([]); // Clear editing items when service changes
+                      }}
                     >
                       <CardHeader className="p-4">
                         <div className="flex items-center gap-3">
@@ -2012,6 +2047,80 @@ export function NewBookingModal({
                   );
                 })}
               </div>
+
+              {/* Editing Question - shown after service selection */}
+              {(serviceType === 'photoshoot' || serviceType === 'vodcast') && (
+                <Card className={cn(
+                  "transition-all",
+                  wantsEditing !== null && "ring-2 ring-primary"
+                )}>
+                  <CardHeader className="p-4">
+                    <CardTitle className="text-sm">
+                      {serviceType === 'photoshoot' 
+                        ? 'Do you want photo editing included?' 
+                        : 'Do you want video editing included?'}
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      {serviceType === 'photoshoot'
+                        ? 'Editing is sold separately. You can add it now or later.'
+                        : 'Video editing services for post-production.'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-3">
+                    <div
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors",
+                        wantsEditing === true && "bg-primary/10 border-primary"
+                      )}
+                      onClick={() => setWantsEditing(true)}
+                    >
+                      <div className={cn(
+                        "h-4 w-4 rounded-full border-2 flex items-center justify-center",
+                        wantsEditing === true ? "border-primary" : "border-muted-foreground/30"
+                      )}>
+                        {wantsEditing === true && <div className="h-2 w-2 rounded-full bg-primary" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {serviceType === 'photoshoot' ? 'Yes, include photo editing' : 'Yes, include video editing'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {serviceType === 'photoshoot' 
+                            ? 'Starting at $10/edit, 5 edit minimum' 
+                            : 'Long-form or short-form video editing'}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors",
+                        wantsEditing === false && "bg-muted border-foreground/20"
+                      )}
+                      onClick={() => {
+                        setWantsEditing(false);
+                        setEditingItems([]); // Clear editing items when No is selected
+                      }}
+                    >
+                      <div className={cn(
+                        "h-4 w-4 rounded-full border-2 flex items-center justify-center",
+                        wantsEditing === false ? "border-foreground/50" : "border-muted-foreground/30"
+                      )}>
+                        {wantsEditing === false && <div className="h-2 w-2 rounded-full bg-foreground/50" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {serviceType === 'photoshoot' ? 'No, unedited photos only' : 'No, raw footage only'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {serviceType === 'photoshoot'
+                            ? 'Client receives unedited files'
+                            : 'Client receives raw video files'}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
 
@@ -2250,7 +2359,7 @@ export function NewBookingModal({
                       const isSelected = !!selectedItem;
                       const quantity = selectedItem?.quantity || 0;
                       const customerPrice = Number(item.customer_price || item.base_price * 2);
-                      const isEnhance = item.name === 'Enhance Edit';
+                      const isSimpleRetouch = item.name === 'Simple Retouch Edit';
                       const itemTotal = quantity * customerPrice;
 
                       return (
@@ -2264,8 +2373,8 @@ export function NewBookingModal({
                               <div>
                                 <p className="text-sm font-medium">{item.name}</p>
                                 <p className="text-xs text-muted-foreground">{item.description}</p>
-                                {isEnhance && (
-                                  <p className="text-xs text-primary font-medium">10 edit minimum ($100)</p>
+                                {isSimpleRetouch && (
+                                  <p className="text-xs text-primary font-medium">5 edit minimum ($50)</p>
                                 )}
                               </div>
                             </div>
@@ -2280,7 +2389,7 @@ export function NewBookingModal({
                                   size="icon"
                                   className="h-7 w-7"
                                   onClick={() => updateEditingQuantity(item.id, quantity - 1)}
-                                  disabled={isEnhance ? quantity <= 10 : quantity <= 1}
+                                  disabled={isSimpleRetouch ? quantity <= 5 : quantity <= 1}
                                 >
                                   <Minus className="h-3 w-3" />
                                 </Button>
@@ -2289,7 +2398,7 @@ export function NewBookingModal({
                                   value={quantity}
                                   onChange={(e) => updateEditingQuantity(item.id, parseInt(e.target.value) || 1)}
                                   className="w-14 h-7 text-center text-sm"
-                                  min={isEnhance ? 10 : 1}
+                                  min={isSimpleRetouch ? 5 : 1}
                                 />
                                 <Button
                                   variant="outline"
@@ -2566,13 +2675,13 @@ export function NewBookingModal({
                   )}
                   
                   {/* Video Editing Add-ons */}
-                  {editingItems.filter(item => item.category !== 'photo_editing').length > 0 && (
+                  {editingItems.filter(item => item.category !== 'photo').length > 0 && (
                     <>
                       <Separator className="my-2" />
                       <div className="space-y-2">
                         <span className="text-sm text-muted-foreground">Video Editing</span>
                         {editingItems
-                          .filter(item => item.category !== 'photo_editing')
+                          .filter(item => item.category !== 'photo')
                           .map((item, idx) => {
                             const crewParts: string[] = [];
                             let itemTotal = 0;
@@ -2601,13 +2710,13 @@ export function NewBookingModal({
                   )}
 
                   {/* Photo Editing Add-ons */}
-                  {editingItems.filter(item => item.category === 'photo_editing').length > 0 && (
+                  {editingItems.filter(item => item.category === 'photo').length > 0 && (
                     <>
                       <Separator className="my-2" />
                       <div className="space-y-2">
                         <span className="text-sm text-muted-foreground">Photo Editing</span>
                         {editingItems
-                          .filter(item => item.category === 'photo_editing')
+                          .filter(item => item.category === 'photo')
                           .map((item, idx) => (
                             <div key={idx} className="flex justify-between text-sm pl-2">
                               <span>{item.name} ({item.quantity} edits)</span>
