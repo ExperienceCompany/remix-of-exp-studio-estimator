@@ -20,7 +20,7 @@ interface SpanningBookingCardProps {
   booking: {
     id: string;
     booking_type: 'customer' | 'internal' | 'unavailable';
-    status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+    status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'approved';
     customer_name: string | null;
     session_type: string | null;
     title: string | null;
