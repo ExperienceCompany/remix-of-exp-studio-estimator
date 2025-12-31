@@ -101,7 +101,10 @@ export function StepTimeSlot() {
 
   const handleNext = () => {
     if (selection.timeSlotType) {
-      setCurrentStep(4);
+      // DIY: TimeSlot is step 2 → Duration is step 3
+      // Serviced: TimeSlot is step 3 → Duration is step 4
+      const nextStep = selection.sessionType === 'diy' ? 3 : 4;
+      setCurrentStep(nextStep);
     }
   };
 
