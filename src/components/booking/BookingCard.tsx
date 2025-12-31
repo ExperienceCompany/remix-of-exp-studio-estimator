@@ -80,6 +80,7 @@ export function BookingCard({
       )}
       onClick={(e) => {
         e.stopPropagation();
+        onClick?.(e);
       }}
       draggable={draggable}
       onDragStart={handleDragStart}
@@ -97,6 +98,7 @@ export function BookingCard({
       )}
       onClick={(e) => {
         e.stopPropagation();
+        onClick?.(e);
       }}
       draggable={draggable}
       onDragStart={handleDragStart}
