@@ -3053,10 +3053,6 @@ export function NewBookingModal({
                           }
                         }
                         
-                        // Check availability for auto-selected studio
-                        if (autoSelectedStudios.length > 0) {
-                          checkServiceAvailability(autoSelectedStudios);
-                        }
                       }}
                     >
                       <CardHeader className="p-4">
@@ -3176,7 +3172,6 @@ export function NewBookingModal({
                           onClick={() => {
                             setSelectedStudios([studio.id]);
                             setAvailabilityConflict(null);
-                            checkServiceAvailability([studio.id]);
                           }}
                         >
                           <CardHeader className="p-4">
@@ -3204,16 +3199,16 @@ export function NewBookingModal({
                 </div>
               )}
 
-              {/* Loading state while checking availability */}
-              {isCheckingAvailability && (
+              {/* DIY: Loading state while checking availability */}
+              {sessionType === 'diy' && isCheckingAvailability && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 rounded-md border">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   <span>Checking availability...</span>
                 </div>
               )}
 
-              {/* Availability Conflict Banner */}
-              {availabilityConflict?.hasConflict && !isCheckingAvailability && (
+              {/* DIY: Availability Conflict Banner */}
+              {sessionType === 'diy' && availabilityConflict?.hasConflict && !isCheckingAvailability && (
                 <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/30">
                   <CardHeader className="p-4 pb-2">
                     <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
@@ -3225,70 +3220,44 @@ export function NewBookingModal({
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 space-y-3">
-                    {/* Suggested times BEFORE */}
                     {availabilityConflict.suggestedTimes?.before && availabilityConflict.suggestedTimes.before.length > 0 && (
                       <div>
                         <p className="text-xs font-medium mb-2">Earlier options:</p>
                         <div className="flex flex-wrap gap-2">
                           {availabilityConflict.suggestedTimes.before.map(time => (
-                            <Button
-                              key={time}
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSuggestedTimeSelect(time)}
-                            >
+                            <Button key={time} variant="outline" size="sm" onClick={() => handleSuggestedTimeSelect(time)}>
                               {to12Hour(time)}
                             </Button>
                           ))}
                         </div>
                       </div>
                     )}
-                    
-                    {/* Suggested times AFTER */}
                     {availabilityConflict.suggestedTimes?.after && availabilityConflict.suggestedTimes.after.length > 0 && (
                       <div>
                         <p className="text-xs font-medium mb-2">Later options:</p>
                         <div className="flex flex-wrap gap-2">
                           {availabilityConflict.suggestedTimes.after.map(time => (
-                            <Button
-                              key={time}
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSuggestedTimeSelect(time)}
-                            >
+                            <Button key={time} variant="outline" size="sm" onClick={() => handleSuggestedTimeSelect(time)}>
                               {to12Hour(time)}
                             </Button>
                           ))}
                         </div>
                       </div>
                     )}
-                    
-                    {/* Next day suggestion */}
                     {availabilityConflict.nextDayTime && (
                       <div>
                         <p className="text-xs font-medium mb-2">Next available day:</p>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleNextDaySelect(
-                            availabilityConflict.nextDayTime!.date,
-                            availabilityConflict.nextDayTime!.time
-                          )}
+                          onClick={() => handleNextDaySelect(availabilityConflict.nextDayTime!.date, availabilityConflict.nextDayTime!.time)}
                         >
                           {format(availabilityConflict.nextDayTime.date, 'EEE, MMM d')} at {to12Hour(availabilityConflict.nextDayTime.time)}
                         </Button>
                       </div>
                     )}
-                    
                     <Separator />
-                    
-                    {/* Manual date/time change */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setShowDateTimeEditor(true)}
-                    >
+                    <Button variant="ghost" size="sm" className="w-full" onClick={() => setShowDateTimeEditor(true)}>
                       <CalendarIcon className="h-4 w-4 mr-2" />
                       Choose a different date/time
                     </Button>
@@ -3296,82 +3265,56 @@ export function NewBookingModal({
                 </Card>
               )}
 
-              {/* Date/Time Editor Dialog */}
-              <Dialog open={showDateTimeEditor} onOpenChange={setShowDateTimeEditor}>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Change Date & Time</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Date</Label>
-                      <div className="mt-2">
-                        <Calendar
-                          mode="single"
-                          selected={date}
-                          onSelect={(newDate) => {
-                            if (newDate) {
-                              setDate(newDate);
-                            }
-                          }}
-                          disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                          className="pointer-events-auto rounded-md border"
-                        />
+              {/* DIY: Date/Time Editor Dialog */}
+              {sessionType === 'diy' && (
+                <Dialog open={showDateTimeEditor} onOpenChange={setShowDateTimeEditor}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Change Date & Time</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Date</Label>
+                        <div className="mt-2">
+                          <Calendar
+                            mode="single"
+                            selected={date}
+                            onSelect={(newDate) => { if (newDate) setDate(newDate); }}
+                            disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                            className="pointer-events-auto rounded-md border"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Start Time</Label>
+                          <Select value={startTime} onValueChange={setStartTime}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {timeSlots.map(slot => <SelectItem key={slot} value={slot}>{slot}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Duration</Label>
+                          <Select value={sessionDuration.toString()} onValueChange={(v) => setSessionDuration(Number(v))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {[1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8].map(h => <SelectItem key={h} value={h.toString()}>{formatDuration(h)}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Start Time</Label>
-                        <Select value={startTime} onValueChange={setStartTime}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {timeSlots.map(slot => (
-                              <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Duration</Label>
-                        <Select 
-                          value={sessionDuration.toString()} 
-                          onValueChange={(v) => setSessionDuration(Number(v))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8].map(h => (
-                              <SelectItem key={h} value={h.toString()}>{formatDuration(h)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowDateTimeEditor(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        setShowDateTimeEditor(false);
-                        // Re-check availability with new time
-                        if (selectedStudios.length > 0) {
-                          await checkServiceAvailability(selectedStudios);
-                        }
-                      }}
-                    >
-                      Check Availability
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setShowDateTimeEditor(false)}>Cancel</Button>
+                      <Button onClick={async () => { setShowDateTimeEditor(false); if (selectedStudios.length > 0) await checkServiceAvailability(selectedStudios); }}>
+                        Check Availability
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           )}
 
@@ -3917,61 +3860,63 @@ export function NewBookingModal({
                     }
                     
                     return (
-                      <div className="space-y-2 p-2 bg-destructive/10 rounded">
-                        <div className="flex items-center gap-2 text-destructive text-sm">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span>This time slot has conflicts</span>
-                        </div>
-                        {conflicts.map((c, i) => (
-                          <div key={i} className="flex items-center gap-2 text-destructive text-xs pl-6">
-                            <span><strong>{c.name}</strong> unavailable{c.time && ` @ ${c.time}`}</span>
+                      <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/30">
+                        <CardHeader className="p-4 pb-2">
+                          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                            <AlertTriangle className="h-5 w-5" />
+                            <CardTitle className="text-sm">Time Slot Unavailable</CardTitle>
                           </div>
-                        ))}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="w-full gap-2 mt-2"
-                          onClick={async () => {
-                            if (!date || selectedStudios.length === 0 || !startTime) return;
-                            setIsCheckingAvailability(true);
-                            try {
-                              const bookingDate = format(date, 'yyyy-MM-dd');
-                              const startTime24 = to24Hour(startTime);
-                              const durationMins = Math.round(sessionDuration * 60);
-                              
-                              const suggestions = await findAvailableSlots(
-                                selectedStudios,
-                                bookingDate,
-                                startTime24,
-                                durationMins,
-                                15
-                              );
-                              
-                              const nextSlot = suggestions.afterSlots[0] || suggestions.beforeSlots[0];
-                              
-                              if (nextSlot) {
-                                setStartTime(to12Hour(nextSlot));
-                                toast({ title: 'Available slot found', description: `Updated to ${to12Hour(nextSlot)}` });
-                              } else if (suggestions.nextDaySlot) {
-                                setDate(suggestions.nextDaySlot.date);
-                                setStartTime(to12Hour(suggestions.nextDaySlot.time));
-                                toast({ title: 'No slots today', description: `Moved to ${format(suggestions.nextDaySlot.date, 'MMM d')} at ${to12Hour(suggestions.nextDaySlot.time)}` });
-                              } else {
-                                toast({ title: 'No available slots', description: 'Try a different date or shorter duration.', variant: 'destructive' });
+                          <CardDescription className="text-xs text-amber-600 dark:text-amber-500">
+                            {conflicts.map(c => `${c.name} is unavailable${c.time ? ` @ ${c.time}` : ''}`).join('; ')}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-0 space-y-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-2"
+                            onClick={async () => {
+                              if (!date || selectedStudios.length === 0 || !startTime) return;
+                              setIsCheckingAvailability(true);
+                              try {
+                                const bookingDate = format(date, 'yyyy-MM-dd');
+                                const startTime24 = to24Hour(startTime);
+                                const durationMins = Math.round(sessionDuration * 60);
+                                
+                                const suggestions = await findAvailableSlots(
+                                  selectedStudios,
+                                  bookingDate,
+                                  startTime24,
+                                  durationMins,
+                                  15
+                                );
+                                
+                                const nextSlot = suggestions.afterSlots[0] || suggestions.beforeSlots[0];
+                                
+                                if (nextSlot) {
+                                  setStartTime(to12Hour(nextSlot));
+                                  toast({ title: 'Available slot found', description: `Updated to ${to12Hour(nextSlot)}` });
+                                } else if (suggestions.nextDaySlot) {
+                                  setDate(suggestions.nextDaySlot.date);
+                                  setStartTime(to12Hour(suggestions.nextDaySlot.time));
+                                  toast({ title: 'No slots today', description: `Moved to ${format(suggestions.nextDaySlot.date, 'MMM d')} at ${to12Hour(suggestions.nextDaySlot.time)}` });
+                                } else {
+                                  toast({ title: 'No available slots', description: 'Try a different date or shorter duration.', variant: 'destructive' });
+                                }
+                              } catch (error) {
+                                console.error('Error finding slot:', error);
+                              } finally {
+                                setIsCheckingAvailability(false);
                               }
-                            } catch (error) {
-                              console.error('Error finding slot:', error);
-                            } finally {
-                              setIsCheckingAvailability(false);
-                            }
-                          }}
-                          disabled={isCheckingAvailability}
-                        >
-                          <Search className="h-4 w-4" />
-                          {isCheckingAvailability ? 'Searching...' : 'Find Available Slot'}
-                        </Button>
-                      </div>
+                            }}
+                            disabled={isCheckingAvailability}
+                          >
+                            <Search className="h-4 w-4" />
+                            {isCheckingAvailability ? 'Searching...' : 'Find Available Slot'}
+                          </Button>
+                        </CardContent>
+                      </Card>
                     );
                   })()}
 
