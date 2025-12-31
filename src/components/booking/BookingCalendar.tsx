@@ -82,6 +82,12 @@ export function BookingCalendar({
   const [duplicatingFrom, setDuplicatingFrom] = useState<StudioBooking | null>(null);
   const [clearPendingTrigger, setClearPendingTrigger] = useState(0);
   const [pendingDurationUpdate, setPendingDurationUpdate] = useState<{ studioIds: string[]; startTime: string; endTime: string } | null>(null);
+  const [dayViewPendingBooking, setDayViewPendingBooking] = useState<{
+    studioIds: string[];
+    startTime: string;
+    endTime: string;
+    estimatedCost: number;
+  } | null>(null);
   
   // Cancel confirmation state
   const [cancelConfirm, setCancelConfirm] = useState<{
@@ -458,6 +464,7 @@ export function BookingCalendar({
               externalPendingUpdate={pendingDurationUpdate}
               onDuplicateBooking={handleDuplicateBooking}
               onCancelBooking={handleCancelBooking}
+              onPendingBookingChange={setDayViewPendingBooking}
             />
           )}
           {viewMode === 'grid' && (
@@ -498,6 +505,21 @@ export function BookingCalendar({
             navigate('/auth?redirect=/book');
             return;
           }
+          
+          // If in Day View with pending booking, use that data
+          if (viewMode === 'day' && dayViewPendingBooking) {
+            setModalPrefill({
+              date: currentDate,
+              studioIds: dayViewPendingBooking.studioIds,
+              startTime: dayViewPendingBooking.startTime,
+              endTime: dayViewPendingBooking.endTime,
+            });
+            setEditingBooking(null);
+            setShowNewBookingModal(true);
+            return;
+          }
+          
+          // Otherwise open empty modal
           setModalPrefill(null);
           setEditingBooking(null);
           setShowNewBookingModal(true);
