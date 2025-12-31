@@ -48,7 +48,10 @@ export function StepDuration() {
   };
 
   const handleNext = () => {
-    setCurrentStep(5);
+    // DIY: Duration is step 3 → Addons is step 4
+    // Serviced: Duration is step 4 → Addons is step 5
+    const nextStep = selection.sessionType === 'diy' ? 4 : 5;
+    setCurrentStep(nextStep);
   };
 
   // Quick select buttons for common durations
@@ -276,7 +279,7 @@ export function StepDuration() {
       </Card>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setCurrentStep(3)}>
+        <Button variant="outline" onClick={() => setCurrentStep(selection.sessionType === 'diy' ? 2 : 3)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
