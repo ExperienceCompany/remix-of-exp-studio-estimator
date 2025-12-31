@@ -67,7 +67,7 @@ const getYesEditOption = (serviceType: ServiceType): { label: string; descriptio
     case 'photoshoot':
       return { 
         label: 'Include photo editing', 
-        description: 'Starting at $10/edit, 10 minimum' 
+        description: 'Starting at $10/edit, 5 edit minimum' 
       };
     case 'vodcast':
       return { 
@@ -136,18 +136,18 @@ export function StepService() {
     
     // When user says "yes", immediately add editing items so they show in running total
     if (wantsEditing && editingMenu) {
-      // For photoshoot: auto-add Enhance Edit with 10 edits
+      // For photoshoot: auto-add Simple Retouch Edit with 5 edits (regular serviced flow minimum)
       if (selection.serviceType === 'photoshoot') {
-        const enhanceItem = editingMenu.find(item => item.name === 'Enhance Edit');
-        if (enhanceItem) {
+        const simpleRetouchItem = editingMenu.find(item => item.name === 'Simple Retouch Edit');
+        if (simpleRetouchItem) {
           updates.editingItems = [
             {
-              id: enhanceItem.id,
-              name: enhanceItem.name,
-              category: enhanceItem.category,
-              quantity: 10, // 10 edit minimum
-              basePrice: Number(enhanceItem.base_price),
-              customerPrice: Number(enhanceItem.customer_price || enhanceItem.base_price * 2),
+              id: simpleRetouchItem.id,
+              name: simpleRetouchItem.name,
+              category: simpleRetouchItem.category,
+              quantity: 5, // 5 edit minimum for regular serviced photoshoot
+              basePrice: Number(simpleRetouchItem.base_price),
+              customerPrice: Number(simpleRetouchItem.customer_price || simpleRetouchItem.base_price * 2),
               incrementPrice: null,
             },
           ];
