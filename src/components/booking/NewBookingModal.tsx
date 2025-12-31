@@ -586,13 +586,13 @@ export function NewBookingModal({
   // Filter photo editing items (only for photoshoot)
   const photoEditingItems = useMemo(() => {
     if (serviceType !== 'photoshoot') return [];
-    return editingMenuData.filter(item => item.category === 'photo');
+    return editingMenuData.filter(item => item.category === 'photo' || item.category === 'photo_editing');
   }, [editingMenuData, serviceType]);
 
   // Filter video editing items (only for vodcast)
   const videoEditingItems = useMemo(() => {
     if (serviceType !== 'vodcast') return [];
-    return editingMenuData.filter(item => item.category !== 'photo');
+    return editingMenuData.filter(item => item.category !== 'photo' && item.category !== 'photo_editing');
   }, [editingMenuData, serviceType]);
 
   // Filter revision addon (hourly)
@@ -659,7 +659,7 @@ export function NewBookingModal({
 
       // Add editing items (photo and video editing)
       for (const editItem of editingItems) {
-        if (editItem.category === 'photo') {
+        if (editItem.category === 'photo' || editItem.category === 'photo_editing') {
           // Photo editing: quantity × price
           total += editItem.quantity * editItem.customerPrice;
         } else {
@@ -821,7 +821,7 @@ export function NewBookingModal({
 
     // Editing items (photo and video editing)
     for (const editItem of editingItems) {
-      if (editItem.category === 'photo') {
+      if (editItem.category === 'photo' || editItem.category === 'photo_editing') {
         const total = editItem.quantity * editItem.customerPrice;
         items.push({
           label: `${editItem.name} (${editItem.quantity} edits @ $${editItem.customerPrice}/edit)`,
