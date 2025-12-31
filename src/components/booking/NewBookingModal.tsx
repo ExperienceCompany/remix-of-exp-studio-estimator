@@ -763,7 +763,7 @@ export function NewBookingModal({
         const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
         
         if (startMins < bEnd && endMins > bStart) {
-          conflict = `${booking.start_time.slice(0, 5)} - ${booking.end_time.slice(0, 5)}`;
+          conflict = `${to12Hour(booking.start_time.slice(0, 5))} - ${to12Hour(booking.end_time.slice(0, 5))}`;
           break;
         }
       }
