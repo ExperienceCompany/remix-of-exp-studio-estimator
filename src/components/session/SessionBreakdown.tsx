@@ -85,18 +85,36 @@ export function SessionBreakdown({ selection }: SessionBreakdownProps) {
         )}
 
         {/* Holder (creator or customer) */}
-        {(sel.creatorName || sel.customerName) && (
-          <div className="flex items-center gap-2 pb-3 border-b">
-            <UserCircle className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Holder:</span>
-            <span className="font-medium">{sel.creatorName || sel.customerName}</span>
-            {sel.creatorRole && (
-              <Badge 
-                variant={sel.creatorRole === 'admin' ? 'destructive' : sel.creatorRole === 'staff' ? 'default' : 'secondary'}
-                className="text-xs"
-              >
-                {sel.creatorRole === 'admin' ? 'Admin' : sel.creatorRole === 'staff' ? 'Staff' : 'User'}
-              </Badge>
+        {(sel.holderName || sel.creatorName || sel.customerName) && (
+          <div className="pb-3 border-b space-y-1">
+            <div className="flex items-center gap-2">
+              <UserCircle className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Holder:</span>
+              <span className="font-medium">{sel.holderName || sel.creatorName || sel.customerName}</span>
+              {(sel.holderRole || sel.creatorRole) && (
+                <Badge 
+                  variant={
+                    (sel.holderRole || sel.creatorRole) === 'admin' ? 'destructive' : 
+                    (sel.holderRole || sel.creatorRole) === 'staff' ? 'default' : 
+                    (sel.holderRole || sel.creatorRole) === 'customer' ? 'outline' : 'secondary'
+                  }
+                  className={`text-xs ${(sel.holderRole || sel.creatorRole) === 'customer' ? 'border-green-500 text-green-600' : ''}`}
+                >
+                  {(sel.holderRole || sel.creatorRole) === 'admin' ? 'Admin' : 
+                   (sel.holderRole || sel.creatorRole) === 'staff' ? 'Staff' : 
+                   (sel.holderRole || sel.creatorRole) === 'customer' ? 'Customer' : 'User'}
+                </Badge>
+              )}
+            </div>
+            {(sel.holderEmail || sel.customerEmail) && (
+              <div className="text-sm text-muted-foreground ml-6">
+                📧 {sel.holderEmail || sel.customerEmail}
+              </div>
+            )}
+            {(sel.holderPhone || sel.customerPhone) && (
+              <div className="text-sm text-muted-foreground ml-6">
+                📞 {sel.holderPhone || sel.customerPhone}
+              </div>
             )}
           </div>
         )}

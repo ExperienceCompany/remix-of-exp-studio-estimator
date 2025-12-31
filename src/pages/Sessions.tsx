@@ -293,19 +293,38 @@ export default function Sessions() {
   };
 
   // Get holder info (creator or customer) with role
-  const getHolderInfo = (session: Session): { name: string | null; role: string | null } => {
+  const getHolderInfo = (session: Session): { name: string | null; role: string | null; email: string | null; phone: string | null } => {
     const sel = session.selections_json as any;
+    
+    // Use new holderName/holderRole fields first (populated by trigger)
+    const holderName = sel?.holderName;
+    const holderRole = sel?.holderRole;
+    const holderEmail = sel?.holderEmail;
+    const holderPhone = sel?.holderPhone;
+    
+    if (holderName) {
+      return { 
+        name: holderName, 
+        role: holderRole || null,
+        email: holderEmail || null,
+        phone: holderPhone || null
+      };
+    }
+    
+    // Fallback to legacy fields
     const creatorName = sel?.creatorName;
     const creatorRole = sel?.creatorRole;
     const customerName = sel?.customerName;
+    const customerEmail = sel?.customerEmail;
+    const customerPhone = sel?.customerPhone;
     
     if (creatorName) {
-      return { name: creatorName, role: creatorRole || null };
+      return { name: creatorName, role: creatorRole || null, email: null, phone: null };
     }
     if (customerName) {
-      return { name: customerName, role: null };
+      return { name: customerName, role: 'customer', email: customerEmail || null, phone: customerPhone || null };
     }
-    return { name: null, role: null };
+    return { name: null, role: null, email: null, phone: null };
   };
 
   const getHolderRoleBadge = (role: string | null) => {
@@ -315,6 +334,8 @@ export default function Sessions() {
         return <Badge variant="destructive" className="text-xs">Admin</Badge>;
       case 'staff':
         return <Badge variant="default" className="text-xs">Staff</Badge>;
+      case 'customer':
+        return <Badge variant="outline" className="text-xs border-green-500 text-green-600">Customer</Badge>;
       default:
         return <Badge variant="secondary" className="text-xs">{role}</Badge>;
     }
