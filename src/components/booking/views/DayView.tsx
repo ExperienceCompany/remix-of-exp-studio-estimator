@@ -26,6 +26,13 @@ interface CalendarSettingsData {
   time_increment_minutes: number;
 }
 
+interface PendingBookingData {
+  studioIds: string[];
+  startTime: string;
+  endTime: string;
+  estimatedCost: number;
+}
+
 interface DayViewProps {
   currentDate: Date;
   bookings: StudioBooking[];
@@ -43,6 +50,7 @@ interface DayViewProps {
   externalPendingUpdate?: { studioIds: string[]; startTime: string; endTime: string } | null;
   onDuplicateBooking?: (booking: StudioBooking) => void;
   onCancelBooking?: (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => void;
+  onPendingBookingChange?: (pending: PendingBookingData | null) => void;
 }
 
 interface PendingBooking {
@@ -122,6 +130,7 @@ export function DayView({
   externalPendingUpdate,
   onDuplicateBooking,
   onCancelBooking,
+  onPendingBookingChange,
 }: DayViewProps) {
   const { isStaff } = useAuth();
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
@@ -621,7 +630,22 @@ export function DayView({
     return Math.round(total * 100) / 100;
   }, [pendingBooking, pendingRange, diyRates, dayOfWeek]);
 
-  // Get display info for pending booking
+  // Notify parent of pending booking changes
+  useEffect(() => {
+    if (pendingBooking && pendingRange) {
+      const startTime = minutesToTime(pendingRange.minSlot);
+      const endTime = minutesToTime(pendingRange.maxSlot + 15);
+      onPendingBookingChange?.({
+        studioIds: pendingBooking.studioIds,
+        startTime,
+        endTime,
+        estimatedCost,
+      });
+    } else {
+      onPendingBookingChange?.(null);
+    }
+  }, [pendingBooking, pendingRange, estimatedCost, onPendingBookingChange]);
+
   const pendingBookingDisplay = useMemo(() => {
     if (!pendingBooking || !pendingRange) return null;
     
