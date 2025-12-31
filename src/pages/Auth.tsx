@@ -30,7 +30,18 @@ export default function Auth() {
     if (isAuthenticated) {
       const params = new URLSearchParams(window.location.search);
       const redirectTo = params.get('redirect') || '/';
-      navigate(redirectTo);
+      
+      // Validate redirect to prevent open redirect attacks
+      // Only allow relative paths that start with / and don't contain protocol or double slashes
+      const isValidRedirect = (
+        redirectTo.startsWith('/') && 
+        !redirectTo.startsWith('//') && 
+        !redirectTo.includes('://') &&
+        !redirectTo.toLowerCase().startsWith('/\\')
+      );
+      const safeRedirect = isValidRedirect ? redirectTo : '/';
+      
+      navigate(safeRedirect);
     }
   }, [isAuthenticated, navigate]);
 
