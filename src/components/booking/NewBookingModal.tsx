@@ -114,6 +114,7 @@ interface NewBookingModalProps {
   defaultStartTime?: string;
   defaultEndTime?: string;
   existingBooking?: StudioBooking | null;
+  duplicatingFrom?: StudioBooking | null;
   operatingStart: string;
   operatingEnd: string;
   onBookingCreated?: () => void;
@@ -301,6 +302,7 @@ export function NewBookingModal({
   defaultStartTime,
   defaultEndTime,
   existingBooking,
+  duplicatingFrom,
   operatingStart,
   operatingEnd,
   onBookingCreated,

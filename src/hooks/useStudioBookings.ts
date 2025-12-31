@@ -184,3 +184,54 @@ export function useCancelBooking() {
     },
   });
 }
+
+// Cancel multiple bookings in a series (this and following)
+export function useCancelSeriesFromDate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      seriesId, 
+      fromDate 
+    }: { 
+      seriesId: string; 
+      fromDate: string; // yyyy-MM-dd format
+    }) => {
+      const { data, error } = await supabase
+        .from('studio_bookings')
+        .update({ status: 'cancelled' })
+        .eq('repeat_series_id', seriesId)
+        .gte('booking_date', fromDate)
+        .neq('status', 'cancelled')
+        .select();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['studio_bookings'] });
+    },
+  });
+}
+
+// Cancel entire series
+export function useCancelEntireSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (seriesId: string) => {
+      const { data, error } = await supabase
+        .from('studio_bookings')
+        .update({ status: 'cancelled' })
+        .eq('repeat_series_id', seriesId)
+        .neq('status', 'cancelled')
+        .select();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['studio_bookings'] });
+    },
+  });
+}

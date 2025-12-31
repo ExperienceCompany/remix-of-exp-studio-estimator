@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { getBookingDisplayText } from '@/lib/bookingDisplayUtils';
 import { BookingHoverContent } from '../BookingHoverContent';
+import { BookingContextMenu } from '../BookingContextMenu';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface ListViewProps {
@@ -20,6 +21,8 @@ interface ListViewProps {
   startDate: Date;
   endDate: Date;
   onDateRangeChange: (start: Date, end: Date) => void;
+  onDuplicateBooking?: (booking: StudioBooking) => void;
+  onCancelBooking?: (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => void;
 }
 
 const formatTime = (time: string) => {
@@ -51,6 +54,8 @@ export function ListView({
   startDate,
   endDate,
   onDateRangeChange,
+  onDuplicateBooking,
+  onCancelBooking,
 }: ListViewProps) {
   const { isStaff } = useAuth();
 
@@ -177,13 +182,11 @@ export function ListView({
                   const displayText = getBookingDisplayText(booking, isStaff);
                   const bookingItem = (
                     <div
-                      key={booking.id}
                       className={cn(
                         'flex items-center gap-4 p-3 rounded-lg border cursor-pointer hover:opacity-80 transition-opacity',
                         getBookingTypeColor(booking.booking_type, booking.status),
                         idx !== groupedBookings[dateStr].length - 1 && 'border-b border-muted-foreground/20'
                       )}
-                      onClick={() => onBookingClick?.(booking)}
                     >
                       <div className="w-24 font-mono text-sm">
                         {formatTime(booking.start_time)}
@@ -214,7 +217,14 @@ export function ListView({
                     return (
                       <HoverCard key={booking.id} openDelay={300}>
                         <HoverCardTrigger asChild>
-                          {bookingItem}
+                          <BookingContextMenu
+                            booking={booking}
+                            onViewEdit={() => onBookingClick?.(booking)}
+                            onDuplicate={() => onDuplicateBooking?.(booking)}
+                            onCancel={(scope) => onCancelBooking?.(booking, scope)}
+                          >
+                            {bookingItem}
+                          </BookingContextMenu>
                         </HoverCardTrigger>
                         <HoverCardContent className="w-72" side="right" align="start">
                           <BookingHoverContent booking={booking} studioName={getStudioName(booking.studio_id)} />
@@ -223,7 +233,7 @@ export function ListView({
                     );
                   }
 
-                  return bookingItem;
+                  return <div key={booking.id} onClick={() => onBookingClick?.(booking)}>{bookingItem}</div>;
                 })}
               </div>
             </div>

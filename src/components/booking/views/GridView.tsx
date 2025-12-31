@@ -14,6 +14,8 @@ interface GridViewProps {
   onDateClick?: (date: Date, studioId?: string) => void;
   onSlotClick?: (date: Date, studioId?: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
+  onDuplicateBooking?: (booking: StudioBooking) => void;
+  onCancelBooking?: (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => void;
 }
 
 export function GridView({
@@ -23,6 +25,8 @@ export function GridView({
   onDateClick,
   onSlotClick,
   onBookingClick,
+  onDuplicateBooking,
+  onCancelBooking,
 }: GridViewProps) {
   const { toast } = useToast();
   const { isStaff } = useAuth();
@@ -171,6 +175,8 @@ export function GridView({
                             draggable
                             onDragStart={handleDragStart}
                             isStaffOrAdmin={isStaff}
+                            onDuplicate={onDuplicateBooking}
+                            onCancel={onCancelBooking}
                           />
                         ))}
                         {hasMore && (

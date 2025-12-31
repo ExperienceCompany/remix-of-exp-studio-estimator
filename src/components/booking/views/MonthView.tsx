@@ -24,6 +24,8 @@ interface MonthViewProps {
   onDateClick?: (date: Date) => void;
   onSlotClick?: (date: Date) => void;
   onBookingClick?: (booking: StudioBooking) => void;
+  onDuplicateBooking?: (booking: StudioBooking) => void;
+  onCancelBooking?: (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => void;
 }
 
 export function MonthView({
@@ -33,6 +35,8 @@ export function MonthView({
   onDateClick,
   onSlotClick,
   onBookingClick,
+  onDuplicateBooking,
+  onCancelBooking,
 }: MonthViewProps) {
   const { toast } = useToast();
   const { isStaff } = useAuth();
@@ -157,6 +161,8 @@ export function MonthView({
                     draggable
                     onDragStart={handleDragStart}
                     isStaffOrAdmin={isStaff}
+                    onDuplicate={onDuplicateBooking}
+                    onCancel={onCancelBooking}
                   />
                 ))}
                 {dayBookings.length > 3 && (
