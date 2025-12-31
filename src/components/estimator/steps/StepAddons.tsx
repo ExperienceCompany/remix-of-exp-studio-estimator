@@ -45,8 +45,14 @@ export function StepAddons() {
     return true;
   }) || [];
 
-  // Filter for photo editing only
-  const photoEditingItems = editingMenu?.filter(item => item.category === 'photo_editing') || [];
+  // Filter for photo editing only and sort in display order
+  const PHOTO_EDITING_ORDER = ['Simple Retouch Edit', 'Advanced Edit', 'Special Effects Edit'];
+  const photoEditingItems = editingMenu?.filter(item => item.category === 'photo_editing')
+    .sort((a, b) => PHOTO_EDITING_ORDER.indexOf(a.name) - PHOTO_EDITING_ORDER.indexOf(b.name)) || [];
+
+  // Determine minimum for Simple Retouch Edit based on service type
+  const isPhotoshoot = selection.serviceType === 'photoshoot';
+  const simpleRetouchMinimum = isPhotoshoot ? 10 : 5;
 
   // Filter for video editing (non-photo categories) and sort so long-form is at bottom
   const videoEditingItems = editingMenu?.filter(item => 
@@ -85,12 +91,12 @@ export function StepAddons() {
         editingItems: selection.editingItems.filter(e => e.id !== item.id),
       });
     } else {
-      // For Enhance Edit, enforce 10 edit minimum
-      const isEnhance = item.name === 'Enhance Edit';
+      // For Simple Retouch Edit, enforce minimum based on service type
+      const isSimpleRetouch = item.name === 'Simple Retouch Edit';
       const config = VIDEO_EDITING_CONFIG[item.category];
       
       // For vodcast/audio_podcast, start video editing at session duration
-      let defaultQuantity = isEnhance ? 10 : (defaultDuration || config?.baseDuration || 1);
+      let defaultQuantity = isSimpleRetouch ? simpleRetouchMinimum : (defaultDuration || config?.baseDuration || 1);
       
       // Only long form editing uses session duration as starting point
       if (
@@ -126,9 +132,9 @@ export function StepAddons() {
         if (e.id !== itemId) return e;
         
         // Enforce minimums based on type
-        const isEnhance = e.name === 'Enhance Edit';
+        const isSimpleRetouch = e.name === 'Simple Retouch Edit';
         const config = category ? VIDEO_EDITING_CONFIG[category] : null;
-        const minQuantity = isEnhance ? 10 : (config?.minDuration || 1);
+        const minQuantity = isSimpleRetouch ? simpleRetouchMinimum : (config?.minDuration || 1);
         const quantity = Math.max(minQuantity, newQuantity);
         
         return { ...e, quantity };
@@ -231,8 +237,9 @@ export function StepAddons() {
             const isSelected = !!selectedItem;
             const quantity = selectedItem?.quantity || 0;
             const customerPrice = Number(item.customer_price || item.base_price * 2);
-            const isEnhance = item.name === 'Enhance Edit';
+            const isSimpleRetouch = item.name === 'Simple Retouch Edit';
             const itemTotal = quantity * customerPrice;
+            const minCost = simpleRetouchMinimum * customerPrice;
             
             return (
               <div 
@@ -248,8 +255,8 @@ export function StepAddons() {
                     <div>
                       <p className="text-sm font-medium">{item.name}</p>
                       <p className="text-xs text-muted-foreground">{item.description}</p>
-                      {isEnhance && (
-                        <p className="text-xs text-primary font-medium">10 edit minimum ($100)</p>
+                      {isSimpleRetouch && (
+                        <p className="text-xs text-primary font-medium">{simpleRetouchMinimum} edit minimum (${minCost})</p>
                       )}
                     </div>
                   </div>
@@ -266,7 +273,7 @@ export function StepAddons() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => updateEditingQuantity(item.id, quantity - 1)}
-                        disabled={isEnhance ? quantity <= 10 : quantity <= 1}
+                        disabled={isSimpleRetouch ? quantity <= simpleRetouchMinimum : quantity <= 1}
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
@@ -275,7 +282,7 @@ export function StepAddons() {
                         value={quantity}
                         onChange={(e) => updateEditingQuantity(item.id, parseInt(e.target.value) || 1)}
                         className="w-16 h-8 text-center"
-                        min={isEnhance ? 10 : 1}
+                        min={isSimpleRetouch ? simpleRetouchMinimum : 1}
                       />
                       <Button
                         variant="outline"
