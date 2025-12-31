@@ -375,6 +375,35 @@ export default function Sessions() {
            null;
   };
 
+  const getCurrentTotal = (session: Session): number | null => {
+    // For completed sessions, use final_total
+    if (session.final_total != null) {
+      return session.final_total;
+    }
+    
+    // For active/paused sessions, calculate based on elapsed time
+    if (session.status === 'active' || session.status === 'paused') {
+      const elapsedSeconds = getElapsedSeconds(session);
+      const elapsedHours = elapsedSeconds / 3600;
+      
+      // Get hourly rate from selections_json (studio + crew rates)
+      const sel = session.selections_json as any;
+      const studioHourlyRate = sel?.studioHourlyRate || sel?.totals?.studioRental?.hourly || 0;
+      const crewHourlyRate = sel?.totals?.crewCost?.hourly || 0;
+      const combinedHourlyRate = studioHourlyRate + crewHourlyRate;
+      
+      // Get flat fees from selections
+      const flatFees = sel?.totals?.flatFees || 0;
+      
+      // Calculate running total: flat fees + (elapsed hours × hourly rate)
+      const runningTotal = flatFees + (elapsedHours * combinedHourlyRate);
+      
+      return runningTotal > 0 ? runningTotal : null;
+    }
+    
+    return null;
+  };
+
   const getSessionSource = (session: Session): 'estimate' | 'booking' => {
     if (session.quote_id) return 'estimate';
     if ((session.selections_json as any)?.bookingId) return 'booking';
@@ -613,9 +642,14 @@ export default function Sessions() {
                           {getCrewDisplay(session)}
                         </Badge>
                       )}
-                      {getEstimateTotal(session) && (
-                        <span className="font-medium text-primary">
+                      {getEstimateTotal(session) != null && (
+                        <span className="text-muted-foreground">
                           Est: ${getEstimateTotal(session)?.toFixed(2)}
+                        </span>
+                      )}
+                      {getCurrentTotal(session) != null && (
+                        <span className="font-medium text-primary">
+                          Current: ${getCurrentTotal(session)?.toFixed(2)}
                         </span>
                       )}
                     </div>
@@ -691,7 +725,8 @@ export default function Sessions() {
                     <TableHead>Holder</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Duration</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Est. Total</TableHead>
+                    <TableHead className="text-right">Current</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -722,11 +757,16 @@ export default function Sessions() {
                             ? formatTime(getElapsedSeconds(session))
                             : '—'}
                         </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {getEstimateTotal(session) != null
+                            ? `$${getEstimateTotal(session)?.toFixed(2)}`
+                            : '—'}
+                        </TableCell>
                         <TableCell className="text-right font-medium">
                           {session.final_total != null
                             ? `$${session.final_total.toFixed(2)}`
-                            : session.original_total != null
-                            ? `$${session.original_total.toFixed(2)}`
+                            : session.status === 'active' || session.status === 'paused'
+                            ? <span className="text-primary">${getCurrentTotal(session)?.toFixed(2) || 'Running...'}</span>
                             : '—'}
                         </TableCell>
                         <TableCell>
