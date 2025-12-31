@@ -175,13 +175,21 @@ export function DayView({
     return slotMins === bookingStartMins;
   };
 
-  // Check if slot is within buffer zone after any booking
+  // Check if slot is within buffer zone before or after any booking
   const isSlotInBuffer = useCallback((studioId: string, slot: string) => {
     const slotMins = timeToMinutes(slot);
     return dayBookings.some((b) => {
       if (b.studio_id !== studioId) return false;
+      const startMins = timeToMinutes(b.start_time);
       const endMins = timeToMinutes(b.end_time);
-      return slotMins >= endMins && slotMins < endMins + bufferMinutes;
+      
+      // Buffer AFTER booking
+      const isAfterBuffer = slotMins >= endMins && slotMins < endMins + bufferMinutes;
+      
+      // Buffer BEFORE booking
+      const isBeforeBuffer = slotMins >= startMins - bufferMinutes && slotMins < startMins;
+      
+      return isAfterBuffer || isBeforeBuffer;
     });
   }, [dayBookings, bufferMinutes]);
 
@@ -668,10 +676,10 @@ export function DayView({
                           </div>
                         )}
                         
-                        {/* Buffer indicator */}
+                        {/* Buffer indicator with enhanced styling */}
                         {isBuffer && !isBooked && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-[10px] text-amber-600/70">buffer</span>
+                          <div className="absolute inset-0 flex items-center justify-center bg-amber-500/10 border-l-2 border-amber-400/40 border-dashed">
+                            <span className="text-[9px] text-amber-600/70 font-medium">15min</span>
                           </div>
                         )}
                         
