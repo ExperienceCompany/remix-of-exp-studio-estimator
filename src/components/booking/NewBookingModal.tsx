@@ -50,6 +50,7 @@ import {
   Wrench, 
   Users,
   AlertTriangle,
+  AlertCircle,
   Mic,
   Video,
   Camera,
@@ -959,21 +960,11 @@ export function NewBookingModal({
           // Photo editing: quantity × price
           total += editItem.quantity * editItem.customerPrice;
         } else {
-          // Video editing: crew-based pricing
-          // For each assigned crew member, multiply their hourly rate by estimated hours
-          // Using base price as the hourly cost factor
-          if (editItem.assignedCrew) {
-            for (const level of ['lv1', 'lv2', 'lv3'] as const) {
-              const crewCount = editItem.assignedCrew[level] || 0;
-              if (crewCount > 0) {
-                const provider = providerLevels.find(p => p.level === level);
-                if (provider) {
-                  // Base price from menu + provider hourly rate
-                  total += editItem.customerPrice + (Number(provider.hourly_rate) * crewCount);
-                }
-              }
-            }
-          }
+          // Video editing: crew level multiplier pricing
+          const crewLevel = editItem.crewLevel || 'lv2';
+          const EDITING_CREW_MULTIPLIERS: Record<string, number> = { lv1: 0.75, lv2: 1, lv3: 1.25 };
+          const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel] || 1;
+          total += Math.round(editItem.customerPrice * multiplier);
         }
       }
     }
@@ -1209,26 +1200,15 @@ export function NewBookingModal({
           amount: total,
         });
       } else {
-        // Video editing with crew assignment
-        let crewStr = '';
-        let itemTotal = 0;
-        if (editItem.assignedCrew) {
-          const crewParts: string[] = [];
-          for (const level of ['lv1', 'lv2', 'lv3'] as const) {
-            const crewCount = editItem.assignedCrew[level] || 0;
-            if (crewCount > 0) {
-              const provider = providerLevels.find(p => p.level === level);
-              if (provider) {
-                const levelLabels: Record<string, string> = { lv1: 'Lv1', lv2: 'Lv2', lv3: 'Lv3' };
-                crewParts.push(crewCount > 1 ? `${levelLabels[level]} ×${crewCount}` : levelLabels[level]);
-                itemTotal += editItem.customerPrice + (Number(provider.hourly_rate) * crewCount);
-              }
-            }
-          }
-          if (crewParts.length > 0) crewStr = ` • ${crewParts.join(', ')}`;
-        }
+        // Video editing with crew level multipliers
+        const crewLevel = editItem.crewLevel || 'lv2';
+        const levelLabels: Record<string, string> = { lv1: 'Entry (0.75×)', lv2: 'Exp (1×)', lv3: 'Expert (1.25×)' };
+        const EDITING_CREW_MULTIPLIERS: Record<string, number> = { lv1: 0.75, lv2: 1, lv3: 1.25 };
+        const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel] || 1;
+        const itemTotal = Math.round(editItem.customerPrice * multiplier);
+        
         items.push({
-          label: `${editItem.name}${crewStr}`,
+          label: `${editItem.name} • ${levelLabels[crewLevel]}`,
           amount: itemTotal,
         });
       }
@@ -1372,7 +1352,7 @@ export function NewBookingModal({
       setEditingItems(prev => prev.filter(e => e.id !== item.id));
     } else {
       const isSimpleRetouch = item.name === 'Simple Retouch Edit';
-      const isVideoEditing = item.category !== 'photo';
+      const isVideoEditing = item.category !== 'photo' && item.category !== 'photo_editing';
       const customerPrice = Number(item.customer_price || item.base_price * 2);
       setEditingItems(prev => [
         ...prev,
@@ -1384,14 +1364,23 @@ export function NewBookingModal({
           basePrice: Number(item.base_price),
           customerPrice,
           incrementPrice: item.increment_price ? Number(item.increment_price) : null,
-          // For video editing, add crew assignment with default of 1 Lv2
+          // For video editing, use crewLevel with default of Lv2 (1x multiplier)
+          crewLevel: isVideoEditing ? 'lv2' : undefined,
           assignedCrew: isVideoEditing ? { lv1: 0, lv2: 1, lv3: 0 } : undefined,
         },
       ]);
     }
   };
 
-  // Update crew assignment for a video editing item
+  // Update crew level for a video editing item (multiplier-based)
+  const updateEditingCrewLevel = (itemId: string, level: 'lv1' | 'lv2' | 'lv3') => {
+    setEditingItems(prev => prev.map(e => {
+      if (e.id !== itemId) return e;
+      return { ...e, crewLevel: level };
+    }));
+  };
+
+  // Update crew assignment for a video editing item (legacy - kept for compatibility)
   const updateEditingCrewAssignment = (itemId: string, level: keyof CrewAllocation, delta: number) => {
     setEditingItems(prev => prev.map(e => {
       if (e.id !== itemId) return e;
@@ -1862,17 +1851,17 @@ export function NewBookingModal({
       }
       setStep('addons');
     } else if (step === 'addons') {
-      // Validate video editing items have crew assigned (for vodcast)
+      // Validate video editing items have crew level assigned (for vodcast)
       if (sessionType === 'serviced' && serviceType === 'vodcast') {
-        const videoItemsWithNoCrew = editingItems.filter(item => {
+        const videoItemsWithNoLevel = editingItems.filter(item => {
           if (item.category === 'photo_editing') return false;
-          return getVideoEditingCrewTotal(item) === 0;
+          return !item.crewLevel;
         });
         
-        if (videoItemsWithNoCrew.length > 0) {
+        if (videoItemsWithNoLevel.length > 0) {
           toast({ 
-            title: 'Crew Required', 
-            description: `Please assign at least one crew member to: ${videoItemsWithNoCrew.map(i => i.name).join(', ')}`,
+            title: 'Editor Level Required', 
+            description: `Please select an editor level for: ${videoItemsWithNoLevel.map(i => i.name).join(', ')}`,
             variant: 'destructive' 
           });
           return;
@@ -3452,7 +3441,7 @@ export function NewBookingModal({
                   <div className="space-y-4">
                     <Label>Camera angles</Label>
                     <div className="flex gap-2">
-                      {[1, 2, 3, 4].map(count => (
+                      {[1, 2, 3].map(count => (
                         <Button
                           key={count}
                           variant={cameraCount === count ? 'default' : 'outline'}
@@ -3642,30 +3631,21 @@ export function NewBookingModal({
                       Video Editing
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Select editing services and assign production crew
+                      Select editing services and editor level
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 space-y-3">
                     {videoEditingItems.map(item => {
                       const selectedItem = editingItems.find(e => e.id === item.id);
                       const isSelected = !!selectedItem;
-                      const itemCrew = selectedItem?.assignedCrew || { lv1: 0, lv2: 0, lv3: 0 };
-                      const crewTotal = (itemCrew.lv1 || 0) + (itemCrew.lv2 || 0) + (itemCrew.lv3 || 0);
                       const customerPrice = Number(item.customer_price || item.base_price * 2);
+                      const crewLevel = selectedItem?.crewLevel || 'lv2';
+                      const isLongForm = item.category?.startsWith('long_form');
                       
-                      // Calculate item total with crew
-                      let itemTotal = 0;
-                      if (isSelected && selectedItem) {
-                        for (const level of ['lv1', 'lv2', 'lv3'] as const) {
-                          const crewCount = itemCrew[level] || 0;
-                          if (crewCount > 0) {
-                            const provider = providerLevels.find(p => p.level === level);
-                            if (provider) {
-                              itemTotal += customerPrice + (Number(provider.hourly_rate) * crewCount);
-                            }
-                          }
-                        }
-                      }
+                      // Crew level multipliers for post-production
+                      const EDITING_CREW_MULTIPLIERS: Record<string, number> = { lv1: 0.75, lv2: 1, lv3: 1.25 };
+                      const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel] || 1;
+                      const adjustedPrice = Math.round(customerPrice * multiplier);
 
                       return (
                         <div key={item.id} className="space-y-2 py-2 border-b last:border-0">
@@ -3676,63 +3656,88 @@ export function NewBookingModal({
                                 onCheckedChange={() => toggleEditingItem(item)}
                               />
                               <div>
-                                <p className="text-sm font-medium">{item.name}</p>
+                                <p className="text-sm font-medium flex items-center gap-2">
+                                  {item.name}
+                                  {isLongForm && (
+                                    <Badge className="bg-amber-400 text-amber-900 border-amber-500 hover:bg-amber-400">
+                                      Recommended
+                                    </Badge>
+                                  )}
+                                </p>
                                 <p className="text-xs text-muted-foreground">{item.description}</p>
                               </div>
                             </div>
-                            <span className="text-sm font-medium">${customerPrice}</span>
+                            <span className="text-sm font-medium">from ${customerPrice}</span>
                           </div>
 
-                          {/* Crew Assignment when selected */}
+                          {/* Crew Level Selection - Radio buttons with multipliers */}
                           {isSelected && (
-                            <div className="pl-12 space-y-2">
+                            <div className="pl-12 space-y-3">
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Users className="h-4 w-4" />
-                                <span>Assign Production Crew:</span>
-                                {crewTotal === 0 && (
-                                  <span className="text-xs text-destructive">(min 1 required)</span>
-                                )}
+                                <span>Editor Level:</span>
                               </div>
                               
-                              {(['lv1', 'lv2', 'lv3'] as const).map(level => {
-                                const provider = providerLevels.find(p => p.level === level);
-                                const levelLabels: Record<string, string> = { lv1: 'Lv1 Entry', lv2: 'Lv2 Experienced', lv3: 'Lv3 Expert' };
-                                const count = itemCrew[level] || 0;
-                                
-                                return (
-                                  <div key={level} className="flex items-center justify-between pl-4">
-                                    <span className="text-xs text-muted-foreground">
-                                      {levelLabels[level]} (${provider?.hourly_rate || 0}/hr)
-                                    </span>
-                                    <div className="flex items-center gap-1">
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-6 w-6"
-                                        onClick={() => updateEditingCrewAssignment(item.id, level, -1)}
-                                        disabled={count <= 0}
-                                      >
-                                        <Minus className="h-2 w-2" />
-                                      </Button>
-                                      <span className="w-5 text-center text-xs font-medium">{count}</span>
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-6 w-6"
-                                        onClick={() => updateEditingCrewAssignment(item.id, level, 1)}
-                                      >
-                                        <Plus className="h-2 w-2" />
-                                      </Button>
-                                    </div>
+                              <div className="flex flex-col gap-2 pl-4">
+                                {/* Lv1 Entry - 0.75x */}
+                                <label className={cn(
+                                  "flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors",
+                                  crewLevel === 'lv1' ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                )}>
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="radio"
+                                      name={`crew-level-${item.id}`}
+                                      checked={crewLevel === 'lv1'}
+                                      onChange={() => updateEditingCrewLevel(item.id, 'lv1')}
+                                      className="h-4 w-4 text-primary"
+                                    />
+                                    <span className="text-sm font-medium">Lv1 Entry</span>
                                   </div>
-                                );
-                              })}
+                                  <Badge variant="secondary" className="text-xs">0.75x</Badge>
+                                </label>
+                                
+                                {/* Lv2 Experienced - 1x (Standard) */}
+                                <label className={cn(
+                                  "flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors",
+                                  crewLevel === 'lv2' ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                )}>
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="radio"
+                                      name={`crew-level-${item.id}`}
+                                      checked={crewLevel === 'lv2'}
+                                      onChange={() => updateEditingCrewLevel(item.id, 'lv2')}
+                                      className="h-4 w-4 text-primary"
+                                    />
+                                    <span className="text-sm font-medium">Lv2 Experienced</span>
+                                    <Badge variant="outline" className="text-xs text-primary border-primary">Standard</Badge>
+                                  </div>
+                                  <Badge variant="secondary" className="text-xs">1x</Badge>
+                                </label>
+                                
+                                {/* Lv3 Expert - 1.25x */}
+                                <label className={cn(
+                                  "flex items-center justify-between p-2 rounded-md border cursor-pointer transition-colors",
+                                  crewLevel === 'lv3' ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                                )}>
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="radio"
+                                      name={`crew-level-${item.id}`}
+                                      checked={crewLevel === 'lv3'}
+                                      onChange={() => updateEditingCrewLevel(item.id, 'lv3')}
+                                      className="h-4 w-4 text-primary"
+                                    />
+                                    <span className="text-sm font-medium">Lv3 Expert</span>
+                                  </div>
+                                  <Badge variant="secondary" className="text-xs">1.25x</Badge>
+                                </label>
+                              </div>
                               
-                              {itemTotal > 0 && (
-                                <div className="flex justify-end pt-2">
-                                  <span className="text-sm font-bold">= ${itemTotal}</span>
-                                </div>
-                              )}
+                              <div className="flex justify-end pt-2">
+                                <span className="text-sm font-bold">= ${adjustedPrice}</span>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -3840,24 +3845,15 @@ export function NewBookingModal({
                         {editingItems
                           .filter(item => item.category !== 'photo' && item.category !== 'photo_editing')
                           .map((item, idx) => {
-                            const crewParts: string[] = [];
-                            let itemTotal = 0;
-                            if (item.assignedCrew) {
-                              for (const level of ['lv1', 'lv2', 'lv3'] as const) {
-                                const crewCount = item.assignedCrew[level] || 0;
-                                if (crewCount > 0) {
-                                  const provider = providerLevels.find(p => p.level === level);
-                                  const levelLabels: Record<string, string> = { lv1: 'Entry', lv2: 'Exp', lv3: 'Expert' };
-                                  crewParts.push(`${crewCount}× ${levelLabels[level]}`);
-                                  if (provider) {
-                                    itemTotal += item.customerPrice + (Number(provider.hourly_rate) * crewCount);
-                                  }
-                                }
-                              }
-                            }
+                            const crewLevel = item.crewLevel || 'lv2';
+                            const levelLabels: Record<string, string> = { lv1: 'Entry (0.75×)', lv2: 'Exp (1×)', lv3: 'Expert (1.25×)' };
+                            const EDITING_CREW_MULTIPLIERS: Record<string, number> = { lv1: 0.75, lv2: 1, lv3: 1.25 };
+                            const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel] || 1;
+                            const itemTotal = Math.round(item.customerPrice * multiplier);
+                            
                             return (
                               <div key={idx} className="flex justify-between text-sm pl-2">
-                                <span>{item.name} ({crewParts.join(', ')})</span>
+                                <span>{item.name} ({levelLabels[crewLevel]})</span>
                                 <span className="text-muted-foreground">${itemTotal.toFixed(2)}</span>
                               </div>
                             );
