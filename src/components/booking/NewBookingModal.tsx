@@ -2625,36 +2625,38 @@ export function NewBookingModal({
                 />
               </div>
 
-              {/* Expected People Count */}
-              <div className="space-y-2">
-                <Label htmlFor="people-count">Expected people count</Label>
-                <div className="flex items-center gap-2">
-                <Input
-                    id="people-count"
-                    type="number"
-                    min={1}
-                    value={peopleCount || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '') {
-                        setPeopleCount(0);
-                      } else {
-                        const parsed = parseInt(val);
-                        if (!isNaN(parsed) && parsed >= 0) {
-                          setPeopleCount(parsed);
+              {/* Expected People Count - Show for DIY in basic step, serviced sessions show this in summary */}
+              {(sessionType === 'diy' || bookingType !== 'customer') && (
+                <div className="space-y-2">
+                  <Label htmlFor="people-count">Expected people count</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="people-count"
+                      type="number"
+                      min={1}
+                      value={peopleCount || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setPeopleCount(0);
+                        } else {
+                          const parsed = parseInt(val);
+                          if (!isNaN(parsed) && parsed >= 0) {
+                            setPeopleCount(parsed);
+                          }
                         }
-                      }
-                    }}
-                    onBlur={() => {
-                      if (peopleCount < 1) {
-                        setPeopleCount(1);
-                      }
-                    }}
-                    className="w-20"
-                  />
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                      }}
+                      onBlur={() => {
+                        if (peopleCount < 1) {
+                          setPeopleCount(1);
+                        }
+                      }}
+                      className="w-20"
+                    />
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Session Type */}
               {bookingType === 'customer' && (
@@ -3859,6 +3861,39 @@ export function NewBookingModal({
                       Session ends at {computedEndTime} ({formatDuration(sessionDuration)})
                     </p>
                   </div>
+
+                  {/* Expected People Count - for serviced sessions */}
+                  {sessionType === 'serviced' && bookingType === 'customer' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="people-count-summary">Expected people count</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="people-count-summary"
+                          type="number"
+                          min={1}
+                          value={peopleCount || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '') {
+                              setPeopleCount(0);
+                            } else {
+                              const parsed = parseInt(val);
+                              if (!isNaN(parsed) && parsed >= 0) {
+                                setPeopleCount(parsed);
+                              }
+                            }
+                          }}
+                          onBlur={() => {
+                            if (peopleCount < 1) {
+                              setPeopleCount(1);
+                            }
+                          }}
+                          className="w-20"
+                        />
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Live Availability Indicator */}
                   {date && selectedStudios.length > 0 && (() => {
