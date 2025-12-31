@@ -293,7 +293,7 @@ export function StepSummary() {
       />
 
       {/* Affiliate Earnings Card */}
-      <AffiliateEarningsCard customerTotal={totals.customerTotal} />
+      <AffiliateEarningsCard customerTotal={totals.customerTotal} appliedCode={affiliateCode} />
 
       {/* Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
