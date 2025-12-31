@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useDiyRates, useProviderLevels, useVodcastCameraAddons } from '@/hooks/useEstimatorData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,27 @@ import { format, subDays, startOfDay } from 'date-fns';
 import type { EstimatorSelection } from '@/types/estimator';
 import { STUDIO_LABELS, StudioType, SERVICE_LABELS, ServiceType } from '@/types/estimator';
 import { BookingCalendar } from '@/components/booking/BookingCalendar';
+
+// Helper to derive time slot type from booking date and start time
+const getTimeSlotTypeFromDateTime = (
+  bookingDate: string | undefined,
+  startTime: string | undefined
+): string | null => {
+  if (!bookingDate || !startTime) return null;
+
+  const date = new Date(bookingDate + 'T12:00:00');
+  const dayOfWeek = date.getDay();
+  const hour = parseInt(startTime.split(':')[0], 10);
+  const isEvening = hour >= 16;
+
+  if (dayOfWeek >= 1 && dayOfWeek <= 3) {
+    return isEvening ? 'mon_wed_eve' : 'mon_wed_day';
+  } else if (dayOfWeek === 4 || dayOfWeek === 5) {
+    return isEvening ? 'thu_fri_eve' : 'thu_fri_day';
+  } else {
+    return isEvening ? 'sat_sun_eve' : 'sat_sun_day';
+  }
+};
 
 type SessionStatus = 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
 
@@ -68,6 +90,11 @@ export default function Sessions() {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch rate data for live calculation
+  const { data: diyRates } = useDiyRates();
+  const { data: providerLevels } = useProviderLevels();
+  const { data: cameraAddons } = useVodcastCameraAddons();
 
   // Fetch sessions
   const { data: sessions = [], isLoading, refetch } = useQuery({
@@ -381,25 +408,56 @@ export default function Sessions() {
       return session.final_total;
     }
     
-    // For active/paused sessions, calculate based on elapsed time
+    // For active/paused sessions, calculate based on elapsed time using fetched rates
     if (session.status === 'active' || session.status === 'paused') {
       const elapsedSeconds = getElapsedSeconds(session);
-      const elapsedHours = elapsedSeconds / 3600;
-      
-      // Get hourly rate from selections_json (studio + crew rates)
+      const currentHours = elapsedSeconds / 3600;
       const sel = session.selections_json as any;
-      const studioHourlyRate = sel?.studioHourlyRate || sel?.totals?.studioRental?.hourly || 0;
-      const crewHourlyRate = sel?.totals?.crewCost?.hourly || 0;
-      const combinedHourlyRate = studioHourlyRate + crewHourlyRate;
       
-      // Get flat fees from selections
-      const flatFees = sel?.totals?.flatFees || 0;
+      let total = 0;
       
-      // Calculate running total: flat fees + (elapsed hours × hourly rate)
-      const runningTotal = flatFees + (elapsedHours * combinedHourlyRate);
+      // Derive time slot type from booking date and start time
+      const timeSlotType = sel?.timeSlotType || 
+        getTimeSlotTypeFromDateTime(sel?.bookingDate, sel?.startTime);
       
-      // Always return the calculated total for active sessions (even if 0)
-      return runningTotal;
+      // Find matching DIY rate from database
+      const matchingRate = diyRates?.find(
+        r => r.studios?.type === sel?.studioType && 
+             r.time_slots?.type === timeSlotType
+      );
+      
+      // Studio cost calculation
+      if (matchingRate) {
+        total += currentHours * matchingRate.first_hour_rate;
+      }
+      
+      // Provider cost (serviced sessions)
+      if (sel?.sessionType === 'serviced' && sel?.crewAllocation) {
+        const { lv1 = 0, lv2 = 0, lv3 = 0 } = sel.crewAllocation;
+        const lv1Rate = providerLevels?.find(p => p.level === 'lv1')?.hourly_rate || 20;
+        const lv2Rate = providerLevels?.find(p => p.level === 'lv2')?.hourly_rate || 30;
+        const lv3Rate = providerLevels?.find(p => p.level === 'lv3')?.hourly_rate || 40;
+        total += currentHours * ((lv1 * lv1Rate) + (lv2 * lv2Rate) + (lv3 * lv3Rate));
+      }
+      
+      // Camera add-on (flat fee for vodcast)
+      if (sel?.serviceType === 'vodcast' && sel?.cameraCount > 0) {
+        const cameraAddon = cameraAddons?.find(c => c.cameras === sel.cameraCount);
+        if (cameraAddon) total += cameraAddon.customer_addon_amount;
+      }
+      
+      // Session add-ons
+      if (sel?.sessionAddons?.length > 0) {
+        for (const addon of sel.sessionAddons) {
+          if (addon.is_hourly) {
+            total += currentHours * addon.flat_amount;
+          } else {
+            total += addon.flat_amount;
+          }
+        }
+      }
+      
+      return total;
     }
     
     return null;
