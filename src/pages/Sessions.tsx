@@ -641,9 +641,12 @@ export default function Sessions() {
           </Select>
         </div>
 
+        {/* Side-by-side layout for Active Sessions + Session History */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
         {/* Active Sessions */}
         {activeSessions.length > 0 && (
-          <Card className="mb-8">
+          <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Timer className="h-5 w-5" />
@@ -792,7 +795,7 @@ export default function Sessions() {
         )}
 
         {/* Sessions History */}
-        <Card>
+        <Card className={activeSessions.length > 0 ? "lg:col-span-2" : "lg:col-span-3"}>
           <CardHeader>
             <CardTitle>Session History</CardTitle>
             <CardDescription>All recorded studio sessions</CardDescription>
@@ -878,6 +881,54 @@ export default function Sessions() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
+                            {/* Pause/Play/Stop controls for active/paused sessions */}
+                            {session.status === 'active' && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={e => { e.stopPropagation(); handlePause(session); }}
+                                  title="Pause Session"
+                                  disabled={updateSession.isPending}
+                                >
+                                  <Pause className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  className="text-destructive"
+                                  onClick={e => { e.stopPropagation(); handleEnd(session); }}
+                                  title="End Session"
+                                  disabled={updateSession.isPending}
+                                >
+                                  <Square className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                            {session.status === 'paused' && (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={e => { e.stopPropagation(); handleResume(session); }}
+                                  title="Resume Session"
+                                  disabled={updateSession.isPending}
+                                >
+                                  <Play className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  className="text-destructive"
+                                  onClick={e => { e.stopPropagation(); handleEnd(session); }}
+                                  title="End Session"
+                                  disabled={updateSession.isPending}
+                                >
+                                  <Square className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                            
                             {/* Invoice button for cancelled sessions */}
                             {session.status === 'cancelled' && (
                               <Button 
@@ -918,6 +969,7 @@ export default function Sessions() {
             )}
           </CardContent>
         </Card>
+        </div>
           </TabsContent>
         </Tabs>
       </div>
