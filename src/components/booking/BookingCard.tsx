@@ -3,6 +3,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { cn } from '@/lib/utils';
 import { getBookingDisplayText } from '@/lib/bookingDisplayUtils';
 import { BookingHoverContent } from './BookingHoverContent';
+import { BookingContextMenu } from './BookingContextMenu';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface BookingCardProps {
@@ -24,6 +25,8 @@ interface BookingCardProps {
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent, booking: StudioBooking) => void;
   isStaffOrAdmin?: boolean;
+  onDuplicate?: (booking: StudioBooking) => void;
+  onCancel?: (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => void;
 }
 
 const formatTime = (time: string) => {
@@ -55,6 +58,8 @@ export function BookingCard({
   draggable = false,
   onDragStart,
   isStaffOrAdmin = false,
+  onDuplicate,
+  onCancel,
 }: BookingCardProps) {
   const dotColor = getBookingTypeDotColor(booking.booking_type, booking.status);
   const displayText = getBookingDisplayText(booking, isStaffOrAdmin);
@@ -73,7 +78,6 @@ export function BookingCard({
       )}
       onClick={(e) => {
         e.stopPropagation();
-        onClick?.(e);
       }}
       draggable={draggable}
       onDragStart={handleDragStart}
@@ -91,7 +95,6 @@ export function BookingCard({
       )}
       onClick={(e) => {
         e.stopPropagation();
-        onClick?.(e);
       }}
       draggable={draggable}
       onDragStart={handleDragStart}
@@ -118,12 +121,23 @@ export function BookingCard({
     </div>
   );
 
-  // Wrap with HoverCard for staff/admin
+  // Wrap with context menu for staff/admin
   if (isStaffOrAdmin) {
+    const wrappedCard = (
+      <BookingContextMenu
+        booking={booking as StudioBooking}
+        onViewEdit={() => onClick?.()}
+        onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
+        onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
+      >
+        {cardContent}
+      </BookingContextMenu>
+    );
+
     return (
       <HoverCard openDelay={300}>
         <HoverCardTrigger asChild>
-          {cardContent}
+          {wrappedCard}
         </HoverCardTrigger>
         <HoverCardContent className="w-72" side="right" align="start">
           <BookingHoverContent booking={booking as StudioBooking} studioName={studioName} />

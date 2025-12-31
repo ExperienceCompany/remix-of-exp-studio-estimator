@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { getBookingDisplayText } from '@/lib/bookingDisplayUtils';
 import { BookingHoverContent } from './BookingHoverContent';
+import { BookingContextMenu } from './BookingContextMenu';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface SpanningBookingCardProps {
@@ -19,6 +20,8 @@ interface SpanningBookingCardProps {
   onClick?: () => void;
   studioName?: string;
   isStaffOrAdmin?: boolean;
+  onDuplicate?: (booking: StudioBooking) => void;
+  onCancel?: (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => void;
 }
 
 const getBookingTypeBorderColor = (type: string, status: string) => {
@@ -42,6 +45,8 @@ export function SpanningBookingCard({
   onClick,
   studioName,
   isStaffOrAdmin = false,
+  onDuplicate,
+  onCancel,
 }: SpanningBookingCardProps) {
   const borderColor = getBookingTypeBorderColor(booking.booking_type, booking.status);
   const displayText = getBookingDisplayText(booking, isStaffOrAdmin);
@@ -57,7 +62,6 @@ export function SpanningBookingCard({
       style={{ top: `${top}px`, height: `${height}px` }}
       onClick={(e) => {
         e.stopPropagation();
-        onClick?.();
       }}
     >
       <div className={cn(
@@ -85,12 +89,23 @@ export function SpanningBookingCard({
     </div>
   );
 
-  // Wrap with HoverCard for staff/admin
+  // Wrap with context menu for staff/admin
   if (isStaffOrAdmin) {
+    const wrappedCard = (
+      <BookingContextMenu
+        booking={booking as StudioBooking}
+        onViewEdit={() => onClick?.()}
+        onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
+        onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
+      >
+        {cardContent}
+      </BookingContextMenu>
+    );
+
     return (
       <HoverCard openDelay={300}>
         <HoverCardTrigger asChild>
-          {cardContent}
+          {wrappedCard}
         </HoverCardTrigger>
         <HoverCardContent className="w-72" side="right" align="start">
           <BookingHoverContent booking={booking as StudioBooking} studioName={studioName} />

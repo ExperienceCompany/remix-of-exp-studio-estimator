@@ -28,6 +28,8 @@ interface DayViewProps {
   onOpenBookingModal?: (studioIds: string[], startTime: string, endTime: string, estimatedCost: number) => void;
   clearPendingTrigger?: number;
   externalPendingUpdate?: { studioIds: string[]; startTime: string; endTime: string } | null;
+  onDuplicateBooking?: (booking: StudioBooking) => void;
+  onCancelBooking?: (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => void;
 }
 
 interface PendingBooking {
@@ -103,6 +105,8 @@ export function DayView({
   onOpenBookingModal,
   clearPendingTrigger,
   externalPendingUpdate,
+  onDuplicateBooking,
+  onCancelBooking,
 }: DayViewProps) {
   const { isStaff } = useAuth();
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
@@ -808,6 +812,8 @@ export function DayView({
                       onClick={() => onBookingClick?.(booking)}
                       studioName={studio.name}
                       isStaffOrAdmin={isStaff}
+                      onDuplicate={onDuplicateBooking}
+                      onCancel={onCancelBooking}
                     />
                   </div>
                 );

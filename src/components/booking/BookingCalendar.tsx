@@ -10,6 +10,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   ChevronLeft,
   ChevronRight,
   Calendar,
@@ -21,9 +31,10 @@ import {
 import { NewBookingModal } from './NewBookingModal';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { useStudios, useDiyRates } from '@/hooks/useEstimatorData';
-import { useStudioBookings } from '@/hooks/useStudioBookings';
+import { useStudioBookings, useCancelBooking, useCancelSeriesFromDate, useCancelEntireSeries } from '@/hooks/useStudioBookings';
 import { useCalendarSettings } from '@/hooks/useCalendarSettings';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { MonthView } from './views/MonthView';
 import { DayView } from './views/DayView';
 import { GridView } from './views/GridView';
@@ -60,8 +71,15 @@ export function BookingCalendar({
   const [showNewBookingModal, setShowNewBookingModal] = useState(false);
   const [modalPrefill, setModalPrefill] = useState<ModalPrefill | null>(null);
   const [editingBooking, setEditingBooking] = useState<StudioBooking | null>(null);
+  const [duplicatingFrom, setDuplicatingFrom] = useState<StudioBooking | null>(null);
   const [clearPendingTrigger, setClearPendingTrigger] = useState(0);
   const [pendingDurationUpdate, setPendingDurationUpdate] = useState<{ studioIds: string[]; startTime: string; endTime: string } | null>(null);
+  
+  // Cancel confirmation state
+  const [cancelConfirm, setCancelConfirm] = useState<{
+    booking: StudioBooking;
+    scope: 'occurrence' | 'from_here' | 'series';
+  } | null>(null);
   
   // List view date range state
   const [listStartDate, setListStartDate] = useState<Date>(new Date());
@@ -69,9 +87,15 @@ export function BookingCalendar({
 
   const navigate = useNavigate();
   const { isAuthenticated, isStaff } = useAuth();
+  const { toast } = useToast();
   const { data: studios = [] } = useStudios();
   const { data: diyRates = [] } = useDiyRates();
   const { data: calendarSettings = [] } = useCalendarSettings();
+  
+  // Cancel mutations
+  const cancelBooking = useCancelBooking();
+  const cancelSeriesFromDate = useCancelSeriesFromDate();
+  const cancelEntireSeries = useCancelEntireSeries();
   
   const activeStudios = useMemo(
     () => studios.filter((s) => s.is_active),
@@ -201,7 +225,80 @@ export function BookingCalendar({
   const handleCloseModal = () => {
     setShowNewBookingModal(false);
     setEditingBooking(null);
+    setDuplicatingFrom(null);
     setModalPrefill(null);
+  };
+
+  // Duplicate booking - prefill modal with booking data for new booking
+  const handleDuplicateBooking = (booking: StudioBooking) => {
+    setDuplicatingFrom(booking);
+    setModalPrefill({
+      date: new Date(booking.booking_date),
+      studioIds: [booking.studio_id],
+      startTime: booking.start_time,
+      endTime: booking.end_time,
+    });
+    setEditingBooking(null);
+    setShowNewBookingModal(true);
+  };
+
+  // Cancel booking with scope
+  const handleCancelBooking = (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => {
+    setCancelConfirm({ booking, scope });
+  };
+
+  // Execute cancel after confirmation
+  const executeCancelBooking = async () => {
+    if (!cancelConfirm) return;
+    
+    const { booking, scope } = cancelConfirm;
+    
+    try {
+      if (scope === 'occurrence') {
+        await cancelBooking.mutateAsync(booking.id);
+        toast({
+          title: 'Booking cancelled',
+          description: 'The booking has been cancelled.',
+        });
+      } else if (scope === 'from_here' && booking.repeat_series_id) {
+        await cancelSeriesFromDate.mutateAsync({
+          seriesId: booking.repeat_series_id,
+          fromDate: booking.booking_date,
+        });
+        toast({
+          title: 'Series cancelled',
+          description: 'This and all following bookings have been cancelled.',
+        });
+      } else if (scope === 'series' && booking.repeat_series_id) {
+        await cancelEntireSeries.mutateAsync(booking.repeat_series_id);
+        toast({
+          title: 'Series cancelled',
+          description: 'The entire booking series has been cancelled.',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to cancel booking',
+        variant: 'destructive',
+      });
+    }
+    
+    setCancelConfirm(null);
+  };
+
+  const getCancelDescription = () => {
+    if (!cancelConfirm) return '';
+    const { booking, scope } = cancelConfirm;
+    const title = booking.title || booking.customer_name || 'this booking';
+    
+    if (scope === 'occurrence') {
+      return `Are you sure you want to cancel "${title}" on ${format(new Date(booking.booking_date), 'MMMM d, yyyy')}?`;
+    } else if (scope === 'from_here') {
+      return `Are you sure you want to cancel "${title}" on ${format(new Date(booking.booking_date), 'MMMM d')} and all following occurrences in this series?`;
+    } else {
+      return `Are you sure you want to cancel the entire "${title}" repeat series? This will cancel all occurrences.`;
+    }
   };
 
   return (
@@ -306,6 +403,8 @@ export function BookingCalendar({
               onDateClick={handleDateClick}
               onSlotClick={handleOpenModalFromSlot}
               onBookingClick={handleBookingClickForEdit}
+              onDuplicateBooking={handleDuplicateBooking}
+              onCancelBooking={handleCancelBooking}
             />
           )}
           {viewMode === 'day' && (
@@ -322,6 +421,8 @@ export function BookingCalendar({
               onOpenBookingModal={handleOpenModalFromDayView}
               clearPendingTrigger={clearPendingTrigger}
               externalPendingUpdate={pendingDurationUpdate}
+              onDuplicateBooking={handleDuplicateBooking}
+              onCancelBooking={handleCancelBooking}
             />
           )}
           {viewMode === 'grid' && (
@@ -332,6 +433,8 @@ export function BookingCalendar({
               onDateClick={handleDateClick}
               onSlotClick={handleOpenModalFromSlot}
               onBookingClick={handleBookingClickForEdit}
+              onDuplicateBooking={handleDuplicateBooking}
+              onCancelBooking={handleCancelBooking}
             />
           )}
           {viewMode === 'list' && (
@@ -346,6 +449,8 @@ export function BookingCalendar({
                 setListStartDate(start);
                 setListEndDate(end);
               }}
+              onDuplicateBooking={handleDuplicateBooking}
+              onCancelBooking={handleCancelBooking}
             />
           )}
         </CardContent>
@@ -380,6 +485,7 @@ export function BookingCalendar({
           defaultStartTime={modalPrefill?.startTime}
           defaultEndTime={modalPrefill?.endTime}
           existingBooking={editingBooking}
+          duplicatingFrom={duplicatingFrom}
           operatingStart={defaultSettings.operatingStart}
           operatingEnd={defaultSettings.operatingEnd}
           onBookingCreated={() => {
@@ -392,6 +498,27 @@ export function BookingCalendar({
           }}
         />
       )}
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={!!cancelConfirm} onOpenChange={(open) => !open && setCancelConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              {getCancelDescription()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeCancelBooking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cancel Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
