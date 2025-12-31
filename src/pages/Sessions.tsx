@@ -16,6 +16,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,7 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays, User, Clock, Calculator, UserCircle } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays, User, Clock, Calculator, UserCircle, FileText, CreditCard } from 'lucide-react';
+import { SquareCheckoutModal } from '@/components/session/SquareCheckoutModal';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay } from 'date-fns';
 import type { EstimatorSelection } from '@/types/estimator';
@@ -81,6 +88,9 @@ export default function Sessions() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  
+  // Checkout modal state
+  const [checkoutSession, setCheckoutSession] = useState<Session | null>(null);
 
   // Real-time timers
   const [now, setNow] = useState(Date.now());
@@ -175,6 +185,25 @@ export default function Sessions() {
       toast({ title: 'Failed to update session', variant: 'destructive' });
     },
   });
+
+  // Handle status change from dropdown
+  const handleStatusChange = (session: Session, newStatus: SessionStatus) => {
+    const updates: Record<string, unknown> = { status: newStatus };
+    
+    // If completing a session that never used timer, set final_total to estimate
+    if (newStatus === 'completed' && !session.started_at) {
+      updates.final_total = getEstimateTotal(session) || 0;
+      updates.ended_at = new Date().toISOString();
+    }
+    
+    // If cancelling, we don't change totals - display handles 25% calculation
+    if (newStatus === 'cancelled' && !session.ended_at) {
+      updates.ended_at = new Date().toISOString();
+    }
+    
+    updateSession.mutate({ id: session.id, updates });
+    toast({ title: `Session marked as ${newStatus}` });
+  };
 
   const handleStart = (session: Session) => {
     updateSession.mutate({
@@ -808,7 +837,24 @@ export default function Sessions() {
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell>{getStatusBadge(session.status)}</TableCell>
+                        <TableCell onClick={e => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <div className="cursor-pointer">{getStatusBadge(session.status)}</div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="bg-background">
+                              <DropdownMenuItem onClick={() => handleStatusChange(session, 'pending')}>
+                                ○ Pending
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleStatusChange(session, 'completed')}>
+                                ✓ Completed
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleStatusChange(session, 'cancelled')}>
+                                ✗ Cancelled
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                         <TableCell>
                           {session.actual_duration_seconds
                             ? formatDuration(session.actual_duration_seconds)
@@ -822,18 +868,47 @@ export default function Sessions() {
                             : '—'}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {session.final_total != null
+                          {session.status === 'completed' && session.final_total != null
                             ? `$${session.final_total.toFixed(2)}`
+                            : session.status === 'cancelled'
+                            ? <span className="text-destructive">${((getEstimateTotal(session) ?? 0) * 0.25).toFixed(2)}</span>
                             : session.status === 'active' || session.status === 'paused'
                             ? <span className="text-primary">${(getCurrentTotal(session) ?? 0).toFixed(2)}</span>
                             : '—'}
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" asChild onClick={e => e.stopPropagation()}>
-                            <Link to={`/session/${session.id}`}>
-                              <ExternalLink className="h-4 w-4" />
-                            </Link>
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            {/* Invoice button for cancelled sessions */}
+                            {session.status === 'cancelled' && (
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={e => { e.stopPropagation(); setCheckoutSession(session); }}
+                                title="Generate Invoice"
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                            )}
+                            
+                            {/* Checkout button for completed sessions (unpaid) */}
+                            {session.status === 'completed' && session.payment_status !== 'paid' && (
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="text-green-600"
+                                onClick={e => { e.stopPropagation(); setCheckoutSession(session); }}
+                                title="Pay Now"
+                              >
+                                <CreditCard className="h-4 w-4" />
+                              </Button>
+                            )}
+                            
+                            <Button size="sm" variant="ghost" asChild onClick={e => e.stopPropagation()}>
+                              <Link to={`/session/${session.id}`}>
+                                <ExternalLink className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -846,6 +921,20 @@ export default function Sessions() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Square Checkout Modal */}
+      {checkoutSession && (
+        <SquareCheckoutModal
+          open={!!checkoutSession}
+          onClose={() => setCheckoutSession(null)}
+          sessionId={checkoutSession.id}
+          total={
+            checkoutSession.status === 'cancelled'
+              ? (getEstimateTotal(checkoutSession) ?? 0) * 0.25  // 25% cancellation fee
+              : checkoutSession.final_total ?? getEstimateTotal(checkoutSession) ?? 0
+          }
+        />
+      )}
     </div>
   );
 }
