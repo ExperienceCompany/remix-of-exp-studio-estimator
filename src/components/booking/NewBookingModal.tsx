@@ -218,6 +218,18 @@ function formatDuration(hours: number): string {
   return `${wholeHours}h ${minutes}m`;
 }
 
+// Services with only one valid studio option - auto-select
+const SINGLE_STUDIO_SERVICES: Record<string, string> = {
+  photoshoot: 'multimedia_studio',
+  recording_session: 'audio_studio',
+  audio_podcast: 'podcast_room',
+};
+
+// Services with multiple studio options - require manual selection
+const MULTI_STUDIO_SERVICES: Record<string, string[]> = {
+  vodcast: ['multimedia_studio', 'full_studio_buyout'],
+};
+
 // Step labels for the stepper
 const SERVICED_STEPS: { key: BookingStep; label: string }[] = [
   { key: 'basic', label: 'Details' },
@@ -1062,7 +1074,8 @@ export function NewBookingModal({
         toast({ title: 'Please select a date', variant: 'destructive' });
         return;
       }
-      if (selectedStudios.length === 0) {
+      // Only require manual space selection for DIY sessions
+      if (sessionType === 'diy' && selectedStudios.length === 0) {
         toast({ title: 'Please select at least one space', variant: 'destructive' });
         return;
       }
@@ -1776,30 +1789,32 @@ export function NewBookingModal({
                 startTime={startTime}
               />
 
-              {/* Spaces */}
-              <div className="space-y-2">
-                <Label>Spaces *</Label>
-                <div className="border rounded-md p-3 space-y-2">
-                  {selectedStudios.length === 0 && (
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <AlertTriangle className="h-4 w-4 text-warning" />
-                      No spaces selected
-                    </div>
-                  )}
-                  {studios.filter(s => s.is_active).map(studio => (
-                    <div key={studio.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={studio.id}
-                        checked={selectedStudios.includes(studio.id)}
-                        onCheckedChange={() => handleStudioToggle(studio.id)}
-                      />
-                      <label htmlFor={studio.id} className="text-sm cursor-pointer flex-1">
-                        {studio.name}
-                      </label>
-                    </div>
-                  ))}
+              {/* Spaces - only show for DIY sessions */}
+              {sessionType === 'diy' && (
+                <div className="space-y-2">
+                  <Label>Spaces *</Label>
+                  <div className="border rounded-md p-3 space-y-2">
+                    {selectedStudios.length === 0 && (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <AlertTriangle className="h-4 w-4 text-warning" />
+                        No spaces selected
+                      </div>
+                    )}
+                    {studios.filter(s => s.is_active).map(studio => (
+                      <div key={studio.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={studio.id}
+                          checked={selectedStudios.includes(studio.id)}
+                          onCheckedChange={() => handleStudioToggle(studio.id)}
+                        />
+                        <label htmlFor={studio.id} className="text-sm cursor-pointer flex-1">
+                          {studio.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Holder */}
               {bookingType !== 'unavailable' && (
@@ -2020,6 +2035,22 @@ export function NewBookingModal({
                         setServiceType(service.type);
                         setWantsEditing(null); // Reset editing preference when service changes
                         setEditingItems([]); // Clear editing items when service changes
+                        
+                        // Auto-select studio based on service type
+                        if (SINGLE_STUDIO_SERVICES[service.type]) {
+                          const studioType = SINGLE_STUDIO_SERVICES[service.type];
+                          const matchedStudio = studios.find(s => s.type === studioType);
+                          if (matchedStudio) {
+                            setSelectedStudios([matchedStudio.id]);
+                          }
+                        } else if (MULTI_STUDIO_SERVICES[service.type]) {
+                          // For multi-studio services, default to first valid option
+                          const validTypes = MULTI_STUDIO_SERVICES[service.type];
+                          const matchedStudio = studios.find(s => validTypes.includes(s.type));
+                          if (matchedStudio) {
+                            setSelectedStudios([matchedStudio.id]);
+                          }
+                        }
                       }}
                     >
                       <CardHeader className="p-4">
@@ -2120,6 +2151,47 @@ export function NewBookingModal({
                     </div>
                   </CardContent>
                 </Card>
+              )}
+
+              {/* Studio Selection - only for multi-studio services like vodcast */}
+              {serviceType && MULTI_STUDIO_SERVICES[serviceType] && (
+                <div className="space-y-2">
+                  <Label>Where will this take place?</Label>
+                  <div className="grid gap-3">
+                    {studios
+                      .filter(s => s.is_active && MULTI_STUDIO_SERVICES[serviceType]?.includes(s.type))
+                      .map(studio => (
+                        <Card
+                          key={studio.id}
+                          className={cn(
+                            "cursor-pointer transition-all hover:shadow-md",
+                            selectedStudios.includes(studio.id) && "ring-2 ring-primary"
+                          )}
+                          onClick={() => setSelectedStudios([studio.id])}
+                        >
+                          <CardHeader className="p-4">
+                            <div className="flex items-center gap-3">
+                              <Building2 className="h-5 w-5" />
+                              <CardTitle className="text-sm">{studio.name}</CardTitle>
+                              {selectedStudios.includes(studio.id) && (
+                                <Check className="h-4 w-4 text-primary ml-auto" />
+                              )}
+                            </div>
+                          </CardHeader>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Studio confirmation for single-studio services */}
+              {serviceType && SINGLE_STUDIO_SERVICES[serviceType] && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
+                  <Building2 className="h-4 w-4" />
+                  <span>
+                    {studios.find(s => s.type === SINGLE_STUDIO_SERVICES[serviceType])?.name || 'Studio'} will be reserved
+                  </span>
+                </div>
               )}
             </div>
           )}
