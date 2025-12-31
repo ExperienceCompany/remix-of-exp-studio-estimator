@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { format, getDay } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { BookingCard } from '../BookingCard';
+import { SpanningBookingCard } from '../SpanningBookingCard';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, DollarSign, Plus, ChevronUp, ChevronDown, X } from 'lucide-react';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
@@ -606,7 +606,7 @@ export function DayView({
               ))}
             </tr>
           </thead>
-          <tbody ref={tbodyRef}>
+          <tbody ref={tbodyRef} className="relative">
             {timeSlots.map((time) => {
               const isHourMark = time.endsWith(':00');
               return (
@@ -621,7 +621,6 @@ export function DayView({
                     {formatTime(time)}
                   </td>
                   {studios.map((studio) => {
-                    const slotBookings = getBookingsForSlot(studio.id, time);
                     const isBooked = isSlotBooked(studio.id, time);
                     const isBuffer = isSlotInBuffer(studio.id, time);
                     const isBlockedByBuyout = isSlotBlockedByBuyout(studio.id, time);
@@ -650,7 +649,6 @@ export function DayView({
                           className={cn(
                             "py-0.5 px-1 border-r min-h-[28px] h-7 relative transition-colors",
                             !isUnavailable && !isInPending && !pendingBooking && "cursor-pointer",
-                            isBooked && "bg-muted/30",
                             isBuffer && "bg-amber-500/10",
                             isBlockedByBuyout && "bg-destructive/10",
                             isInPending && "border-transparent", // Hide cell borders within pending
@@ -666,18 +664,6 @@ export function DayView({
                           <div className="absolute inset-0 flex items-center justify-center text-primary-foreground font-medium text-xs">
                             ⊕ {formatTime(time)}
                           </div>
-                        )}
-                        
-                        {/* Existing bookings */}
-                        {slotBookings.map((booking) =>
-                          isSlotStart(booking, time) ? (
-                            <BookingCard
-                              key={booking.id}
-                              booking={booking}
-                              compact
-                              onClick={() => onBookingClick?.(booking)}
-                            />
-                          ) : null
                         )}
                         
                         {/* Buffer indicator */}
@@ -777,6 +763,43 @@ export function DayView({
                   })}
                 </tr>
               );
+            })}
+            {/* Absolutely positioned spanning bookings */}
+            {studios.map((studio, studioIndex) => {
+              const studioBookings = dayBookings.filter(b => b.studio_id === studio.id);
+              const operatingStartMins = timeToMinutes(operatingStart);
+              // Calculate column offset: time column (80px) + studio columns
+              const columnWidth = `calc((100% - 80px) / ${studios.length})`;
+              const leftOffset = `calc(80px + ${studioIndex} * ${columnWidth})`;
+              
+              return studioBookings.map(booking => {
+                const startMins = timeToMinutes(booking.start_time);
+                const endMins = timeToMinutes(booking.end_time);
+                const top = ((startMins - operatingStartMins) / 15) * SLOT_HEIGHT;
+                const height = ((endMins - startMins) / 15) * SLOT_HEIGHT;
+                
+                return (
+                  <div
+                    key={booking.id}
+                    className="absolute pointer-events-auto"
+                    style={{
+                      top: `${top}px`,
+                      left: leftOffset,
+                      width: columnWidth,
+                      height: `${height}px`,
+                      paddingLeft: '4px',
+                      paddingRight: '4px',
+                    }}
+                  >
+                    <SpanningBookingCard
+                      booking={booking}
+                      top={0}
+                      height={height}
+                      onClick={() => onBookingClick?.(booking)}
+                    />
+                  </div>
+                );
+              });
             })}
           </tbody>
         </table>
