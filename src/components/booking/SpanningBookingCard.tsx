@@ -75,78 +75,90 @@ export function SpanningBookingCard({
   const isShort = height < 40;
   const timeDisplay = `${formatTime(booking.start_time)} - ${formatTime(booking.end_time)} (${calculateDuration(booking.start_time, booking.end_time)})`;
 
-  const cardContent = (
-    <div
-      className={cn(
-        'absolute left-0 right-0 mx-0.5 bg-card border-l-4 rounded-r overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors border border-border/30 shadow-sm z-10',
-        borderColor
-      )}
-      style={{ top: `${top}px`, height: `${height}px` }}
-      onClick={(e) => {
-        e.stopPropagation();
-      }}
-    >
-      <div className={cn(
-        'p-1.5 flex items-start justify-between h-full',
-        isShort && 'items-center py-0.5'
-      )}>
-        <div className="flex flex-col min-w-0 flex-1">
-          <span className={cn(
-            'font-medium text-xs truncate',
-            isCancelled && 'line-through text-muted-foreground'
-          )}>
-            {displayText}
-          </span>
-          {!isShort && (
-            <>
-              <span className={cn(
-                'text-[10px] text-muted-foreground truncate',
-                isCancelled && 'line-through'
-              )}>
-                {booking.session_type === 'serviced' ? 'EXP Session' : 'DIY Session'}
-              </span>
-              <span className={cn(
-                'text-[10px] text-muted-foreground truncate',
-                isCancelled && 'line-through'
-              )}>
-                {timeDisplay}
-              </span>
-            </>
-          )}
-        </div>
-        <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+  const cardInnerContent = (
+    <div className={cn(
+      'p-1.5 flex items-start justify-between h-full',
+      isShort && 'items-center py-0.5'
+    )}>
+      <div className="flex flex-col min-w-0 flex-1">
+        <span className={cn(
+          'font-medium text-xs truncate',
+          isCancelled && 'line-through text-muted-foreground'
+        )}>
+          {displayText}
+        </span>
+        {!isShort && (
+          <>
+            <span className={cn(
+              'text-[10px] text-muted-foreground truncate',
+              isCancelled && 'line-through'
+            )}>
+              {booking.session_type === 'serviced' ? 'EXP Session' : 'DIY Session'}
+            </span>
+            <span className={cn(
+              'text-[10px] text-muted-foreground truncate',
+              isCancelled && 'line-through'
+            )}>
+              {timeDisplay}
+            </span>
+          </>
+        )}
       </div>
+      <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
     </div>
+  );
+
+  const cardStyles = cn(
+    'h-full bg-card border-l-4 rounded-r overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors border border-border/30 shadow-sm',
+    borderColor
   );
 
   // Wrap with context menu and hover card for staff/admin
   if (isStaffOrAdmin) {
     return (
-      <HoverCard openDelay={300} open={isMenuOpen ? false : undefined}>
-        <HoverCardTrigger>
-          <BookingContextMenu
-            booking={booking as StudioBooking}
-            onViewEdit={() => onClick?.()}
-            onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
-            onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
-            onOpenChange={setIsMenuOpen}
+      <div
+        className="absolute left-0 right-0 mx-0.5 z-10"
+        style={{ top: `${top}px`, height: `${height}px` }}
+      >
+        <HoverCard openDelay={300} open={isMenuOpen ? false : undefined}>
+          <HoverCardTrigger asChild>
+            <div className="h-full">
+              <BookingContextMenu
+                booking={booking as StudioBooking}
+                onViewEdit={() => onClick?.()}
+                onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
+                onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
+                onOpenChange={setIsMenuOpen}
+              >
+                <div className={cardStyles} onClick={(e) => e.stopPropagation()}>
+                  {cardInnerContent}
+                </div>
+              </BookingContextMenu>
+            </div>
+          </HoverCardTrigger>
+          <HoverCardContent 
+            className="w-72" 
+            side="right" 
+            align="start"
+            sideOffset={8}
+            avoidCollisions={true}
+            collisionPadding={16}
           >
-            {cardContent}
-          </BookingContextMenu>
-        </HoverCardTrigger>
-        <HoverCardContent 
-          className="w-72" 
-          side="right" 
-          align="start"
-          sideOffset={8}
-          avoidCollisions={true}
-          collisionPadding={16}
-        >
-          <BookingHoverContent booking={booking as StudioBooking} studioName={studioName} />
-        </HoverCardContent>
-      </HoverCard>
+            <BookingHoverContent booking={booking as StudioBooking} studioName={studioName} />
+          </HoverCardContent>
+        </HoverCard>
+      </div>
     );
   }
 
-  return cardContent;
+  return (
+    <div
+      className="absolute left-0 right-0 mx-0.5 z-10"
+      style={{ top: `${top}px`, height: `${height}px` }}
+    >
+      <div className={cardStyles} onClick={(e) => e.stopPropagation()}>
+        {cardInnerContent}
+      </div>
+    </div>
+  );
 }
