@@ -1921,6 +1921,7 @@ export function NewBookingModal({
             customerEmail,
             affiliateCode,
             holderType,
+            wantsEditing,
           })),
           totals_json: { customerTotal: displayPrice },
         }])
@@ -2007,6 +2008,7 @@ export function NewBookingModal({
             affiliateCode,
             holderType,
             notes,
+            wantsEditing,
           })),
           totals_json: { customerTotal: displayPrice },
         }]);
@@ -2150,6 +2152,7 @@ export function NewBookingModal({
               customerEmail,
               affiliateCode,
               holderType,
+              wantsEditing,
             })),
             totals_json: { customerTotal: displayPrice },
           })
