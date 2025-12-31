@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -66,7 +67,8 @@ export function BookingCalendar({
   const [listStartDate, setListStartDate] = useState<Date>(new Date());
   const [listEndDate, setListEndDate] = useState<Date>(addDays(new Date(), 14));
 
-  const { isStaff } = useAuth();
+  const navigate = useNavigate();
+  const { isAuthenticated, isStaff } = useAuth();
   const { data: studios = [] } = useStudios();
   const { data: diyRates = [] } = useDiyRates();
   const { data: calendarSettings = [] } = useCalendarSettings();
@@ -349,44 +351,46 @@ export function BookingCalendar({
         </CardContent>
       </Card>
 
-      {/* Floating Action Button - Admin/Staff only */}
-      {isStaff && (
-        <>
-          <Button
-            onClick={() => {
-              setModalPrefill(null);
-              setEditingBooking(null);
-              setShowNewBookingModal(true);
-            }}
-            className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
-            size="icon"
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
+      {/* Floating Action Button - Visible to all, prompts auth for unauthenticated */}
+      <Button
+        onClick={() => {
+          if (!isAuthenticated) {
+            navigate('/auth?redirect=/book');
+            return;
+          }
+          setModalPrefill(null);
+          setEditingBooking(null);
+          setShowNewBookingModal(true);
+        }}
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+        size="icon"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
 
-          {/* New Booking Modal */}
-          <NewBookingModal
-            open={showNewBookingModal}
-            onClose={handleCloseModal}
-            studios={activeStudios}
-            diyRates={diyRates}
-            defaultDate={modalPrefill?.date || currentDate}
-            defaultStudioIds={modalPrefill?.studioIds}
-            defaultStartTime={modalPrefill?.startTime}
-            defaultEndTime={modalPrefill?.endTime}
-            existingBooking={editingBooking}
-            operatingStart={defaultSettings.operatingStart}
-            operatingEnd={defaultSettings.operatingEnd}
-            onBookingCreated={() => {
-              setClearPendingTrigger(prev => prev + 1);
-              setPendingDurationUpdate(null);
-              handleCloseModal();
-            }}
-            onDurationChange={(studioIds, startTime, endTime) => {
-              setPendingDurationUpdate({ studioIds, startTime, endTime });
-            }}
-          />
-        </>
+      {/* New Booking Modal - Only render for authenticated users */}
+      {isAuthenticated && (
+        <NewBookingModal
+          open={showNewBookingModal}
+          onClose={handleCloseModal}
+          studios={activeStudios}
+          diyRates={diyRates}
+          defaultDate={modalPrefill?.date || currentDate}
+          defaultStudioIds={modalPrefill?.studioIds}
+          defaultStartTime={modalPrefill?.startTime}
+          defaultEndTime={modalPrefill?.endTime}
+          existingBooking={editingBooking}
+          operatingStart={defaultSettings.operatingStart}
+          operatingEnd={defaultSettings.operatingEnd}
+          onBookingCreated={() => {
+            setClearPendingTrigger(prev => prev + 1);
+            setPendingDurationUpdate(null);
+            handleCloseModal();
+          }}
+          onDurationChange={(studioIds, startTime, endTime) => {
+            setPendingDurationUpdate({ studioIds, startTime, endTime });
+          }}
+        />
       )}
     </div>
   );

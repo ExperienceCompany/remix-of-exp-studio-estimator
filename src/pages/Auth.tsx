@@ -28,7 +28,9 @@ export default function Auth() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/');
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get('redirect') || '/';
+      navigate(redirectTo);
     }
   }, [isAuthenticated, navigate]);
 
