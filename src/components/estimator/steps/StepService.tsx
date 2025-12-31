@@ -168,7 +168,7 @@ export function StepService() {
               basePrice: Number(longFormItem.base_price),
               customerPrice: Number(longFormItem.customer_price),
               incrementPrice: longFormItem.increment_price ? Number(longFormItem.increment_price) : null,
-              assignedCrew: { lv1: 0, lv2: 0, lv3: 0 },
+              crewLevel: 'lv2',
             },
           ];
         }
