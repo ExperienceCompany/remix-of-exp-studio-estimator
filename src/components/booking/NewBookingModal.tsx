@@ -550,6 +550,7 @@ export function NewBookingModal({
           
           // Holder type
           if (sel.holderType) setHolderType(sel.holderType);
+          if (sel.wantsEditing !== undefined) setWantsEditing(sel.wantsEditing);
         } else {
           // No linked quote - use defaults
           setServiceType(null);
@@ -560,6 +561,91 @@ export function NewBookingModal({
           setAffiliateCode('');
           setEditingItems([]);
           setAddonHours({});
+        }
+      } else if (duplicatingFrom) {
+        // Pre-fill from duplicating booking (new booking with copied data)
+        setBookingType(duplicatingFrom.booking_type);
+        setSessionType((duplicatingFrom.session_type as SessionType) || 'diy');
+        setDate(defaultDate || new Date()); // Use prefill date, not source date
+        setStartTime(defaultStartTime ? to12Hour(defaultStartTime) : to12Hour(duplicatingFrom.start_time));
+        setEndTime(defaultEndTime ? to12Hour(defaultEndTime) : to12Hour(duplicatingFrom.end_time));
+        setRepeatConfig(createDefaultRepeatConfig(defaultDate || new Date()));
+        setSelectedStudios(defaultStudioIds || [duplicatingFrom.studio_id]);
+        setHolderType(duplicatingFrom.customer_name ? 'customer' : 'casual');
+        setCustomerName(duplicatingFrom.customer_name || '');
+        setCustomerEmail(duplicatingFrom.customer_email || '');
+        setCustomerPhone(duplicatingFrom.customer_phone || '');
+        setManualPrice('');
+        setPaymentStatus('not_applicable');
+        setNotes(duplicatingFrom.notes || '');
+        setDetails(duplicatingFrom.details || '');
+        setTitle(duplicatingFrom.title || '');
+        setPeopleCount(duplicatingFrom.people_count || 1);
+        setExistingRepeatInfo(null); // New booking, no repeat series
+        
+        // Fetch and restore session details from linked quote if available
+        if (duplicatingFrom.quote_id) {
+          supabase
+            .from('quotes')
+            .select('*')
+            .eq('id', duplicatingFrom.quote_id)
+            .maybeSingle()
+            .then(({ data: dupQuote }) => {
+              if (dupQuote) {
+                const sel = (dupQuote.selections_json as Record<string, unknown>) || {};
+                
+                // Service & duration
+                setServiceType((sel.serviceType as ServiceType) || null);
+                setSessionDuration(dupQuote.hours || (sel.sessionDuration as number) || 1);
+                setCameraCount(dupQuote.camera_count || (sel.cameraCount as number) || 1);
+                
+                // Crew allocation
+                if (sel.crewAllocation) {
+                  const crew = sel.crewAllocation as Record<string, number>;
+                  setCrewAllocation({
+                    lv1: crew.lv1 || 0,
+                    lv2: crew.lv2 || 0,
+                    lv3: crew.lv3 || 0,
+                  });
+                } else {
+                  setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
+                }
+                
+                // Add-ons
+                setSelectedAddons((sel.selectedAddons as string[]) || []);
+                setEditingItems((sel.editingItems as EditingItem[]) || []);
+                setAddonHours((sel.addonHours as Record<string, number>) || {});
+                
+                // Affiliate code
+                setAffiliateCode(dupQuote.affiliate_code || (sel.affiliateCode as string) || '');
+                
+                // Holder type & wantsEditing
+                if (sel.holderType) setHolderType(sel.holderType as HolderType);
+                if (sel.wantsEditing !== undefined) setWantsEditing(sel.wantsEditing as boolean);
+              } else {
+                // No linked quote - use defaults for service details
+                setServiceType(null);
+                setSessionDuration(1);
+                setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
+                setCameraCount(1);
+                setSelectedAddons([]);
+                setAffiliateCode('');
+                setEditingItems([]);
+                setAddonHours({});
+                setWantsEditing(null);
+              }
+            });
+        } else {
+          // No linked quote - use defaults for service details
+          setServiceType(null);
+          setSessionDuration(1);
+          setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
+          setCameraCount(1);
+          setSelectedAddons([]);
+          setAffiliateCode('');
+          setEditingItems([]);
+          setAddonHours({});
+          setWantsEditing(null);
         }
       } else {
         // New booking - use prefill data or defaults
@@ -592,7 +678,7 @@ export function NewBookingModal({
         setExistingRepeatInfo(null);
       }
     }
-  }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking, linkedQuote]);
+  }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking, linkedQuote, duplicatingFrom]);
 
   const timeSlots = useMemo(() => {
     return generateTimeSlots(operatingStart, operatingEnd);
