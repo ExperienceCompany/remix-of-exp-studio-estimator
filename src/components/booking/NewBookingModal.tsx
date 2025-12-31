@@ -71,7 +71,7 @@ import {
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons, useEditingMenu } from '@/hooks/useEstimatorData';
 import { Switch } from '@/components/ui/switch';
-import { useCreateBooking, useUpdateBooking, useCancelBooking, useStudioBookings, StudioBooking } from '@/hooks/useStudioBookings';
+import { useCreateBooking, useUpdateBooking, useCancelBooking, useStudioBookings, useUpdateSeriesFromDate, useUpdateEntireSeries, StudioBooking } from '@/hooks/useStudioBookings';
 import { AffiliateCodeInput } from '@/components/AffiliateCodeInput';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -117,6 +117,7 @@ interface NewBookingModalProps {
   duplicatingFrom?: StudioBooking | null;
   operatingStart: string;
   operatingEnd: string;
+  editScope?: 'occurrence' | 'from_here' | 'series' | null;
   onBookingCreated?: () => void;
   onDurationChange?: (studioIds: string[], newStartTime: string, newEndTime: string) => void;
 }
@@ -305,12 +306,15 @@ export function NewBookingModal({
   duplicatingFrom,
   operatingStart,
   operatingEnd,
+  editScope,
   onBookingCreated,
   onDurationChange,
 }: NewBookingModalProps) {
   const { toast } = useToast();
   const createBooking = useCreateBooking();
   const updateBooking = useUpdateBooking();
+  const updateSeriesFromDate = useUpdateSeriesFromDate();
+  const updateEntireSeries = useUpdateEntireSeries();
   const cancelBooking = useCancelBooking();
   const { data: providerLevels = [] } = useProviderLevels();
   const { data: services = [] } = useServices();
@@ -2143,8 +2147,7 @@ export function NewBookingModal({
         bookingEndTime = `${endH % 12 || 12}:${endM.toString().padStart(2, '0')} ${endH >= 12 ? 'PM' : 'AM'}`;
       }
       
-      await updateBooking.mutateAsync({
-        id: existingBooking.id,
+      const bookingUpdates = {
         booking_date: format(date, 'yyyy-MM-dd'),
         start_time: to24Hour(startTime),
         end_time: to24Hour(bookingEndTime),
@@ -2157,10 +2160,41 @@ export function NewBookingModal({
         details: details || null,
         title: title || null,
         people_count: peopleCount || 1,
-      });
+      };
       
-      // Also update the linked quote if it exists
-      if (existingBooking.quote_id) {
+      // Determine which update method to use based on editScope
+      if (editScope === 'from_here' && existingBooking.repeat_series_id) {
+        // Update this and all following bookings in the series
+        const result = await updateSeriesFromDate.mutateAsync({
+          seriesId: existingBooking.repeat_series_id,
+          fromDate: existingBooking.booking_date,
+          updates: bookingUpdates,
+        });
+        toast({ 
+          title: 'Series updated', 
+          description: `Updated ${result.length} bookings from this date onwards.` 
+        });
+      } else if (editScope === 'series' && existingBooking.repeat_series_id) {
+        // Update entire series
+        const result = await updateEntireSeries.mutateAsync({
+          seriesId: existingBooking.repeat_series_id,
+          updates: bookingUpdates,
+        });
+        toast({ 
+          title: 'Series updated', 
+          description: `Updated all ${result.length} bookings in this series.` 
+        });
+      } else {
+        // Update single booking (default / 'occurrence')
+        await updateBooking.mutateAsync({
+          id: existingBooking.id,
+          ...bookingUpdates,
+        });
+        toast({ title: 'Booking updated successfully' });
+      }
+      
+      // Also update the linked quote if it exists (only for single occurrence edits)
+      if (existingBooking.quote_id && editScope === 'occurrence') {
         await supabase
           .from('quotes')
           .update({
@@ -2190,7 +2224,6 @@ export function NewBookingModal({
           .eq('id', existingBooking.quote_id);
       }
       
-      toast({ title: 'Booking updated successfully' });
       onBookingCreated?.();
       onClose();
     } catch (error) {
@@ -2750,20 +2783,41 @@ export function NewBookingModal({
 
               {/* Repeat */}
               {isEditing && existingRepeatInfo?.pattern ? (
-                // Read-only display for existing repeat bookings
+                // Display for existing repeat bookings - context changes based on editScope
                 <div className="space-y-2">
                   <Label className="flex items-center gap-1">
                     Repeat Series
-                    <Badge variant="secondary" className="ml-2 font-normal">
-                      Part of series
+                    <Badge 
+                      variant={editScope === 'occurrence' ? 'secondary' : 'default'} 
+                      className="ml-2 font-normal"
+                    >
+                      {editScope === 'series' 
+                        ? 'Editing full series' 
+                        : editScope === 'from_here' 
+                          ? 'Editing this & following' 
+                          : 'Part of series'}
                     </Badge>
                   </Label>
-                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md border">
-                    <Repeat className="h-4 w-4 text-muted-foreground" />
+                  <div className={cn(
+                    "flex items-center gap-2 p-3 rounded-md border",
+                    editScope === 'occurrence' 
+                      ? "bg-muted/50" 
+                      : "bg-primary/10 border-primary/20"
+                  )}>
+                    <Repeat className={cn(
+                      "h-4 w-4",
+                      editScope === 'occurrence' 
+                        ? "text-muted-foreground" 
+                        : "text-primary"
+                    )} />
                     <span className="text-sm">{existingRepeatInfo.pattern}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    This booking is part of a repeat series. Editing only affects this occurrence.
+                    {editScope === 'series' 
+                      ? 'Changes will apply to all bookings in this series.'
+                      : editScope === 'from_here'
+                        ? 'Changes will apply to this booking and all following occurrences.'
+                        : 'This booking is part of a repeat series. Editing only affects this occurrence.'}
                   </p>
                 </div>
               ) : !isEditing ? (
