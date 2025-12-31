@@ -40,6 +40,7 @@ import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, sta
 import { useStudios, useDiyRates } from '@/hooks/useEstimatorData';
 import { useStudioBookings, useCancelBooking, useCancelSeriesFromDate, useCancelEntireSeries } from '@/hooks/useStudioBookings';
 import { useCalendarSettings } from '@/hooks/useCalendarSettings';
+import { useSharedStudioGroups } from '@/hooks/useSharedStudioGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { MonthView } from './views/MonthView';
@@ -102,6 +103,7 @@ export function BookingCalendar({
   const { data: studios = [] } = useStudios();
   const { data: diyRates = [] } = useDiyRates();
   const { data: calendarSettings = [] } = useCalendarSettings();
+  const { data: sharedStudioGroups = [] } = useSharedStudioGroups();
   
   // Cancel mutations
   const cancelBooking = useCancelBooking();
@@ -447,6 +449,7 @@ export function BookingCalendar({
               operatingEnd={defaultSettings.operatingEnd}
               bufferMinutes={defaultSettings.bufferMinutes}
               diyRates={diyRates}
+              sharedStudioGroups={sharedStudioGroups}
               onSlotClick={(studioId, time) => onDateSelect?.(currentDate, studioId)}
               onBookingClick={handleBookingClickForEdit}
               onOpenBookingModal={handleOpenModalFromDayView}
