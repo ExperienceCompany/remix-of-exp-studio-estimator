@@ -342,6 +342,9 @@ export function NewBookingModal({
   } | null>(null);
   const [showDateTimeEditor, setShowDateTimeEditor] = useState(false);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  
+  // Track last DIY duration for persistence when changing start time
+  const [lastDiyDuration, setLastDiyDuration] = useState<number>(60); // minutes
 
   // Fetch linked quote when editing a booking with a quote_id
   useEffect(() => {
@@ -1012,19 +1015,13 @@ export function NewBookingModal({
         onDurationChange(selectedStudios, startTime24, newEndTime24);
       }
     } else {
-      // For DIY: ensure endTime is at least minDuration after startTime
-      const currentEnd24 = to24Hour(endTime);
-      const [endH, endM] = currentEnd24.split(':').map(Number);
-      const currentEndMinutes = endH * 60 + endM;
-      
-      // If current end time is before or equal to start + minDuration, auto-adjust
-      if (currentEndMinutes <= startMinutes + minDurationMinutes) {
-        const newEndMinutes = startMinutes + minDurationMinutes;
-        const newEndH = Math.floor(newEndMinutes / 60);
-        const newEndM = newEndMinutes % 60;
-        const adjustedEndTime = to12Hour(`${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`);
-        setEndTime(adjustedEndTime);
-      }
+      // For DIY: preserve the last selected duration (minimum 60 mins)
+      const durationToUse = Math.max(lastDiyDuration, minDurationMinutes);
+      const newEndMinutes = startMinutes + durationToUse;
+      const newEndH = Math.floor(newEndMinutes / 60);
+      const newEndM = newEndMinutes % 60;
+      const adjustedEndTime = to12Hour(`${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`);
+      setEndTime(adjustedEndTime);
     }
   };
 
@@ -1055,6 +1052,8 @@ export function NewBookingModal({
       // For DIY: only allow if end is after start + minDuration
       if (endMinutes >= startMinutes + minDurationMinutes) {
         setEndTime(newEndTime);
+        // Remember this duration for future start time changes
+        setLastDiyDuration(endMinutes - startMinutes);
       } else {
         // Auto-correct to minimum valid end time
         const newEndMinutes = startMinutes + minDurationMinutes;
@@ -1062,6 +1061,7 @@ export function NewBookingModal({
         const newEndM = newEndMinutes % 60;
         const correctedEndTime = to12Hour(`${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`);
         setEndTime(correctedEndTime);
+        setLastDiyDuration(minDurationMinutes);
       }
     }
   };
@@ -2499,7 +2499,7 @@ export function NewBookingModal({
                   }
                   
                   return (
-                    <div className="space-y-1 mt-2">
+                    <div className="space-y-2 mt-2">
                       {conflicts.map((c, i) => (
                         <div key={i} className="flex items-center gap-2 text-destructive text-sm">
                           <Ban className="h-4 w-4" />
@@ -2509,6 +2509,57 @@ export function NewBookingModal({
                           </span>
                         </div>
                       ))}
+                      
+                      {/* Find Available Slot Button */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={async () => {
+                          if (!date || selectedStudios.length === 0 || !startTime) return;
+                          setIsCheckingAvailability(true);
+                          try {
+                            const bookingDate = format(date, 'yyyy-MM-dd');
+                            const startTime24 = to24Hour(startTime);
+                            const effectiveEndTime = sessionType === 'serviced' ? computedEndTime : endTime;
+                            const durationMins = Math.round(calculateHours(startTime, effectiveEndTime) * 60);
+                            
+                            const suggestions = await findAvailableSlots(
+                              selectedStudios,
+                              bookingDate,
+                              startTime24,
+                              durationMins,
+                              15
+                            );
+                            
+                            const nextSlot = suggestions.afterSlots[0] || suggestions.beforeSlots[0];
+                            
+                            if (nextSlot) {
+                              setStartTime(to12Hour(nextSlot));
+                              const [h, m] = nextSlot.split(':').map(Number);
+                              const newEndMins = h * 60 + m + durationMins;
+                              const newEndH = Math.floor(newEndMins / 60);
+                              const newEndM = newEndMins % 60;
+                              const newEndTime = to12Hour(`${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`);
+                              setEndTime(newEndTime);
+                              toast({ title: 'Available slot found', description: `Updated to ${to12Hour(nextSlot)} - ${newEndTime}` });
+                            } else if (suggestions.nextDaySlot) {
+                              toast({ title: 'No slots today', description: `Try ${format(suggestions.nextDaySlot.date, 'MMM d')} at ${to12Hour(suggestions.nextDaySlot.time)}` });
+                            } else {
+                              toast({ title: 'No available slots', description: 'Try a different date or shorter duration.', variant: 'destructive' });
+                            }
+                          } catch (error) {
+                            console.error('Error finding slot:', error);
+                          } finally {
+                            setIsCheckingAvailability(false);
+                          }
+                        }}
+                        disabled={isCheckingAvailability}
+                      >
+                        <Search className="h-4 w-4" />
+                        {isCheckingAvailability ? 'Searching...' : 'Find Available Slot'}
+                      </Button>
                     </div>
                   );
                 })()}
