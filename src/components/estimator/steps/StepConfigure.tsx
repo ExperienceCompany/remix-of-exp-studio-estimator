@@ -169,6 +169,7 @@ export function StepConfigure() {
             const isVodcastOrPodcast = selection.serviceType === 'vodcast' || selection.serviceType === 'audio_podcast';
             const sessionDurationSeconds = selection.hours * 3600;
             const showSessionMinCaution = isLongForm && isVodcastOrPodcast && sessionDurationSeconds > config.minDuration;
+            const isBelowSessionDuration = duration < sessionDurationSeconds;
             
             return (
               <div key={item.id} className="space-y-3 pb-4 border-b last:border-0">
@@ -198,7 +199,16 @@ export function StepConfigure() {
                     <span>{config.formatDuration(config.maxDuration)}</span>
                   </div>
                   
-                  {showSessionMinCaution && (
+                  {showSessionMinCaution && isBelowSessionDuration && (
+                    <div className="flex items-start gap-2 p-2 bg-destructive/10 border border-destructive/30 rounded-md text-destructive">
+                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs">
+                        Your edit duration is shorter than your recording. Some content may be removed. For highlight clips, consider a <strong>General Edit</strong> or <strong>Social Template</strong>.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {showSessionMinCaution && !isBelowSessionDuration && (
                     <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-200">
                       <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <p className="text-xs">
