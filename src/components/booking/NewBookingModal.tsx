@@ -2629,12 +2629,27 @@ export function NewBookingModal({
               <div className="space-y-2">
                 <Label htmlFor="people-count">Expected people count</Label>
                 <div className="flex items-center gap-2">
-                  <Input
+                <Input
                     id="people-count"
                     type="number"
                     min={1}
-                    value={peopleCount}
-                    onChange={(e) => setPeopleCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    value={peopleCount || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setPeopleCount(0);
+                      } else {
+                        const parsed = parseInt(val);
+                        if (!isNaN(parsed) && parsed >= 0) {
+                          setPeopleCount(parsed);
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      if (peopleCount < 1) {
+                        setPeopleCount(1);
+                      }
+                    }}
                     className="w-20"
                   />
                   <Users className="h-4 w-4 text-muted-foreground" />
