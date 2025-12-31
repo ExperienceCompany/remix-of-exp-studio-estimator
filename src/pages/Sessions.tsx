@@ -398,7 +398,8 @@ export default function Sessions() {
       // Calculate running total: flat fees + (elapsed hours × hourly rate)
       const runningTotal = flatFees + (elapsedHours * combinedHourlyRate);
       
-      return runningTotal > 0 ? runningTotal : null;
+      // Always return the calculated total for active sessions (even if 0)
+      return runningTotal;
     }
     
     return null;
@@ -766,7 +767,7 @@ export default function Sessions() {
                           {session.final_total != null
                             ? `$${session.final_total.toFixed(2)}`
                             : session.status === 'active' || session.status === 'paused'
-                            ? <span className="text-primary">${getCurrentTotal(session)?.toFixed(2) || 'Running...'}</span>
+                            ? <span className="text-primary">${(getCurrentTotal(session) ?? 0).toFixed(2)}</span>
                             : '—'}
                         </TableCell>
                         <TableCell>
