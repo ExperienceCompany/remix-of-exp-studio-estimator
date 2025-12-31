@@ -185,6 +185,22 @@ export function SessionBreakdown({ selection }: SessionBreakdownProps) {
           )}
         </div>
 
+        {/* Details */}
+        {sel.details && (
+          <div className="border-t pt-4">
+            <p className="text-sm text-muted-foreground mb-1">Details</p>
+            <p className="text-sm">{sel.details}</p>
+          </div>
+        )}
+
+        {/* Notes (internal) */}
+        {sel.notes && (
+          <div className="border-t pt-4">
+            <p className="text-sm text-muted-foreground mb-1">Notes</p>
+            <p className="text-sm italic text-muted-foreground">{sel.notes}</p>
+          </div>
+        )}
+
         {/* Editing Items */}
         {selection.editingItems && selection.editingItems.length > 0 && (
           <>
