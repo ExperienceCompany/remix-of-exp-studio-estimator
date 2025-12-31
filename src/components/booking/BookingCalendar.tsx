@@ -20,6 +20,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   ChevronLeft,
   ChevronRight,
   Calendar,
@@ -27,6 +33,7 @@ import {
   List,
   Columns,
   Plus,
+  Pencil,
 } from 'lucide-react';
 import { NewBookingModal } from './NewBookingModal';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
@@ -80,6 +87,10 @@ export function BookingCalendar({
     booking: StudioBooking;
     scope: 'occurrence' | 'from_here' | 'series';
   } | null>(null);
+  
+  // Edit scope selection state for repeat bookings
+  const [pendingEditBooking, setPendingEditBooking] = useState<StudioBooking | null>(null);
+  const [editScope, setEditScope] = useState<'occurrence' | 'from_here' | 'series' | null>(null);
   
   // List view date range state
   const [listStartDate, setListStartDate] = useState<Date>(new Date());
@@ -203,11 +214,30 @@ export function BookingCalendar({
   // Open modal for editing existing booking (admin only)
   const handleBookingClickForEdit = (booking: StudioBooking) => {
     if (isStaff) {
-      setEditingBooking(booking);
-      setModalPrefill(null);
-      setShowNewBookingModal(true);
+      // If it's a repeat booking, show scope selection first
+      if (booking.repeat_series_id) {
+        setPendingEditBooking(booking);
+        // Dialog will open based on pendingEditBooking being set
+      } else {
+        // Non-repeat booking: open edit modal directly
+        setEditingBooking(booking);
+        setEditScope('occurrence');
+        setModalPrefill(null);
+        setShowNewBookingModal(true);
+      }
     }
     onBookingClick?.(booking);
+  };
+
+  // Handle edit scope selection for repeat bookings
+  const handleEditScopeSelection = (scope: 'occurrence' | 'from_here' | 'series') => {
+    if (pendingEditBooking) {
+      setEditScope(scope);
+      setEditingBooking(pendingEditBooking);
+      setModalPrefill(null);
+      setShowNewBookingModal(true);
+      setPendingEditBooking(null);
+    }
   };
 
   // Open modal from DayView with prefilled data
@@ -227,6 +257,7 @@ export function BookingCalendar({
     setEditingBooking(null);
     setDuplicatingFrom(null);
     setModalPrefill(null);
+    setEditScope(null);
   };
 
   // Duplicate booking - prefill modal with booking data for new booking
@@ -488,6 +519,7 @@ export function BookingCalendar({
           duplicatingFrom={duplicatingFrom}
           operatingStart={defaultSettings.operatingStart}
           operatingEnd={defaultSettings.operatingEnd}
+          editScope={editScope}
           onBookingCreated={() => {
             setClearPendingTrigger(prev => prev + 1);
             setPendingDurationUpdate(null);
@@ -498,6 +530,48 @@ export function BookingCalendar({
           }}
         />
       )}
+
+      {/* Edit Scope Selection Dialog for Repeat Bookings */}
+      <Dialog open={!!pendingEditBooking} onOpenChange={(open) => !open && setPendingEditBooking(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <Pencil className="h-5 w-5" />
+              <DialogTitle>Edit {pendingEditBooking?.booking_type} booking</DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p className="text-muted-foreground mb-4">
+              This is a repeating booking. What would you like to edit?
+            </p>
+            
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
+                className="justify-center py-6"
+                onClick={() => handleEditScopeSelection('occurrence')}
+              >
+                This occurrence
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-center py-6"
+                onClick={() => handleEditScopeSelection('from_here')}
+              >
+                This and following
+              </Button>
+              <Button
+                variant="outline"
+                className="justify-center py-6"
+                onClick={() => handleEditScopeSelection('series')}
+              >
+                The full series
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={!!cancelConfirm} onOpenChange={(open) => !open && setCancelConfirm(null)}>

@@ -235,3 +235,62 @@ export function useCancelEntireSeries() {
     },
   });
 }
+
+// Update bookings in a series from a specific date
+export function useUpdateSeriesFromDate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      seriesId, 
+      fromDate,
+      updates
+    }: { 
+      seriesId: string; 
+      fromDate: string;
+      updates: Partial<Omit<StudioBooking, 'id' | 'created_at' | 'updated_at' | 'repeat_series_id' | 'repeat_pattern'>>;
+    }) => {
+      const { data, error } = await supabase
+        .from('studio_bookings')
+        .update(updates)
+        .eq('repeat_series_id', seriesId)
+        .gte('booking_date', fromDate)
+        .neq('status', 'cancelled')
+        .select();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['studio_bookings'] });
+    },
+  });
+}
+
+// Update entire series
+export function useUpdateEntireSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      seriesId,
+      updates
+    }: { 
+      seriesId: string;
+      updates: Partial<Omit<StudioBooking, 'id' | 'created_at' | 'updated_at' | 'repeat_series_id' | 'repeat_pattern'>>;
+    }) => {
+      const { data, error } = await supabase
+        .from('studio_bookings')
+        .update(updates)
+        .eq('repeat_series_id', seriesId)
+        .neq('status', 'cancelled')
+        .select();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['studio_bookings'] });
+    },
+  });
+}
