@@ -66,6 +66,7 @@ import {
   Building2,
   ChevronsUpDown,
   Trash2,
+  Repeat,
 } from 'lucide-react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { useProviderLevels, useServices, useVodcastCameraAddons, useSessionAddons, useEditingMenu } from '@/hooks/useEstimatorData';
@@ -381,6 +382,12 @@ export function NewBookingModal({
   
   // Track last DIY duration for persistence when changing start time
   const [lastDiyDuration, setLastDiyDuration] = useState<number>(60); // minutes
+  
+  // Track existing repeat info for editing display
+  const [existingRepeatInfo, setExistingRepeatInfo] = useState<{
+    series_id: string | null;
+    pattern: string | null;
+  } | null>(null);
 
   // Fetch linked quote when editing a booking with a quote_id
   useEffect(() => {
@@ -505,6 +512,12 @@ export function NewBookingModal({
         setTitle(existingBooking.title || '');
         setPeopleCount(existingBooking.people_count || 1);
         
+        // Store repeat info from existing booking for display
+        setExistingRepeatInfo({
+          series_id: existingBooking.repeat_series_id || null,
+          pattern: existingBooking.repeat_pattern || null
+        });
+        
         // Restore session details from linked quote if available
         if (linkedQuote) {
           const sel = linkedQuote.selections_json || {};
@@ -574,6 +587,7 @@ export function NewBookingModal({
         setEditingItems([]);
         setAddonHours({});
         setWantsEditing(null);
+        setExistingRepeatInfo(null);
       }
     }
   }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking, linkedQuote]);
@@ -2613,12 +2627,32 @@ export function NewBookingModal({
               </div>
 
               {/* Repeat */}
-              <RepeatOptions
-                config={repeatConfig}
-                onChange={setRepeatConfig}
-                startDate={date || new Date()}
-                startTime={startTime}
-              />
+              {isEditing && existingRepeatInfo?.pattern ? (
+                // Read-only display for existing repeat bookings
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    Repeat Series
+                    <Badge variant="secondary" className="ml-2 font-normal">
+                      Part of series
+                    </Badge>
+                  </Label>
+                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md border">
+                    <Repeat className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{existingRepeatInfo.pattern}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This booking is part of a repeat series. Editing only affects this occurrence.
+                  </p>
+                </div>
+              ) : !isEditing ? (
+                // Full repeat options for new bookings
+                <RepeatOptions
+                  config={repeatConfig}
+                  onChange={setRepeatConfig}
+                  startDate={date || new Date()}
+                  startTime={startTime}
+                />
+              ) : null}
 
 
               {/* Price & Payment - Only for DIY */}
