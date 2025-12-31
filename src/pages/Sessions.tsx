@@ -237,6 +237,9 @@ export default function Sessions() {
   };
 
   const getStudioName = (session: Session): string => {
+    // First try studioName from booking, then studioType label
+    const studioName = (session.selections_json as any)?.studioName;
+    if (studioName) return studioName;
     const studioType = session.selections_json?.studioType;
     return studioType ? (STUDIO_LABELS[studioType as StudioType] || studioType) : '—';
   };
@@ -286,12 +289,36 @@ export default function Sessions() {
     return null;
   };
 
+  const getSessionTitle = (session: Session): string | null => {
+    return (session.selections_json as any)?.title || null;
+  };
+
+  const getPeopleCount = (session: Session): number | null => {
+    return (session.selections_json as any)?.peopleCount || null;
+  };
+
   const getSessionHours = (session: Session): number | null => {
-    return session.selections_json?.hours || null;
+    // First try direct hours field
+    if (session.selections_json?.hours) {
+      return session.selections_json.hours;
+    }
+    // Calculate from start/end time
+    const start = (session.selections_json as any)?.startTime;
+    const end = (session.selections_json as any)?.endTime;
+    if (start && end) {
+      const [startH, startM] = start.split(':').map(Number);
+      const [endH, endM] = end.split(':').map(Number);
+      const startMins = startH * 60 + startM;
+      const endMins = endH * 60 + endM;
+      const diffHours = (endMins - startMins) / 60;
+      return diffHours > 0 ? diffHours : null;
+    }
+    return null;
   };
 
   const getEstimateTotal = (session: Session): number | null => {
     return session.original_total || 
+           (session.selections_json as any)?.estimatedTotal ||
            (session.selections_json as any)?.totals?.customerTotal ||
            null;
   };
@@ -473,7 +500,14 @@ export default function Sessions() {
                       <span className="text-muted-foreground">{getStudioName(session)}</span>
                     </div>
 
-                    {/* Row 2: Date, Time Range, Service */}
+                    {/* Row 2: Title if exists */}
+                    {getSessionTitle(session) && (
+                      <div className="font-semibold text-lg">
+                        {getSessionTitle(session)}
+                      </div>
+                    )}
+
+                    {/* Row 3: Date, Time Range, Service, Duration */}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
                       <span className="flex items-center gap-1">
                         <CalendarDays className="h-3.5 w-3.5" />
@@ -494,9 +528,15 @@ export default function Sessions() {
                           <span>{getServiceName(session)}</span>
                         </>
                       )}
+                      {getSessionHours(session) && (
+                        <>
+                          <span>•</span>
+                          <span>{getSessionHours(session)}hr{getSessionHours(session)! > 1 ? 's' : ''}</span>
+                        </>
+                      )}
                     </div>
 
-                    {/* Row 3: Customer, Crew, Duration, Estimate */}
+                    {/* Row 4: Customer, People, Crew, Estimate */}
                     <div className="flex items-center gap-3 text-sm flex-wrap">
                       {getCustomerName(session) && (
                         <span className="flex items-center gap-1 text-foreground">
@@ -504,19 +544,19 @@ export default function Sessions() {
                           {getCustomerName(session)}
                         </span>
                       )}
+                      {getPeopleCount(session) && getPeopleCount(session)! > 1 && (
+                        <Badge variant="outline" className="text-xs">
+                          {getPeopleCount(session)} people
+                        </Badge>
+                      )}
                       {getCrewDisplay(session) && (
                         <Badge variant="outline" className="text-xs">
                           {getCrewDisplay(session)}
                         </Badge>
                       )}
-                      {getSessionHours(session) && (
-                        <span className="text-muted-foreground">
-                          {getSessionHours(session)}hr{getSessionHours(session)! > 1 ? 's' : ''}
-                        </span>
-                      )}
                       {getEstimateTotal(session) && (
                         <span className="font-medium text-primary">
-                          Est: ${getEstimateTotal(session)}
+                          Est: ${getEstimateTotal(session)?.toFixed(2)}
                         </span>
                       )}
                     </div>
