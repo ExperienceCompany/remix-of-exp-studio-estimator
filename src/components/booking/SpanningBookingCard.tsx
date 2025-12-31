@@ -1,10 +1,19 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { ChevronDown } from 'lucide-react';
+import { MoreVertical, Pencil, Copy, Trash2 } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { getBookingDisplayText } from '@/lib/bookingDisplayUtils';
 import { BookingHoverContent } from './BookingHoverContent';
-import { BookingContextMenu } from './BookingContextMenu';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface SpanningBookingCardProps {
@@ -17,6 +26,7 @@ interface SpanningBookingCardProps {
     title: string | null;
     start_time: string;
     end_time: string;
+    repeat_series_id?: string | null;
   };
   top: number;
   height: number;
@@ -73,7 +83,84 @@ export function SpanningBookingCard({
   const displayText = getBookingDisplayText(booking, isStaffOrAdmin);
   const isCancelled = booking.status === 'cancelled';
   const isShort = height < 40;
+  const isRepeatBooking = !!(booking as StudioBooking).repeat_series_id;
   const timeDisplay = `${formatTime(booking.start_time)} - ${formatTime(booking.end_time)} (${calculateDuration(booking.start_time, booking.end_time)})`;
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.();
+  };
+
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  // Menu content for staff/admin
+  const menuContent = isStaffOrAdmin ? (
+    <DropdownMenu onOpenChange={setIsMenuOpen}>
+      <DropdownMenuTrigger asChild>
+        <button 
+          className="p-0.5 rounded hover:bg-muted/80 transition-colors shrink-0"
+          onClick={handleMenuClick}
+        >
+          <MoreVertical className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        <DropdownMenuItem onClick={() => onClick?.()}>
+          <Pencil className="h-4 w-4 mr-2" />
+          View/edit details
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onDuplicate?.(booking as StudioBooking)}>
+          <Copy className="h-4 w-4 mr-2" />
+          Duplicate
+        </DropdownMenuItem>
+        
+        {!isCancelled && (
+          <>
+            <DropdownMenuSeparator />
+            
+            {isRepeatBooking ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="text-destructive focus:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove...
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem 
+                    onClick={() => onCancel?.(booking as StudioBooking, 'occurrence')}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    ...this occurrence
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onCancel?.(booking as StudioBooking, 'from_here')}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    ...this and following
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onCancel?.(booking as StudioBooking, 'series')}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    ...the full series
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : (
+              <DropdownMenuItem 
+                onClick={() => onCancel?.(booking as StudioBooking, 'occurrence')}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
 
   const cardInnerContent = (
     <div className={cn(
@@ -104,7 +191,7 @@ export function SpanningBookingCard({
           </>
         )}
       </div>
-      <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+      {menuContent}
     </div>
   );
 
@@ -113,7 +200,7 @@ export function SpanningBookingCard({
     borderColor
   );
 
-  // Wrap with context menu and hover card for staff/admin
+  // Wrap with hover card for staff/admin
   if (isStaffOrAdmin) {
     return (
       <div
@@ -122,18 +209,8 @@ export function SpanningBookingCard({
       >
         <HoverCard openDelay={300} open={isMenuOpen ? false : undefined}>
           <HoverCardTrigger asChild>
-            <div className="h-full">
-              <BookingContextMenu
-                booking={booking as StudioBooking}
-                onViewEdit={() => onClick?.()}
-                onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
-                onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
-                onOpenChange={setIsMenuOpen}
-              >
-                <div className={cardStyles} onClick={(e) => e.stopPropagation()}>
-                  {cardInnerContent}
-                </div>
-              </BookingContextMenu>
+            <div className={cardStyles} onClick={handleCardClick}>
+              {cardInnerContent}
             </div>
           </HoverCardTrigger>
           <HoverCardContent 
@@ -156,7 +233,7 @@ export function SpanningBookingCard({
       className="absolute left-0 right-0 mx-0.5 z-10"
       style={{ top: `${top}px`, height: `${height}px` }}
     >
-      <div className={cardStyles} onClick={(e) => e.stopPropagation()}>
+      <div className={cardStyles} onClick={handleCardClick}>
         {cardInnerContent}
       </div>
     </div>
