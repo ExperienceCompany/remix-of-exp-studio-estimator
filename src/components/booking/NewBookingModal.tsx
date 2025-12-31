@@ -76,6 +76,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { RepeatOptions, RepeatConfig, createDefaultRepeatConfig, calculateRepeatDates } from './RepeatOptions';
 import { useProfiles, useCreateProfile, Profile } from '@/hooks/useProfiles';
+import { useAuth } from '@/hooks/useAuth';
 import type { TimeSlotType, ServiceType, CrewAllocation, SessionAddon, EditingItem } from '@/types/estimator';
 
 type BookingType = 'customer' | 'internal' | 'unavailable';
@@ -281,6 +282,9 @@ export function NewBookingModal({
   const { data: profiles = [] } = useProfiles(profileSearch);
   const createProfile = useCreateProfile();
   
+  // Auth hook to check if user is admin
+  const { user: currentUser, isAdmin } = useAuth();
+  
   const isEditing = !!existingBooking;
   
   // Multi-step state
@@ -401,12 +405,34 @@ export function NewBookingModal({
     if (open) {
       setStep('basic');
       setProfileSearch('');
-      setSelectedProfile(null);
       setIsCreatingNewUser(false);
       setHolderPopoverOpen(false);
       setNewUserFirstName('');
       setNewUserLastName('');
       setNewUserOrganization('');
+      
+      // For non-admin users, pre-select their own profile
+      if (currentUser && !isAdmin && !existingBooking) {
+        // Fetch the user's profile and pre-select it
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .maybeSingle()
+          .then(({ data: userProfile }) => {
+            if (userProfile) {
+              setSelectedProfile(userProfile as Profile);
+              setHolderType('customer');
+              setCustomerName(userProfile.full_name || '');
+              setCustomerEmail(userProfile.email || '');
+              setCustomerPhone(userProfile.phone || '');
+            } else {
+              setSelectedProfile(null);
+            }
+          });
+      } else {
+        setSelectedProfile(null);
+      }
       
       if (existingBooking) {
         // Pre-populate for editing
