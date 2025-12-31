@@ -267,21 +267,31 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
       long_form_advanced: { baseDuration: 900, incrementDuration: 900 },
     };
 
+    // Crew level multipliers for post-production services
+    const EDITING_CREW_MULTIPLIERS: Record<string, number> = { lv1: 0.75, lv2: 1, lv3: 1.25 };
+
     // Editing items - calculate based on category type
     selection.editingItems.forEach(item => {
       const config = VIDEO_EDITING_CONFIG[item.category];
+      let baseItemTotal: number;
       let itemTotal: number;
       let labelDetails: string;
+      let multiplierStr = '';
       
       if (config) {
         // Video editing: duration-based pricing
         const duration = item.quantity;
         if (duration <= config.baseDuration) {
-          itemTotal = item.customerPrice;
+          baseItemTotal = item.customerPrice;
         } else {
           const additionalIncrements = Math.ceil((duration - config.baseDuration) / config.incrementDuration);
-          itemTotal = item.customerPrice + (additionalIncrements * (item.incrementPrice || 0));
+          baseItemTotal = item.customerPrice + (additionalIncrements * (item.incrementPrice || 0));
         }
+        
+        // Apply crew level multiplier for video editing
+        const crewLevel = item.crewLevel || 'lv2';
+        const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel];
+        itemTotal = Math.round(baseItemTotal * multiplier);
         
         // Format duration for display
         const formatDuration = (seconds: number) => {
@@ -293,26 +303,21 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
           return `${hrs}h${mins % 60 > 0 ? ` ${mins % 60}m` : ''}`;
         };
         labelDetails = formatDuration(duration);
+        
+        // Add multiplier to label
+        const levelLabel = crewLevel === 'lv1' ? 'Lv1' : crewLevel === 'lv2' ? 'Lv2' : 'Lv3';
+        multiplierStr = ` • ${levelLabel} (${multiplier}x)`;
       } else {
-        // Photo editing: simple quantity × price
-        itemTotal = item.customerPrice * item.quantity;
+        // Photo editing: simple quantity × price (no multiplier)
+        baseItemTotal = item.customerPrice * item.quantity;
+        itemTotal = baseItemTotal;
         labelDetails = `x${item.quantity} @ $${item.customerPrice}/ea`;
       }
       
       editingTotal += itemTotal;
       
-      // Build crew assignment string for display
-      let crewStr = '';
-      if (item.assignedCrew) {
-        const crewParts: string[] = [];
-        if (item.assignedCrew.lv1) crewParts.push(item.assignedCrew.lv1 > 1 ? `Lv1 ×${item.assignedCrew.lv1}` : 'Lv1');
-        if (item.assignedCrew.lv2) crewParts.push(item.assignedCrew.lv2 > 1 ? `Lv2 ×${item.assignedCrew.lv2}` : 'Lv2');
-        if (item.assignedCrew.lv3) crewParts.push(item.assignedCrew.lv3 > 1 ? `Lv3 ×${item.assignedCrew.lv3}` : 'Lv3');
-        if (crewParts.length > 0) crewStr = ` • ${crewParts.join(', ')}`;
-      }
-      
       lineItems.push({
-        label: `${item.name} (${labelDetails})${crewStr}`,
+        label: `${item.name} (${labelDetails})${multiplierStr}`,
         amount: itemTotal,
         type: 'editing',
       });
@@ -386,19 +391,26 @@ export function EstimatorProvider({ children }: { children: React.ReactNode }) {
     // Add editor payout for additional editing items
     selection.editingItems.forEach(item => {
       const config = VIDEO_EDITING_CONFIG[item.category];
+      let baseEditorPayout: number;
+      
       if (config) {
         // Video editing: duration-based payout using base_price as internal rate
         const duration = item.quantity;
         if (duration <= config.baseDuration) {
-          editorPayout += item.basePrice;
+          baseEditorPayout = item.basePrice;
         } else {
           const additionalIncrements = Math.ceil((duration - config.baseDuration) / config.incrementDuration);
           // Internal increment = half of customer increment (since incrementPrice is already customer-facing)
           const internalIncrement = (item.incrementPrice || 0) / 2;
-          editorPayout += item.basePrice + (additionalIncrements * internalIncrement);
+          baseEditorPayout = item.basePrice + (additionalIncrements * internalIncrement);
         }
+        
+        // Apply crew level multiplier for video editing payouts
+        const crewLevel = item.crewLevel || 'lv2';
+        const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel];
+        editorPayout += Math.round(baseEditorPayout * multiplier);
       } else {
-        // Photo editing: quantity × basePrice
+        // Photo editing: quantity × basePrice (no multiplier)
         editorPayout += item.basePrice * item.quantity;
       }
     });
