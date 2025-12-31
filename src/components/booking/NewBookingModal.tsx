@@ -734,6 +734,8 @@ export function NewBookingModal({
 
   // Compute per-studio availability for the current date/time selection
   const studioAvailability = useMemo(() => {
+    const BUFFER_MINUTES = 15;
+    
     if (!date || !startTime) return {};
     
     const effectiveEndTime = sessionType === 'serviced' ? computedEndTime : endTime;
@@ -750,7 +752,7 @@ export function NewBookingModal({
     const buyoutStudio = studios.find(s => s.type === 'full_studio_buyout');
     
     for (const studio of studios) {
-      // Check this studio's bookings for conflicts
+      // Check this studio's bookings for conflicts (with buffer)
       const studioBookings = dateBookings?.filter(b => 
         b.studio_id === studio.id && 
         b.status !== 'cancelled' &&
@@ -762,13 +764,13 @@ export function NewBookingModal({
         const bStart = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
         const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
         
-        if (startMins < bEnd && endMins > bStart) {
+        if (startMins < (bEnd + BUFFER_MINUTES) && endMins > (bStart - BUFFER_MINUTES)) {
           conflict = `${to12Hour(booking.start_time.slice(0, 5))} - ${to12Hour(booking.end_time.slice(0, 5))}`;
           break;
         }
       }
       
-      // Check if Full Studio Buyout blocks this studio
+      // Check if Full Studio Buyout blocks this studio (with buffer)
       if (buyoutStudio && !conflict && studio.id !== buyoutStudio.id) {
         const buyoutBookings = dateBookings?.filter(b => 
           b.studio_id === buyoutStudio.id && 
@@ -780,14 +782,14 @@ export function NewBookingModal({
           const bStart = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
           const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
           
-          if (startMins < bEnd && endMins > bStart) {
+          if (startMins < (bEnd + BUFFER_MINUTES) && endMins > (bStart - BUFFER_MINUTES)) {
             conflict = 'Blocked by Buyout';
             break;
           }
         }
       }
       
-      // Check if this is a buyout and any other studio has bookings
+      // Check if this is a buyout and any other studio has bookings (with buffer)
       if (studio.type === 'full_studio_buyout' && !conflict) {
         const otherBookings = dateBookings?.filter(b => 
           b.studio_id !== studio.id && 
@@ -799,7 +801,7 @@ export function NewBookingModal({
           const bStart = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
           const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
           
-          if (startMins < bEnd && endMins > bStart) {
+          if (startMins < (bEnd + BUFFER_MINUTES) && endMins > (bStart - BUFFER_MINUTES)) {
             conflict = 'Other studios booked';
             break;
           }
