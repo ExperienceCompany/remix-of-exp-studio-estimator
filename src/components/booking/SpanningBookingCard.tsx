@@ -89,23 +89,19 @@ export function SpanningBookingCard({
     </div>
   );
 
-  // Wrap with context menu for staff/admin
+  // Wrap with context menu and hover card for staff/admin
   if (isStaffOrAdmin) {
-    const wrappedCard = (
-      <BookingContextMenu
-        booking={booking as StudioBooking}
-        onViewEdit={() => onClick?.()}
-        onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
-        onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
-      >
-        {cardContent}
-      </BookingContextMenu>
-    );
-
     return (
       <HoverCard openDelay={300}>
-        <HoverCardTrigger asChild>
-          {wrappedCard}
+        <HoverCardTrigger>
+          <BookingContextMenu
+            booking={booking as StudioBooking}
+            onViewEdit={() => onClick?.()}
+            onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
+            onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
+          >
+            {cardContent}
+          </BookingContextMenu>
         </HoverCardTrigger>
         <HoverCardContent className="w-72" side="right" align="start">
           <BookingHoverContent booking={booking as StudioBooking} studioName={studioName} />
