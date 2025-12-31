@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface TimeInputFieldsProps {
@@ -153,6 +153,69 @@ export function TimeInputFields({
     return timeSlots.filter(slot => timeToMinutes(slot) > startMins);
   }, [startTime, timeSlots]);
 
+  // Find next available slot after a given time
+  const findNextAvailableSlot = (afterTime: string): { start: string; end: string } | null => {
+    const afterMins = timeToMinutes(afterTime);
+    const endMins = timeToMinutes(operatingEnd);
+    const minDurationMins = minBookingHours * 60;
+    
+    // Get all booked time ranges (sorted by start time)
+    const bookedRanges = bookings
+      .map(b => ({
+        start: timeToMinutes(b.start_time),
+        end: timeToMinutes(b.end_time)
+      }))
+      .sort((a, b) => a.start - b.start);
+    
+    // Find first available slot after the requested time
+    for (const slot of timeSlots) {
+      const slotMins = timeToMinutes(slot);
+      if (slotMins <= afterMins) continue;
+      if (isTimePast(slot)) continue;
+      
+      // Check if this slot is free for minimum booking duration
+      const slotEndMins = slotMins + minDurationMins;
+      
+      // Make sure we don't exceed operating hours
+      if (slotEndMins > endMins) continue;
+      
+      const hasConflict = bookedRanges.some(range =>
+        slotMins < range.end && slotEndMins > range.start
+      );
+      
+      if (!hasConflict) {
+        return {
+          start: slot,
+          end: minutesToTime(slotEndMins)
+        };
+      }
+    }
+    
+    return null;
+  };
+
+  // Compute availability status
+  const availabilityStatus = useMemo(() => {
+    if (!startTime || !endTime) {
+      return { status: 'pending' as const, message: 'Select start and end times' };
+    }
+    
+    if (validationError) {
+      // Find next available slot
+      const nextSlot = findNextAvailableSlot(startTime);
+      return {
+        status: 'unavailable' as const,
+        message: validationError,
+        nextAvailable: nextSlot
+      };
+    }
+    
+    return {
+      status: 'available' as const,
+      message: 'This time slot is available'
+    };
+  }, [startTime, endTime, validationError, bookings, timeSlots, operatingEnd, minBookingHours]);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-4">
@@ -229,14 +292,41 @@ export function TimeInputFields({
         </div>
       </div>
 
-      {/* Validation Error */}
-      {validationError && (
-        <Alert variant="destructive" className="py-2">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-sm">
-            {validationError}
-          </AlertDescription>
-        </Alert>
+      {/* Live Availability Status */}
+      {startTime && endTime && (
+        <div className={cn(
+          "flex items-start gap-2 p-3 rounded-lg text-sm",
+          availabilityStatus.status === 'available' 
+            ? "bg-green-500/10 text-green-700 dark:text-green-400"
+            : "bg-destructive/10 text-destructive"
+        )}>
+          {availabilityStatus.status === 'available' ? (
+            <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          ) : (
+            <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          )}
+          
+          <div className="space-y-1">
+            <p className="font-medium">{availabilityStatus.message}</p>
+            
+            {availabilityStatus.status === 'unavailable' && availabilityStatus.nextAvailable && (
+              <button
+                type="button"
+                onClick={() => {
+                  onStartChange(availabilityStatus.nextAvailable!.start);
+                  onEndChange(availabilityStatus.nextAvailable!.end);
+                }}
+                className="text-primary hover:underline font-medium"
+              >
+                Next available: {formatTimeDisplay(availabilityStatus.nextAvailable.start)} – {formatTimeDisplay(availabilityStatus.nextAvailable.end)}
+              </button>
+            )}
+            
+            {availabilityStatus.status === 'unavailable' && !availabilityStatus.nextAvailable && (
+              <p className="text-muted-foreground">No more available slots today</p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
