@@ -237,6 +237,57 @@ export default function Sessions() {
     toast({ title: 'Session resumed!' });
   };
 
+  // Helper to calculate total based on elapsed seconds
+  const calculateCurrentTotal = (session: Session, elapsedSeconds: number): number => {
+    const currentHours = elapsedSeconds / 3600;
+    const sel = session.selections_json as any;
+    
+    let total = 0;
+    
+    // Derive time slot type from booking date and start time
+    const timeSlotType = sel?.timeSlotType || 
+      getTimeSlotTypeFromDateTime(sel?.bookingDate, sel?.startTime);
+    
+    // Find matching DIY rate from database
+    const matchingRate = diyRates?.find(
+      r => r.studios?.type === sel?.studioType && 
+           r.time_slots?.type === timeSlotType
+    );
+    
+    // Studio cost calculation
+    if (matchingRate) {
+      total += currentHours * matchingRate.first_hour_rate;
+    }
+    
+    // Provider cost (serviced sessions)
+    if (sel?.sessionType === 'serviced' && sel?.crewAllocation) {
+      const { lv1 = 0, lv2 = 0, lv3 = 0 } = sel.crewAllocation;
+      const lv1Rate = providerLevels?.find(p => p.level === 'lv1')?.hourly_rate || 20;
+      const lv2Rate = providerLevels?.find(p => p.level === 'lv2')?.hourly_rate || 30;
+      const lv3Rate = providerLevels?.find(p => p.level === 'lv3')?.hourly_rate || 40;
+      total += currentHours * ((lv1 * lv1Rate) + (lv2 * lv2Rate) + (lv3 * lv3Rate));
+    }
+    
+    // Camera add-on (flat fee for vodcast)
+    if (sel?.serviceType === 'vodcast' && sel?.cameraCount > 0) {
+      const cameraAddon = cameraAddons?.find(c => c.cameras === sel.cameraCount);
+      if (cameraAddon) total += cameraAddon.customer_addon_amount;
+    }
+    
+    // Session add-ons
+    if (sel?.sessionAddons?.length > 0) {
+      for (const addon of sel.sessionAddons) {
+        if (addon.is_hourly) {
+          total += currentHours * addon.flat_amount;
+        } else {
+          total += addon.flat_amount;
+        }
+      }
+    }
+    
+    return total;
+  };
+
   const handleEnd = (session: Session) => {
     if (!session.started_at) return;
     let finalDuration = 0;
@@ -249,12 +300,16 @@ export default function Sessions() {
       finalDuration = Math.floor((Date.now() - startTime) / 1000) - (session.total_paused_seconds || 0);
     }
 
+    // Calculate final total based on elapsed time
+    const calculatedTotal = calculateCurrentTotal(session, finalDuration);
+
     updateSession.mutate({
       id: session.id,
       updates: {
         status: 'completed',
         ended_at: new Date().toISOString(),
         actual_duration_seconds: finalDuration,
+        final_total: calculatedTotal,
       },
     });
     toast({ title: 'Session ended!' });
@@ -871,8 +926,12 @@ export default function Sessions() {
                                 : '—'}
                             </TableCell>
                             <TableCell className="text-right font-medium">
-                              {session.status === 'completed' && session.final_total != null
-                                ? `$${session.final_total.toFixed(2)}`
+                              {session.status === 'completed'
+                                ? session.final_total != null
+                                  ? `$${session.final_total.toFixed(2)}`
+                                  : session.actual_duration_seconds != null
+                                    ? `$${calculateCurrentTotal(session, session.actual_duration_seconds).toFixed(2)}`
+                                    : `$${(getEstimateTotal(session) ?? 0).toFixed(2)}`
                                 : session.status === 'cancelled'
                                 ? <span className="text-destructive">${((getEstimateTotal(session) ?? 0) * 0.25).toFixed(2)}</span>
                                 : session.status === 'active' || session.status === 'paused'
