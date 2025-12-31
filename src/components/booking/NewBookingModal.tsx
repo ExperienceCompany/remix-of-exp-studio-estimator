@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { format, getDay, parseISO, addDays } from 'date-fns';
 import {
   Dialog,
@@ -405,6 +405,9 @@ export function NewBookingModal({
   
   const isEditing = !!existingBooking;
   
+  // Ref for scrolling to top on step change
+  const contentRef = useRef<HTMLDivElement>(null);
+  
   // Multi-step state
   const [step, setStep] = useState<BookingStep>('basic');
   
@@ -545,6 +548,13 @@ export function NewBookingModal({
       }
     }
   }, [sessionType, serviceType, wantsEditing, editingMenuData]);
+
+  // Scroll to top when step changes
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [step]);
 
   // Reset form when opened - or pre-fill with existing booking or prefill data
   useEffect(() => {
@@ -2350,7 +2360,7 @@ export function NewBookingModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent ref={contentRef} className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarPlus className="h-5 w-5" />
@@ -3983,8 +3993,8 @@ export function NewBookingModal({
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Crew</span>
                     <span>
-                      {crewAllocation.lv1 > 0 && `${crewAllocation.lv1}× Entry`}
-                      {crewAllocation.lv2 > 0 && `${crewAllocation.lv1 > 0 ? ', ' : ''}${crewAllocation.lv2}× Exp`}
+                      {crewAllocation.lv1 > 0 && `${crewAllocation.lv1}× Entry Level`}
+                      {crewAllocation.lv2 > 0 && `${crewAllocation.lv1 > 0 ? ', ' : ''}${crewAllocation.lv2}× Experienced`}
                       {crewAllocation.lv3 > 0 && `${(crewAllocation.lv1 > 0 || crewAllocation.lv2 > 0) ? ', ' : ''}${crewAllocation.lv3}× Expert`}
                     </span>
                   </div>
@@ -4011,7 +4021,7 @@ export function NewBookingModal({
                           .filter(item => item.category !== 'photo' && item.category !== 'photo_editing')
                           .map((item, idx) => {
                             const crewLevel = item.crewLevel || 'lv2';
-                            const levelLabels: Record<string, string> = { lv1: 'Entry (0.75×)', lv2: 'Exp (1×)', lv3: 'Expert (1.25×)' };
+                            const levelLabels: Record<string, string> = { lv1: 'Entry Level', lv2: 'Experienced', lv3: 'Expert' };
                             const EDITING_CREW_MULTIPLIERS: Record<string, number> = { lv1: 0.75, lv2: 1, lv3: 1.25 };
                             const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel] || 1;
                             const itemTotal = Math.round(item.customerPrice * multiplier);
