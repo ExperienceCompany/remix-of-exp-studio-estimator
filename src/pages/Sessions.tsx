@@ -577,11 +577,15 @@ export default function Sessions() {
         </div>
 
         {/* Tabs for Sessions vs Calendar */}
-        <Tabs defaultValue="sessions" className="mb-6">
+        <Tabs defaultValue="active" className="w-full">
           <TabsList>
-            <TabsTrigger value="sessions">
+            <TabsTrigger value="active">
               <Timer className="h-4 w-4 mr-2" />
-              Sessions
+              Active Sessions {activeSessions.length > 0 && `(${activeSessions.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <Clock className="h-4 w-4 mr-2" />
+              Session History
             </TabsTrigger>
             <TabsTrigger value="calendar">
               <CalendarDays className="h-4 w-4 mr-2" />
@@ -589,6 +593,385 @@ export default function Sessions() {
             </TabsTrigger>
           </TabsList>
 
+          {/* Active Sessions Tab */}
+          <TabsContent value="active" className="mt-6">
+            {activeSessions.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Timer className="h-5 w-5" />
+                    Active Sessions ({activeSessions.length})
+                  </CardTitle>
+                  <CardDescription>Live sessions with real-time timers</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {activeSessions.map(session => (
+                    <div
+                      key={session.id}
+                      className="flex flex-col sm:flex-row sm:items-start justify-between p-4 border rounded-lg gap-4"
+                    >
+                      <div className="flex-1 space-y-2">
+                        {/* Row 1: Status, Type, Source, Studio */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {getStatusBadge(session.status)}
+                          <span className="font-medium">
+                            {session.session_type === 'diy' ? 'DIY' : 'EXP'}
+                          </span>
+                          {getSourceBadge(session)}
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-muted-foreground">{getStudioName(session)}</span>
+                        </div>
+
+                        {/* Row 2: Title if exists */}
+                        {getSessionTitle(session) && (
+                          <div className="font-semibold text-lg">
+                            {getSessionTitle(session)}
+                          </div>
+                        )}
+
+                        {/* Row 3: Date, Time Range, Service, Duration */}
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            {getSessionDate(session)}
+                          </span>
+                          {getTimeRange(session) && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                {getTimeRange(session)}
+                              </span>
+                            </>
+                          )}
+                          {getServiceName(session) && (
+                            <>
+                              <span>•</span>
+                              <span>{getServiceName(session)}</span>
+                            </>
+                          )}
+                          {getSessionHours(session) && (
+                            <>
+                              <span>•</span>
+                              <span>{getSessionHours(session)}hr{getSessionHours(session)! > 1 ? 's' : ''}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Row 4: Holder, People, Crew, Estimate */}
+                        <div className="flex items-center gap-3 text-sm flex-wrap">
+                          {(() => {
+                            const holder = getHolderInfo(session);
+                            if (holder.name) {
+                              return (
+                                <span className="flex items-center gap-1.5 text-foreground">
+                                  <UserCircle className="h-3.5 w-3.5" />
+                                  <span>{holder.name}</span>
+                                  {getHolderRoleBadge(holder.role)}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                          {getPeopleCount(session) && getPeopleCount(session)! > 1 && (
+                            <Badge variant="outline" className="text-xs">
+                              {getPeopleCount(session)} people
+                            </Badge>
+                          )}
+                          {getCrewDisplay(session) && (
+                            <Badge variant="outline" className="text-xs">
+                              {getCrewDisplay(session)}
+                            </Badge>
+                          )}
+                          {getEstimateTotal(session) != null && (
+                            <span className="text-muted-foreground">
+                              Est: ${getEstimateTotal(session)?.toFixed(2)}
+                            </span>
+                          )}
+                          {getCurrentTotal(session) != null && (
+                            <span className="font-medium text-primary">
+                              Current: ${getCurrentTotal(session)?.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Timer - prominent display */}
+                        <div className="text-2xl font-mono font-bold">
+                          ⏱ {formatTime(getElapsedSeconds(session))}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 flex-wrap sm:flex-col sm:items-end">
+                        {session.status === 'pending' && (
+                          <Button size="sm" onClick={() => handleStart(session)} disabled={updateSession.isPending}>
+                            <Play className="h-4 w-4 mr-1" />
+                            Start
+                          </Button>
+                        )}
+                        {session.status === 'active' && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => handlePause(session)} disabled={updateSession.isPending}>
+                              <Pause className="h-4 w-4 mr-1" />
+                              Pause
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleEnd(session)} disabled={updateSession.isPending}>
+                              <Square className="h-4 w-4 mr-1" />
+                              End
+                            </Button>
+                          </>
+                        )}
+                        {session.status === 'paused' && (
+                          <>
+                            <Button size="sm" onClick={() => handleResume(session)} disabled={updateSession.isPending}>
+                              <Play className="h-4 w-4 mr-1" />
+                              Resume
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleEnd(session)} disabled={updateSession.isPending}>
+                              <Square className="h-4 w-4 mr-1" />
+                              End
+                            </Button>
+                          </>
+                        )}
+                        <Button size="sm" variant="ghost" asChild>
+                          <Link to={`/session/${session.id}`}>
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12 text-muted-foreground">
+                  <Timer className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No active sessions</p>
+                  <p className="text-sm">Sessions will appear here when started</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Session History Tab */}
+          <TabsContent value="history" className="mt-6">
+            {/* Filters */}
+            <div className="flex flex-wrap gap-4 mb-6">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="diy">DIY</SelectItem>
+                  <SelectItem value="serviced">EXP Session</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Session History</CardTitle>
+                <CardDescription>All recorded studio sessions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>
+                ) : sessions.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No sessions found</div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead>Studio</TableHead>
+                        <TableHead>Holder</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead className="text-right">Est. Total</TableHead>
+                        <TableHead className="text-right">Current</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sessions.map(session => {
+                        const holder = getHolderInfo(session);
+                        return (
+                          <TableRow key={session.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/session/${session.id}`)}>
+                            <TableCell>{format(new Date(session.created_at), 'MMM d, yyyy')}</TableCell>
+                            <TableCell>{session.session_type === 'diy' ? 'DIY' : 'EXP'}</TableCell>
+                            <TableCell>{getSourceBadge(session)}</TableCell>
+                            <TableCell>{getStudioName(session)}</TableCell>
+                            <TableCell>
+                              {holder.name ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="truncate max-w-[120px]">{holder.name}</span>
+                                  {getHolderRoleBadge(holder.role)}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <div className="cursor-pointer">{getStatusBadge(session.status)}</div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="bg-background">
+                                  <DropdownMenuItem onClick={() => handleStatusChange(session, 'pending')}>
+                                    ○ Pending
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleStatusChange(session, 'completed')}>
+                                    ✓ Completed
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleStatusChange(session, 'cancelled')}>
+                                    ✗ Cancelled
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                            <TableCell>
+                              {session.actual_duration_seconds
+                                ? formatDuration(session.actual_duration_seconds)
+                                : session.status === 'active' || session.status === 'paused'
+                                ? formatTime(getElapsedSeconds(session))
+                                : '—'}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {getEstimateTotal(session) != null
+                                ? `$${getEstimateTotal(session)?.toFixed(2)}`
+                                : '—'}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {session.status === 'completed' && session.final_total != null
+                                ? `$${session.final_total.toFixed(2)}`
+                                : session.status === 'cancelled'
+                                ? <span className="text-destructive">${((getEstimateTotal(session) ?? 0) * 0.25).toFixed(2)}</span>
+                                : session.status === 'active' || session.status === 'paused'
+                                ? <span className="text-primary">${(getCurrentTotal(session) ?? 0).toFixed(2)}</span>
+                                : '—'}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                {/* Pause/Play/Stop controls for active/paused sessions */}
+                                {session.status === 'active' && (
+                                  <>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost" 
+                                      onClick={e => { e.stopPropagation(); handlePause(session); }}
+                                      title="Pause Session"
+                                      disabled={updateSession.isPending}
+                                    >
+                                      <Pause className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost"
+                                      className="text-destructive"
+                                      onClick={e => { e.stopPropagation(); handleEnd(session); }}
+                                      title="End Session"
+                                      disabled={updateSession.isPending}
+                                    >
+                                      <Square className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                                {session.status === 'paused' && (
+                                  <>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost" 
+                                      onClick={e => { e.stopPropagation(); handleResume(session); }}
+                                      title="Resume Session"
+                                      disabled={updateSession.isPending}
+                                    >
+                                      <Play className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost"
+                                      className="text-destructive"
+                                      onClick={e => { e.stopPropagation(); handleEnd(session); }}
+                                      title="End Session"
+                                      disabled={updateSession.isPending}
+                                    >
+                                      <Square className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                                
+                                {/* Invoice button for cancelled sessions */}
+                                {session.status === 'cancelled' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={e => { e.stopPropagation(); setCheckoutSession(session); }}
+                                    title="Generate Invoice"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                
+                                {/* Checkout button for completed sessions (unpaid) */}
+                                {session.status === 'completed' && session.payment_status !== 'paid' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    className="text-green-600"
+                                    onClick={e => { e.stopPropagation(); setCheckoutSession(session); }}
+                                    title="Pay Now"
+                                  >
+                                    <CreditCard className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                
+                                <Button size="sm" variant="ghost" asChild onClick={e => e.stopPropagation()}>
+                                  <Link to={`/session/${session.id}`}>
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Calendar Bookings Tab */}
           <TabsContent value="calendar" className="mt-6">
             <BookingCalendar
               onBookingClick={(booking) => {
@@ -598,378 +981,6 @@ export default function Sessions() {
                 });
               }}
             />
-          </TabsContent>
-
-          <TabsContent value="sessions" className="mt-6">
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="paused">Paused</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="diy">DIY</SelectItem>
-              <SelectItem value="serviced">EXP Session</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Date" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Side-by-side layout for Active Sessions + Session History */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Active Sessions */}
-        {activeSessions.length > 0 && (
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Timer className="h-5 w-5" />
-                Active Sessions ({activeSessions.length})
-              </CardTitle>
-              <CardDescription>Live sessions with real-time timers</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {activeSessions.map(session => (
-                <div
-                  key={session.id}
-                  className="flex flex-col sm:flex-row sm:items-start justify-between p-4 border rounded-lg gap-4"
-                >
-                  <div className="flex-1 space-y-2">
-                    {/* Row 1: Status, Type, Source, Studio */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {getStatusBadge(session.status)}
-                      <span className="font-medium">
-                        {session.session_type === 'diy' ? 'DIY' : 'EXP'}
-                      </span>
-                      {getSourceBadge(session)}
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-muted-foreground">{getStudioName(session)}</span>
-                    </div>
-
-                    {/* Row 2: Title if exists */}
-                    {getSessionTitle(session) && (
-                      <div className="font-semibold text-lg">
-                        {getSessionTitle(session)}
-                      </div>
-                    )}
-
-                    {/* Row 3: Date, Time Range, Service, Duration */}
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        {getSessionDate(session)}
-                      </span>
-                      {getTimeRange(session) && (
-                        <>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5" />
-                            {getTimeRange(session)}
-                          </span>
-                        </>
-                      )}
-                      {getServiceName(session) && (
-                        <>
-                          <span>•</span>
-                          <span>{getServiceName(session)}</span>
-                        </>
-                      )}
-                      {getSessionHours(session) && (
-                        <>
-                          <span>•</span>
-                          <span>{getSessionHours(session)}hr{getSessionHours(session)! > 1 ? 's' : ''}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Row 4: Holder, People, Crew, Estimate */}
-                    <div className="flex items-center gap-3 text-sm flex-wrap">
-                      {(() => {
-                        const holder = getHolderInfo(session);
-                        if (holder.name) {
-                          return (
-                            <span className="flex items-center gap-1.5 text-foreground">
-                              <UserCircle className="h-3.5 w-3.5" />
-                              <span>{holder.name}</span>
-                              {getHolderRoleBadge(holder.role)}
-                            </span>
-                          );
-                        }
-                        return null;
-                      })()}
-                      {getPeopleCount(session) && getPeopleCount(session)! > 1 && (
-                        <Badge variant="outline" className="text-xs">
-                          {getPeopleCount(session)} people
-                        </Badge>
-                      )}
-                      {getCrewDisplay(session) && (
-                        <Badge variant="outline" className="text-xs">
-                          {getCrewDisplay(session)}
-                        </Badge>
-                      )}
-                      {getEstimateTotal(session) != null && (
-                        <span className="text-muted-foreground">
-                          Est: ${getEstimateTotal(session)?.toFixed(2)}
-                        </span>
-                      )}
-                      {getCurrentTotal(session) != null && (
-                        <span className="font-medium text-primary">
-                          Current: ${getCurrentTotal(session)?.toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Timer - prominent display */}
-                    <div className="text-2xl font-mono font-bold">
-                      ⏱ {formatTime(getElapsedSeconds(session))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap sm:flex-col sm:items-end">
-                    {session.status === 'pending' && (
-                      <Button size="sm" onClick={() => handleStart(session)} disabled={updateSession.isPending}>
-                        <Play className="h-4 w-4 mr-1" />
-                        Start
-                      </Button>
-                    )}
-                    {session.status === 'active' && (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => handlePause(session)} disabled={updateSession.isPending}>
-                          <Pause className="h-4 w-4 mr-1" />
-                          Pause
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleEnd(session)} disabled={updateSession.isPending}>
-                          <Square className="h-4 w-4 mr-1" />
-                          End
-                        </Button>
-                      </>
-                    )}
-                    {session.status === 'paused' && (
-                      <>
-                        <Button size="sm" onClick={() => handleResume(session)} disabled={updateSession.isPending}>
-                          <Play className="h-4 w-4 mr-1" />
-                          Resume
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleEnd(session)} disabled={updateSession.isPending}>
-                          <Square className="h-4 w-4 mr-1" />
-                          End
-                        </Button>
-                      </>
-                    )}
-                    <Button size="sm" variant="ghost" asChild>
-                      <Link to={`/session/${session.id}`}>
-                        <ExternalLink className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Sessions History */}
-        <Card className={activeSessions.length > 0 ? "lg:col-span-2" : "lg:col-span-3"}>
-          <CardHeader>
-            <CardTitle>Session History</CardTitle>
-            <CardDescription>All recorded studio sessions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading sessions...</div>
-            ) : sessions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No sessions found</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Studio</TableHead>
-                    <TableHead>Holder</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead className="text-right">Est. Total</TableHead>
-                    <TableHead className="text-right">Current</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sessions.map(session => {
-                    const holder = getHolderInfo(session);
-                    return (
-                      <TableRow key={session.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/session/${session.id}`)}>
-                        <TableCell>{format(new Date(session.created_at), 'MMM d, yyyy')}</TableCell>
-                        <TableCell>{session.session_type === 'diy' ? 'DIY' : 'EXP'}</TableCell>
-                        <TableCell>{getSourceBadge(session)}</TableCell>
-                        <TableCell>{getStudioName(session)}</TableCell>
-                        <TableCell>
-                          {holder.name ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="truncate max-w-[120px]">{holder.name}</span>
-                              {getHolderRoleBadge(holder.role)}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell onClick={e => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <div className="cursor-pointer">{getStatusBadge(session.status)}</div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="bg-background">
-                              <DropdownMenuItem onClick={() => handleStatusChange(session, 'pending')}>
-                                ○ Pending
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(session, 'completed')}>
-                                ✓ Completed
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(session, 'cancelled')}>
-                                ✗ Cancelled
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                        <TableCell>
-                          {session.actual_duration_seconds
-                            ? formatDuration(session.actual_duration_seconds)
-                            : session.status === 'active' || session.status === 'paused'
-                            ? formatTime(getElapsedSeconds(session))
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {getEstimateTotal(session) != null
-                            ? `$${getEstimateTotal(session)?.toFixed(2)}`
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {session.status === 'completed' && session.final_total != null
-                            ? `$${session.final_total.toFixed(2)}`
-                            : session.status === 'cancelled'
-                            ? <span className="text-destructive">${((getEstimateTotal(session) ?? 0) * 0.25).toFixed(2)}</span>
-                            : session.status === 'active' || session.status === 'paused'
-                            ? <span className="text-primary">${(getCurrentTotal(session) ?? 0).toFixed(2)}</span>
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            {/* Pause/Play/Stop controls for active/paused sessions */}
-                            {session.status === 'active' && (
-                              <>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
-                                  onClick={e => { e.stopPropagation(); handlePause(session); }}
-                                  title="Pause Session"
-                                  disabled={updateSession.isPending}
-                                >
-                                  <Pause className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost"
-                                  className="text-destructive"
-                                  onClick={e => { e.stopPropagation(); handleEnd(session); }}
-                                  title="End Session"
-                                  disabled={updateSession.isPending}
-                                >
-                                  <Square className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                            {session.status === 'paused' && (
-                              <>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
-                                  onClick={e => { e.stopPropagation(); handleResume(session); }}
-                                  title="Resume Session"
-                                  disabled={updateSession.isPending}
-                                >
-                                  <Play className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost"
-                                  className="text-destructive"
-                                  onClick={e => { e.stopPropagation(); handleEnd(session); }}
-                                  title="End Session"
-                                  disabled={updateSession.isPending}
-                                >
-                                  <Square className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                            
-                            {/* Invoice button for cancelled sessions */}
-                            {session.status === 'cancelled' && (
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={e => { e.stopPropagation(); setCheckoutSession(session); }}
-                                title="Generate Invoice"
-                              >
-                                <FileText className="h-4 w-4" />
-                              </Button>
-                            )}
-                            
-                            {/* Checkout button for completed sessions (unpaid) */}
-                            {session.status === 'completed' && session.payment_status !== 'paid' && (
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                className="text-green-600"
-                                onClick={e => { e.stopPropagation(); setCheckoutSession(session); }}
-                                title="Pay Now"
-                              >
-                                <CreditCard className="h-4 w-4" />
-                              </Button>
-                            )}
-                            
-                            <Button size="sm" variant="ghost" asChild onClick={e => e.stopPropagation()}>
-                              <Link to={`/session/${session.id}`}>
-                                <ExternalLink className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-        </div>
           </TabsContent>
         </Tabs>
       </div>
