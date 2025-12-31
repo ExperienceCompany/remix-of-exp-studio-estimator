@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,7 @@ export function BookingCard({
   onDuplicate,
   onCancel,
 }: BookingCardProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const dotColor = getBookingTypeDotColor(booking.booking_type, booking.status);
   const displayText = getBookingDisplayText(booking, isStaffOrAdmin);
   const isCancelled = booking.status === 'cancelled';
@@ -124,18 +126,26 @@ export function BookingCard({
   // Wrap with context menu and hover card for staff/admin
   if (isStaffOrAdmin) {
     return (
-      <HoverCard openDelay={300}>
+      <HoverCard openDelay={300} open={isMenuOpen ? false : undefined}>
         <HoverCardTrigger>
           <BookingContextMenu
             booking={booking as StudioBooking}
             onViewEdit={() => onClick?.()}
             onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
             onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
+            onOpenChange={setIsMenuOpen}
           >
             {cardContent}
           </BookingContextMenu>
         </HoverCardTrigger>
-        <HoverCardContent className="w-72" side="right" align="start">
+        <HoverCardContent 
+          className="w-72" 
+          side="right" 
+          align="start"
+          sideOffset={8}
+          avoidCollisions={true}
+          collisionPadding={16}
+        >
           <BookingHoverContent booking={booking as StudioBooking} studioName={studioName} />
         </HoverCardContent>
       </HoverCard>
