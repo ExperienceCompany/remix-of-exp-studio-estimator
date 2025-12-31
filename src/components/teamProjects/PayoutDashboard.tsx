@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { PhaseTotals, TASK_POINTS, ProjectTask, calculateRevenueByStatus, TeamMember, TASK_POINTS as TP } from "@/types/teamProject";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,8 @@ export function PayoutDashboard({ phaseTotals, projectName = "", tasks = [], tea
   const { isAdmin } = useAuth();
   const createLog = useCreateAdminLog();
   const { toast } = useToast();
+  const [affiliateCode, setAffiliateCode] = useState('');
+  const [affiliateName, setAffiliateName] = useState<string | null>(null);
 
   const {
     phaseName,
@@ -209,9 +212,12 @@ export function PayoutDashboard({ phaseTotals, projectName = "", tasks = [], tea
                         customer_total: phaseRevenue,
                         provider_payout: totalPayouts,
                         gross_margin: studioShare,
+                        affiliate_code: affiliateCode || null,
                         data_json: {
                           phaseTotals,
                           projectName,
+                          affiliateCode: affiliateCode || null,
+                          affiliateName: affiliateName || null,
                         },
                       });
                       toast({ title: 'Saved to Admin Logs!' });
@@ -230,8 +236,17 @@ export function PayoutDashboard({ phaseTotals, projectName = "", tasks = [], tea
         </Card>
       )}
 
+      {/* Affiliate Code Input */}
+      <AffiliateCodeInput 
+        value={affiliateCode} 
+        onChange={(code, name) => {
+          setAffiliateCode(code);
+          setAffiliateName(name);
+        }} 
+      />
+
       {/* Affiliate Earnings Card */}
-      <AffiliateEarningsCard customerTotal={phaseRevenue} />
+      <AffiliateEarningsCard customerTotal={phaseRevenue} appliedCode={affiliateCode} />
     </div>
   );
 }

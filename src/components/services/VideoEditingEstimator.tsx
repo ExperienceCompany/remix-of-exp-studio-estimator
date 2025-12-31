@@ -473,7 +473,7 @@ export function VideoEditingEstimator() {
           />
 
           {/* Affiliate Earnings Card */}
-          <AffiliateEarningsCard customerTotal={totalPrice} />
+          <AffiliateEarningsCard customerTotal={totalPrice} appliedCode={state.affiliateCode} />
 
           <p className="text-xs text-muted-foreground text-center">
             This is an estimate. Final pricing may vary based on project specifics.

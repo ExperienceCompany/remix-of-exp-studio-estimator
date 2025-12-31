@@ -297,7 +297,7 @@ export function PhotoEditingEstimator() {
           />
 
           {/* Affiliate Earnings Card */}
-          <AffiliateEarningsCard customerTotal={calculateTotal} />
+          <AffiliateEarningsCard customerTotal={calculateTotal} appliedCode={state.affiliateCode} />
 
           <div className="flex flex-wrap gap-2 justify-between mt-6">
             <Button variant="outline" onClick={handleBack}>

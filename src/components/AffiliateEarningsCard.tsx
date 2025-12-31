@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface AffiliateEarningsCardProps {
   customerTotal: number;
+  appliedCode?: string;
 }
 
 interface CommissionTier {
@@ -29,17 +30,17 @@ const getNextTier = (leads: number): { leadsNeeded: number; nextRate: number } |
   return { leadsNeeded: 10 - leads, nextRate: 0.10 };
 };
 
-export function AffiliateEarningsCard({ customerTotal }: AffiliateEarningsCardProps) {
+export function AffiliateEarningsCard({ customerTotal, appliedCode }: AffiliateEarningsCardProps) {
   const { isAffiliate, user } = useAuth();
 
-  // Fetch user's lead count from their profile
+  // Fetch user's lead count and affiliate code from their profile
   const { data: profile, isLoading } = useQuery({
-    queryKey: ['user-profile-lead-count', user?.id],
+    queryKey: ['user-profile-affiliate', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('lead_count')
+        .select('lead_count, affiliate_code')
         .eq('id', user.id)
         .maybeSingle();
       if (error) throw error;
@@ -48,7 +49,12 @@ export function AffiliateEarningsCard({ customerTotal }: AffiliateEarningsCardPr
     enabled: !!user?.id && isAffiliate,
   });
 
-  if (!isAffiliate) return null;
+  // Only show if user is affiliate AND applied code matches their own code
+  const isOwnCode = appliedCode && 
+    profile?.affiliate_code && 
+    appliedCode.toUpperCase() === profile.affiliate_code.toUpperCase();
+
+  if (!isAffiliate || !isOwnCode) return null;
 
   const leadCount = profile?.lead_count ?? 0;
   const { rate, tier } = getCommissionTier(leadCount);
