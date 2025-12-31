@@ -13,6 +13,7 @@ interface BookingCardProps {
     status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
     customer_name: string | null;
     session_type: string | null;
+    title: string | null;
   };
   studioName?: string;
   compact?: boolean;
@@ -28,18 +29,22 @@ const formatTime = (time: string) => {
   return `${displayHour}:${min.toString().padStart(2, '0')} ${ampm}`;
 };
 
-const getBookingTypeColor = (type: string, status: string) => {
-  if (status === 'cancelled') return 'bg-muted text-muted-foreground line-through';
+const getBookingTypeDotColor = (type: string, status: string) => {
+  if (status === 'cancelled') return 'bg-muted-foreground';
   switch (type) {
     case 'customer':
-      return 'bg-primary text-primary-foreground border-primary shadow-sm hover:bg-primary/85';
+      return 'bg-foreground';
     case 'internal':
-      return 'bg-accent text-accent-foreground border-accent shadow-sm hover:bg-accent/85';
+      return 'bg-[#f2a643]';
     case 'unavailable':
-      return 'bg-destructive text-destructive-foreground border-destructive shadow-sm hover:bg-destructive/85';
+      return 'bg-destructive';
     default:
-      return 'bg-muted text-muted-foreground';
+      return 'bg-muted-foreground';
   }
+};
+
+const getDisplayText = (booking: BookingCardProps['booking']) => {
+  return booking.title || booking.customer_name || booking.booking_type;
 };
 
 export function BookingCard({ 
@@ -50,7 +55,9 @@ export function BookingCard({
   draggable = false,
   onDragStart,
 }: BookingCardProps) {
-  const colorClass = getBookingTypeColor(booking.booking_type, booking.status);
+  const dotColor = getBookingTypeDotColor(booking.booking_type, booking.status);
+  const displayText = getDisplayText(booking);
+  const isCancelled = booking.status === 'cancelled';
 
   const handleDragStart = (e: React.DragEvent) => {
     if (onDragStart) {
@@ -62,8 +69,7 @@ export function BookingCard({
     return (
       <div
         className={cn(
-          'text-xs px-1 py-0.5 rounded truncate cursor-pointer border transition-colors',
-          colorClass
+          'text-xs px-1 py-0.5 rounded truncate cursor-pointer bg-card border border-border/50 hover:bg-muted/50 transition-colors flex items-center gap-1.5'
         )}
         onClick={(e) => {
           e.stopPropagation();
@@ -71,9 +77,12 @@ export function BookingCard({
         }}
         draggable={draggable}
         onDragStart={handleDragStart}
-        title={`${booking.customer_name || booking.booking_type} - ${formatTime(booking.start_time)}`}
+        title={`${displayText} - ${formatTime(booking.start_time)}`}
       >
-        {formatTime(booking.start_time)} {booking.customer_name || booking.booking_type}
+        <span className={cn('w-2 h-2 rounded-full shrink-0', dotColor)} />
+        <span className={cn('truncate', isCancelled && 'line-through text-muted-foreground')}>
+          {formatTime(booking.start_time)} {displayText}
+        </span>
       </div>
     );
   }
@@ -81,8 +90,7 @@ export function BookingCard({
   return (
     <div
       className={cn(
-        'p-2 rounded-md border cursor-pointer transition-all hover:shadow-md hover:scale-[1.01]',
-        colorClass
+        'p-2 rounded-md border border-border/50 bg-card cursor-pointer transition-all hover:bg-muted/50 hover:shadow-sm'
       )}
       onClick={(e) => {
         e.stopPropagation();
@@ -92,18 +100,23 @@ export function BookingCard({
       onDragStart={handleDragStart}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-sm truncate">
-          {booking.customer_name || booking.booking_type}
-        </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dotColor)} />
+          <span className={cn('font-medium text-sm truncate', isCancelled && 'line-through text-muted-foreground')}>
+            {displayText}
+          </span>
+        </div>
         <Badge variant="secondary" className="text-xs shrink-0">
           {booking.session_type === 'serviced' ? 'EXP' : 'DIY'}
         </Badge>
       </div>
-      <div className="text-xs mt-1 opacity-90">
+      <div className={cn('text-xs mt-1 text-muted-foreground pl-4.5', isCancelled && 'line-through')}>
         {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
       </div>
       {studioName && (
-        <div className="text-xs mt-0.5 opacity-80">{studioName}</div>
+        <div className={cn('text-xs mt-0.5 text-muted-foreground pl-4.5', isCancelled && 'line-through')}>
+          {studioName}
+        </div>
       )}
     </div>
   );
