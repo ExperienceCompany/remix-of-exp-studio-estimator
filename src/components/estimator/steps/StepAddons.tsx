@@ -393,7 +393,7 @@ export function StepAddons() {
                     
                     {/* Lv1 - always show */}
                     <div className="flex items-center justify-between pl-6">
-                      <span className="text-xs text-muted-foreground">Lv1 Entry (${lv1Rate}/hr)</span>
+                      <span className="text-xs text-muted-foreground">Lv1 Entry</span>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="outline"
@@ -418,7 +418,7 @@ export function StepAddons() {
                     
                     {/* Lv2 - always show */}
                     <div className="flex items-center justify-between pl-6">
-                      <span className="text-xs text-muted-foreground">Lv2 Experienced (${lv2Rate}/hr)</span>
+                      <span className="text-xs text-muted-foreground">Lv2 Experienced</span>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="outline"
@@ -443,7 +443,7 @@ export function StepAddons() {
                     
                     {/* Lv3 - always show */}
                     <div className="flex items-center justify-between pl-6">
-                      <span className="text-xs text-muted-foreground">Lv3 Expert (${lv3Rate}/hr)</span>
+                      <span className="text-xs text-muted-foreground">Lv3 Expert</span>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="outline"
