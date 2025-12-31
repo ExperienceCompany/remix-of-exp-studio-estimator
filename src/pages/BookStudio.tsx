@@ -116,9 +116,11 @@ export default function BookStudio() {
     setSelectedEndTime(time);
   };
 
-  // Validation check for enabling continue button
+  // Validation check for enabling continue button (includes 15-min buffer)
   const isTimeSelectionValid = useMemo(() => {
     if (!selectedStartTime || !selectedEndTime || !settings) return false;
+    
+    const BUFFER_MINUTES = 15;
     
     const [startH, startM] = selectedStartTime.split(':').map(Number);
     const [endH, endM] = selectedEndTime.split(':').map(Number);
@@ -136,7 +138,8 @@ export default function BookStudio() {
       const bookingStart = bsH * 60 + bsM;
       const bookingEnd = beH * 60 + beM;
       
-      if (startMins < bookingEnd && endMins > bookingStart) {
+      // Check overlap WITH buffer consideration
+      if (startMins < (bookingEnd + BUFFER_MINUTES) && endMins > (bookingStart - BUFFER_MINUTES)) {
         return false;
       }
     }

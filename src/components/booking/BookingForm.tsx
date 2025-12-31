@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { useCreateBooking } from '@/hooks/useStudioBookings';
+import { useCreateBooking, useStudioBookings } from '@/hooks/useStudioBookings';
 import { useSessionAddons, useEditingMenu, useDiyRates, useTimeSlots } from '@/hooks/useEstimatorData';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDay } from 'date-fns';
@@ -67,6 +67,10 @@ export function BookingForm({
   const { data: sessionAddons = [] } = useSessionAddons();
   const { data: editingMenu = [] } = useEditingMenu();
   const { data: diyRates = [] } = useDiyRates();
+  
+  // Fetch existing bookings for overlap check
+  const bookingDate = format(date, 'yyyy-MM-dd');
+  const { data: existingBookings = [] } = useStudioBookings(studioId, bookingDate, bookingDate);
   const { data: timeSlots = [] } = useTimeSlots();
 
   const formatTimeDisplay = (time: string) => {
@@ -254,6 +258,30 @@ export function BookingForm({
     
     setValidationErrors({});
 
+    // Check for overlaps with buffer time before submitting
+    const BUFFER_MINUTES = 15;
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    const startMins = startH * 60 + startM;
+    const endMins = endH * 60 + endM;
+    
+    for (const booking of existingBookings) {
+      const [bsH, bsM] = booking.start_time.split(':').map(Number);
+      const [beH, beM] = booking.end_time.split(':').map(Number);
+      const bookingStart = bsH * 60 + bsM;
+      const bookingEnd = beH * 60 + beM;
+      
+      // Check overlap WITH buffer consideration
+      if (startMins < (bookingEnd + BUFFER_MINUTES) && endMins > (bookingStart - BUFFER_MINUTES)) {
+        toast({ 
+          title: 'Time Slot Unavailable', 
+          description: 'This time slot conflicts with an existing booking. Please go back and select a different time.',
+          variant: 'destructive' 
+        });
+        return;
+      }
+    }
+
     try {
       await createBooking.mutateAsync({
         studio_id: studioId,
@@ -280,8 +308,18 @@ export function BookingForm({
       setTimeout(() => {
         onSuccess();
       }, 2000);
-    } catch (error) {
-      toast({ title: 'Error submitting booking', variant: 'destructive' });
+    } catch (error: any) {
+      // Handle database trigger error for overlaps
+      const message = error?.message || '';
+      if (message.includes('overlap') || message.includes('conflicts')) {
+        toast({ 
+          title: 'Time Slot Conflict', 
+          description: 'This time slot is no longer available. Please select a different time.',
+          variant: 'destructive' 
+        });
+      } else {
+        toast({ title: 'Error submitting booking', variant: 'destructive' });
+      }
     }
   };
 
