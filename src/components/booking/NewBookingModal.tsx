@@ -1971,6 +1971,177 @@ export function NewBookingModal({
                 </div>
               </div>
 
+              {/* Holder */}
+              {bookingType !== 'unavailable' && (
+                <div className="space-y-2">
+                  <Label>Holder *</Label>
+                  <Popover open={holderPopoverOpen} onOpenChange={setHolderPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                      >
+                        <span className="flex items-center gap-2">
+                          {selectedProfile ? (
+                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
+                              {(selectedProfile.full_name || selectedProfile.email || '?')[0].toUpperCase()}
+                            </div>
+                          ) : isCreatingNewUser ? (
+                            <UserPlus className="h-4 w-4" />
+                          ) : (
+                            <Home className="h-4 w-4" />
+                          )}
+                          {getHolderDisplayText()}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[350px] p-0" align="start">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Search users..." 
+                          value={profileSearch}
+                          onValueChange={setProfileSearch}
+                        />
+                        <CommandList>
+                          <CommandEmpty>No users found.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem onSelect={handleStartCreateUser} className="gap-2">
+                              <UserPlus className="h-4 w-4" />
+                              Create a new user
+                            </CommandItem>
+                            <CommandItem onSelect={handleSelectCasual} className="gap-2">
+                              <Home className="h-4 w-4" />
+                              Casual user (no details needed)
+                            </CommandItem>
+                          </CommandGroup>
+                          <CommandSeparator />
+                          <CommandGroup heading="Platform users">
+                            {profiles.map(profile => (
+                              <CommandItem
+                                key={profile.id}
+                                onSelect={() => handleSelectProfile(profile)}
+                                className="gap-2"
+                              >
+                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium shrink-0">
+                                  {(profile.full_name || profile.email || '?')[0].toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{profile.full_name || 'Unnamed'}</div>
+                                  {profile.organization && (
+                                    <div className="text-xs text-muted-foreground truncate">{profile.organization}</div>
+                                  )}
+                                </div>
+                                {selectedProfile?.id === profile.id && <Check className="h-4 w-4" />}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {/* New user form */}
+                  {isCreatingNewUser && (
+                    <div className="space-y-3 mt-3 p-3 border rounded-md bg-muted/30">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-sm">First name *</Label>
+                          <Input
+                            value={newUserFirstName}
+                            onChange={(e) => {
+                              setNewUserFirstName(e.target.value);
+                              setCustomerName(`${e.target.value} ${newUserLastName}`.trim());
+                              if (validationErrors.customerName) {
+                                setValidationErrors(prev => ({ ...prev, customerName: '' }));
+                              }
+                            }}
+                            placeholder="First name"
+                            maxLength={50}
+                            className={validationErrors.customerName ? 'border-destructive' : ''}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm">Last name *</Label>
+                          <Input
+                            value={newUserLastName}
+                            onChange={(e) => {
+                              setNewUserLastName(e.target.value);
+                              setCustomerName(`${newUserFirstName} ${e.target.value}`.trim());
+                              if (validationErrors.customerName) {
+                                setValidationErrors(prev => ({ ...prev, customerName: '' }));
+                              }
+                            }}
+                            placeholder="Last name"
+                            maxLength={50}
+                            className={validationErrors.customerName ? 'border-destructive' : ''}
+                          />
+                        </div>
+                      </div>
+                      {validationErrors.customerName && (
+                        <p className="text-sm text-destructive -mt-1">{validationErrors.customerName}</p>
+                      )}
+                      <div>
+                        <Label className="text-sm">Email *</Label>
+                        <Input
+                          type="email"
+                          value={customerEmail}
+                          onChange={(e) => {
+                            setCustomerEmail(e.target.value);
+                            if (validationErrors.customerEmail) {
+                              setValidationErrors(prev => ({ ...prev, customerEmail: '' }));
+                            }
+                          }}
+                          placeholder="email@example.com"
+                          maxLength={255}
+                          className={validationErrors.customerEmail ? 'border-destructive' : ''}
+                        />
+                        {validationErrors.customerEmail && (
+                          <p className="text-sm text-destructive mt-1">{validationErrors.customerEmail}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-sm">Phone</Label>
+                        <Input
+                          type="tel"
+                          value={customerPhone}
+                          onChange={(e) => {
+                            setCustomerPhone(e.target.value);
+                            if (validationErrors.customerPhone) {
+                              setValidationErrors(prev => ({ ...prev, customerPhone: '' }));
+                            }
+                          }}
+                          placeholder="(555) 123-4567"
+                          maxLength={20}
+                          className={validationErrors.customerPhone ? 'border-destructive' : ''}
+                        />
+                        {validationErrors.customerPhone && (
+                          <p className="text-sm text-destructive mt-1">{validationErrors.customerPhone}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-sm">Organization</Label>
+                        <Input
+                          value={newUserOrganization}
+                          onChange={(e) => setNewUserOrganization(e.target.value)}
+                          placeholder="Company or organization"
+                          maxLength={100}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Show selected profile details (non-editable preview) */}
+                  {selectedProfile && !isCreatingNewUser && (
+                    <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                      {selectedProfile.email && <div>{selectedProfile.email}</div>}
+                      {selectedProfile.phone && <div>{selectedProfile.phone}</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Title */}
               <div className="space-y-2">
                 <Label htmlFor="booking-title">Title</Label>
@@ -2163,176 +2334,6 @@ export function NewBookingModal({
                 startTime={startTime}
               />
 
-              {/* Holder */}
-              {bookingType !== 'unavailable' && (
-                <div className="space-y-2">
-                  <Label>Holder *</Label>
-                  <Popover open={holderPopoverOpen} onOpenChange={setHolderPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between font-normal"
-                      >
-                        <span className="flex items-center gap-2">
-                          {selectedProfile ? (
-                            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                              {(selectedProfile.full_name || selectedProfile.email || '?')[0].toUpperCase()}
-                            </div>
-                          ) : isCreatingNewUser ? (
-                            <UserPlus className="h-4 w-4" />
-                          ) : (
-                            <Home className="h-4 w-4" />
-                          )}
-                          {getHolderDisplayText()}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[350px] p-0" align="start">
-                      <Command>
-                        <CommandInput 
-                          placeholder="Search users..." 
-                          value={profileSearch}
-                          onValueChange={setProfileSearch}
-                        />
-                        <CommandList>
-                          <CommandEmpty>No users found.</CommandEmpty>
-                          <CommandGroup>
-                            <CommandItem onSelect={handleStartCreateUser} className="gap-2">
-                              <UserPlus className="h-4 w-4" />
-                              Create a new user
-                            </CommandItem>
-                            <CommandItem onSelect={handleSelectCasual} className="gap-2">
-                              <Home className="h-4 w-4" />
-                              Casual user (no details needed)
-                            </CommandItem>
-                          </CommandGroup>
-                          <CommandSeparator />
-                          <CommandGroup heading="Platform users">
-                            {profiles.map(profile => (
-                              <CommandItem
-                                key={profile.id}
-                                onSelect={() => handleSelectProfile(profile)}
-                                className="gap-2"
-                              >
-                                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium shrink-0">
-                                  {(profile.full_name || profile.email || '?')[0].toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate">{profile.full_name || 'Unnamed'}</div>
-                                  {profile.organization && (
-                                    <div className="text-xs text-muted-foreground truncate">{profile.organization}</div>
-                                  )}
-                                </div>
-                                {selectedProfile?.id === profile.id && <Check className="h-4 w-4" />}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  
-                  {/* New user form */}
-                  {isCreatingNewUser && (
-                    <div className="space-y-3 mt-3 p-3 border rounded-md bg-muted/30">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-sm">First name *</Label>
-                          <Input
-                            value={newUserFirstName}
-                            onChange={(e) => {
-                              setNewUserFirstName(e.target.value);
-                              setCustomerName(`${e.target.value} ${newUserLastName}`.trim());
-                              if (validationErrors.customerName) {
-                                setValidationErrors(prev => ({ ...prev, customerName: '' }));
-                              }
-                            }}
-                            placeholder="First name"
-                            maxLength={50}
-                            className={validationErrors.customerName ? 'border-destructive' : ''}
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-sm">Last name *</Label>
-                          <Input
-                            value={newUserLastName}
-                            onChange={(e) => {
-                              setNewUserLastName(e.target.value);
-                              setCustomerName(`${newUserFirstName} ${e.target.value}`.trim());
-                              if (validationErrors.customerName) {
-                                setValidationErrors(prev => ({ ...prev, customerName: '' }));
-                              }
-                            }}
-                            placeholder="Last name"
-                            maxLength={50}
-                            className={validationErrors.customerName ? 'border-destructive' : ''}
-                          />
-                        </div>
-                      </div>
-                      {validationErrors.customerName && (
-                        <p className="text-sm text-destructive -mt-1">{validationErrors.customerName}</p>
-                      )}
-                      <div>
-                        <Label className="text-sm">Email *</Label>
-                        <Input
-                          type="email"
-                          value={customerEmail}
-                          onChange={(e) => {
-                            setCustomerEmail(e.target.value);
-                            if (validationErrors.customerEmail) {
-                              setValidationErrors(prev => ({ ...prev, customerEmail: '' }));
-                            }
-                          }}
-                          placeholder="email@example.com"
-                          maxLength={255}
-                          className={validationErrors.customerEmail ? 'border-destructive' : ''}
-                        />
-                        {validationErrors.customerEmail && (
-                          <p className="text-sm text-destructive mt-1">{validationErrors.customerEmail}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-sm">Phone</Label>
-                        <Input
-                          type="tel"
-                          value={customerPhone}
-                          onChange={(e) => {
-                            setCustomerPhone(e.target.value);
-                            if (validationErrors.customerPhone) {
-                              setValidationErrors(prev => ({ ...prev, customerPhone: '' }));
-                            }
-                          }}
-                          placeholder="(555) 123-4567"
-                          maxLength={20}
-                          className={validationErrors.customerPhone ? 'border-destructive' : ''}
-                        />
-                        {validationErrors.customerPhone && (
-                          <p className="text-sm text-destructive mt-1">{validationErrors.customerPhone}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-sm">Organization</Label>
-                        <Input
-                          value={newUserOrganization}
-                          onChange={(e) => setNewUserOrganization(e.target.value)}
-                          placeholder="Company or organization"
-                          maxLength={100}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Show selected profile details (non-editable preview) */}
-                  {selectedProfile && !isCreatingNewUser && (
-                    <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
-                      {selectedProfile.email && <div>{selectedProfile.email}</div>}
-                      {selectedProfile.phone && <div>{selectedProfile.phone}</div>}
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Price & Payment - Only for DIY */}
               {bookingType === 'customer' && sessionType === 'diy' && (
