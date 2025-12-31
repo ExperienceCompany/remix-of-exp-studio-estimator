@@ -77,6 +77,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { RepeatOptions, RepeatConfig, createDefaultRepeatConfig, calculateRepeatDates } from './RepeatOptions';
 import { useProfiles, useCreateProfile, Profile } from '@/hooks/useProfiles';
 import { useAuth } from '@/hooks/useAuth';
+import { validateBookingCustomer } from '@/lib/bookingValidation';
 import type { TimeSlotType, ServiceType, CrewAllocation, SessionAddon, EditingItem } from '@/types/estimator';
 
 type BookingType = 'customer' | 'internal' | 'unavailable';
@@ -330,6 +331,7 @@ export function NewBookingModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [overlapError, setOverlapError] = useState<string | null>(null);
   const [linkedQuote, setLinkedQuote] = useState<any>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   
   // Availability conflict state for service step validation
   const [availabilityConflict, setAvailabilityConflict] = useState<{
@@ -1507,6 +1509,24 @@ export function NewBookingModal({
       return;
     }
 
+    // Validate customer info when booking type is customer
+    if (holderType === 'customer') {
+      const validation = validateBookingCustomer({
+        customerName,
+        customerEmail,
+        customerPhone,
+        notes,
+      });
+      
+      if (!validation.success) {
+        setValidationErrors(validation.errors);
+        const firstError = Object.values(validation.errors)[0];
+        toast({ title: 'Validation Error', description: firstError, variant: 'destructive' });
+        return;
+      }
+    }
+    
+    setValidationErrors({});
     setIsSubmitting(true);
 
     try {
@@ -2225,8 +2245,13 @@ export function NewBookingModal({
                             onChange={(e) => {
                               setNewUserFirstName(e.target.value);
                               setCustomerName(`${e.target.value} ${newUserLastName}`.trim());
+                              if (validationErrors.customerName) {
+                                setValidationErrors(prev => ({ ...prev, customerName: '' }));
+                              }
                             }}
                             placeholder="First name"
+                            maxLength={50}
+                            className={validationErrors.customerName ? 'border-destructive' : ''}
                           />
                         </div>
                         <div>
@@ -2236,28 +2261,56 @@ export function NewBookingModal({
                             onChange={(e) => {
                               setNewUserLastName(e.target.value);
                               setCustomerName(`${newUserFirstName} ${e.target.value}`.trim());
+                              if (validationErrors.customerName) {
+                                setValidationErrors(prev => ({ ...prev, customerName: '' }));
+                              }
                             }}
                             placeholder="Last name"
+                            maxLength={50}
+                            className={validationErrors.customerName ? 'border-destructive' : ''}
                           />
                         </div>
                       </div>
+                      {validationErrors.customerName && (
+                        <p className="text-sm text-destructive -mt-1">{validationErrors.customerName}</p>
+                      )}
                       <div>
                         <Label className="text-sm">Email *</Label>
                         <Input
                           type="email"
                           value={customerEmail}
-                          onChange={(e) => setCustomerEmail(e.target.value)}
+                          onChange={(e) => {
+                            setCustomerEmail(e.target.value);
+                            if (validationErrors.customerEmail) {
+                              setValidationErrors(prev => ({ ...prev, customerEmail: '' }));
+                            }
+                          }}
                           placeholder="email@example.com"
+                          maxLength={255}
+                          className={validationErrors.customerEmail ? 'border-destructive' : ''}
                         />
+                        {validationErrors.customerEmail && (
+                          <p className="text-sm text-destructive mt-1">{validationErrors.customerEmail}</p>
+                        )}
                       </div>
                       <div>
                         <Label className="text-sm">Phone</Label>
                         <Input
                           type="tel"
                           value={customerPhone}
-                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          onChange={(e) => {
+                            setCustomerPhone(e.target.value);
+                            if (validationErrors.customerPhone) {
+                              setValidationErrors(prev => ({ ...prev, customerPhone: '' }));
+                            }
+                          }}
                           placeholder="(555) 123-4567"
+                          maxLength={20}
+                          className={validationErrors.customerPhone ? 'border-destructive' : ''}
                         />
+                        {validationErrors.customerPhone && (
+                          <p className="text-sm text-destructive mt-1">{validationErrors.customerPhone}</p>
+                        )}
                       </div>
                       <div>
                         <Label className="text-sm">Organization</Label>
@@ -2265,6 +2318,7 @@ export function NewBookingModal({
                           value={newUserOrganization}
                           onChange={(e) => setNewUserOrganization(e.target.value)}
                           placeholder="Company or organization"
+                          maxLength={100}
                         />
                       </div>
                     </div>
