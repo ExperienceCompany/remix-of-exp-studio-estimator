@@ -2,22 +2,32 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, AlertCircle, RefreshCw, DollarSign, Settings, Building2, Shield, Palette, FormInput } from 'lucide-react';
+import { ArrowLeft, AlertCircle, RefreshCw, DollarSign, Settings, Building2, Shield, Palette, FormInput, Link2, Clock, Calendar, Eye } from 'lucide-react';
 import { RatesEditor } from '@/components/admin/RatesEditor';
 import { CalendarSettingsEditor } from '@/components/admin/CalendarSettingsEditor';
 import { StudiosEditor } from '@/components/admin/StudiosEditor';
 import { BookingPoliciesEditor } from '@/components/admin/BookingPoliciesEditor';
 import { ColoringEditor } from '@/components/admin/ColoringEditor';
 import { CustomFieldsEditor } from '@/components/admin/CustomFieldsEditor';
+import SharedStudiosEditor from '@/components/admin/SharedStudiosEditor';
+import AvailabilityRulesEditor from '@/components/admin/AvailabilityRulesEditor';
+import SchedulerDisplayEditor from '@/components/admin/SchedulerDisplayEditor';
+import AllDayDefaultsEditor from '@/components/admin/AllDayDefaultsEditor';
+import AccessVisibilityEditor from '@/components/admin/AccessVisibilityEditor';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 
 const sections = [
   { id: 'studios', label: 'Studios', icon: Building2 },
+  { id: 'shared-studios', label: 'Shared Studios', icon: Link2 },
   { id: 'diy-rates', label: 'DIY Rates', icon: DollarSign },
+  { id: 'availability', label: 'Availability', icon: Clock },
+  { id: 'scheduler-display', label: 'Scheduler Display', icon: Calendar },
+  { id: 'all-day-defaults', label: 'All-Day Defaults', icon: Calendar },
   { id: 'studio-settings', label: 'Studio Settings', icon: Settings },
   { id: 'policies', label: 'Lock-in & Repetition', icon: Shield },
+  { id: 'access-visibility', label: 'Access & Visibility', icon: Eye },
   { id: 'coloring', label: 'Coloring', icon: Palette },
   { id: 'custom-fields', label: 'Custom Fields', icon: FormInput },
 ];
@@ -118,6 +128,18 @@ export default function CalendarSettings() {
             </Card>
           )}
 
+          {activeSection === 'shared-studios' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Shared Studios</CardTitle>
+                <CardDescription>Define groups of studios that cannot be booked simultaneously</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SharedStudiosEditor />
+              </CardContent>
+            </Card>
+          )}
+
           {activeSection === 'diy-rates' && (
             <Card>
               <CardHeader>
@@ -126,6 +148,42 @@ export default function CalendarSettings() {
               </CardHeader>
               <CardContent>
                 <RatesEditor />
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'availability' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Hours of Availability</CardTitle>
+                <CardDescription>Define when studios can be booked</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AvailabilityRulesEditor />
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'scheduler-display' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Scheduler Display</CardTitle>
+                <CardDescription>Configure the visible time range on the calendar</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SchedulerDisplayEditor />
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'all-day-defaults' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>All-Day Booking Defaults</CardTitle>
+                <CardDescription>Configure which studios show an "All Day" checkbox</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AllDayDefaultsEditor />
               </CardContent>
             </Card>
           )}
@@ -150,6 +208,18 @@ export default function CalendarSettings() {
               </CardHeader>
               <CardContent>
                 <BookingPoliciesEditor />
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === 'access-visibility' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Access & Visibility</CardTitle>
+                <CardDescription>Control who can view and book on the schedule</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AccessVisibilityEditor />
               </CardContent>
             </Card>
           )}

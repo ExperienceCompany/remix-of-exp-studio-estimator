@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_control_settings: {
+        Row: {
+          allowed_booking_tags: string[] | null
+          booking_permission: string
+          created_at: string | null
+          id: string
+          schedule_visibility: string
+          updated_at: string | null
+        }
+        Insert: {
+          allowed_booking_tags?: string[] | null
+          booking_permission?: string
+          created_at?: string | null
+          id?: string
+          schedule_visibility?: string
+          updated_at?: string | null
+        }
+        Update: {
+          allowed_booking_tags?: string[] | null
+          booking_permission?: string
+          created_at?: string | null
+          id?: string
+          schedule_visibility?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       admin_logs: {
         Row: {
           affiliate_code: string | null
@@ -65,6 +92,41 @@ export type Database = {
         }
         Relationships: []
       }
+      all_day_defaults: {
+        Row: {
+          checked_by_default: boolean | null
+          created_at: string | null
+          id: string
+          show_all_day_checkbox: boolean | null
+          studio_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          checked_by_default?: boolean | null
+          created_at?: string | null
+          id?: string
+          show_all_day_checkbox?: boolean | null
+          studio_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          checked_by_default?: boolean | null
+          created_at?: string | null
+          id?: string
+          show_all_day_checkbox?: boolean | null
+          studio_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "all_day_defaults_studio_id_fkey"
+            columns: ["studio_id"]
+            isOneToOne: true
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -95,6 +157,39 @@ export type Database = {
           old_values?: Json | null
           record_id?: string
           table_name?: string
+        }
+        Relationships: []
+      }
+      availability_rules: {
+        Row: {
+          created_at: string | null
+          days_of_week: number[]
+          end_time: string
+          id: string
+          is_active: boolean | null
+          start_time: string
+          studio_ids: string[]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_of_week: number[]
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          start_time: string
+          studio_ids: string[]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_of_week?: number[]
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          start_time?: string
+          studio_ids?: string[]
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -232,6 +327,51 @@ export type Database = {
           policy_type?: string
           policy_value?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      booking_visibility_rules: {
+        Row: {
+          booking_type_filter: string
+          created_at: string | null
+          display_order: number | null
+          holder_filter: string
+          holder_tags: string[] | null
+          id: string
+          is_active: boolean | null
+          space_filter: string
+          space_ids: string[] | null
+          updated_at: string | null
+          viewer_tags: string[] | null
+          viewer_type: string
+        }
+        Insert: {
+          booking_type_filter?: string
+          created_at?: string | null
+          display_order?: number | null
+          holder_filter?: string
+          holder_tags?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          space_filter?: string
+          space_ids?: string[] | null
+          updated_at?: string | null
+          viewer_tags?: string[] | null
+          viewer_type?: string
+        }
+        Update: {
+          booking_type_filter?: string
+          created_at?: string | null
+          display_order?: number | null
+          holder_filter?: string
+          holder_tags?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          space_filter?: string
+          space_ids?: string[] | null
+          updated_at?: string | null
+          viewer_tags?: string[] | null
+          viewer_type?: string
         }
         Relationships: []
       }
@@ -699,6 +839,30 @@ export type Database = {
           },
         ]
       }
+      scheduler_display_settings: {
+        Row: {
+          created_at: string | null
+          display_end_time: string
+          display_start_time: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_end_time?: string
+          display_start_time?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_end_time?: string
+          display_start_time?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           base_pay: number | null
@@ -838,6 +1002,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      shared_studio_group_members: {
+        Row: {
+          created_at: string | null
+          group_id: string
+          id: string
+          studio_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          group_id: string
+          id?: string
+          studio_id: string
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string
+          id?: string
+          studio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_studio_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "shared_studio_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_studio_group_members_studio_id_fkey"
+            columns: ["studio_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_studio_groups: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       studio_bookings: {
         Row: {
@@ -1013,6 +1234,36 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_visibility_rules: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+          viewer_tags: string[] | null
+          viewer_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          viewer_tags?: string[] | null
+          viewer_type?: string
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          viewer_tags?: string[] | null
+          viewer_type?: string
         }
         Relationships: []
       }
