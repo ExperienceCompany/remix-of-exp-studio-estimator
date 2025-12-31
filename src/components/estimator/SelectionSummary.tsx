@@ -122,18 +122,16 @@ export function SelectionSummary() {
   };
 
   selection.editingItems.forEach(item => {
-    const durationStr = formatEditDuration(item.quantity, item.category);
-    const crewParts: string[] = [];
-    if (item.assignedCrew?.lv1) {
-      crewParts.push(item.assignedCrew.lv1 > 1 ? `Lv1 x${item.assignedCrew.lv1}` : 'Lv1');
+    const isVideoEditing = item.category !== 'photo_editing';
+    const durationStr = isVideoEditing ? formatEditDuration(item.quantity, item.category) : `x${item.quantity}`;
+    
+    // For video editing, show crew level multiplier
+    let crewStr = '';
+    if (isVideoEditing && item.crewLevel) {
+      const multipliers: Record<string, string> = { lv1: '0.75x', lv2: '1x', lv3: '1.25x' };
+      crewStr = ` • ${item.crewLevel.toUpperCase()} (${multipliers[item.crewLevel]})`;
     }
-    if (item.assignedCrew?.lv2) {
-      crewParts.push(item.assignedCrew.lv2 > 1 ? `Lv2 x${item.assignedCrew.lv2}` : 'Lv2');
-    }
-    if (item.assignedCrew?.lv3) {
-      crewParts.push(item.assignedCrew.lv3 > 1 ? `Lv3 x${item.assignedCrew.lv3}` : 'Lv3');
-    }
-    const crewStr = crewParts.length > 0 ? ` • ${crewParts.join(', ')}` : '';
+    
     items.push({
       icon: <Film className="h-3 w-3" />,
       label: item.name.split(' ')[0],

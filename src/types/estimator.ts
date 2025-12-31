@@ -61,8 +61,9 @@ export interface EditingItem {
   basePrice: number;      // Internal payout rate
   customerPrice: number;  // Customer-facing price (base price)
   incrementPrice: number | null;  // Customer-facing increment price
-  crewCount?: number;     // DEPRECATED: use assignedCrew instead
-  assignedCrew?: CrewAllocation;  // Crew assigned per level
+  crewCount?: number;     // DEPRECATED: use crewLevel instead
+  assignedCrew?: CrewAllocation;  // DEPRECATED: use crewLevel instead
+  crewLevel?: ProviderLevel;  // Single crew level selection for post-production (lv1=0.75x, lv2=1x, lv3=1.25x)
 }
 
 export interface LineItem {
