@@ -989,23 +989,55 @@ export function NewBookingModal({
     );
   };
 
-  // Handle start time change - for serviced sessions, maintain duration and recalculate end time
+  // Handle start time change - auto-adjust end time to maintain minimum duration
   const handleStartTimeChange = (newStartTime: string) => {
     setStartTime(newStartTime);
-    if (sessionType === 'serviced' && onDurationChange && selectedStudios.length > 0) {
+    
+    const startTime24 = to24Hour(newStartTime);
+    const [startH, startM] = startTime24.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    
+    // Minimum booking duration is 1 hour (60 minutes)
+    const minDurationMinutes = 60;
+    
+    if (sessionType === 'serviced') {
       // Recalculate end time based on current duration
-      const startTime24 = to24Hour(newStartTime);
-      const [startH, startM] = startTime24.split(':').map(Number);
-      const endMinutes = startH * 60 + startM + sessionDuration * 60;
+      const endMinutes = startMinutes + sessionDuration * 60;
       const endH = Math.floor(endMinutes / 60);
       const endM = Math.round(endMinutes % 60);
       const newEndTime24 = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-      onDurationChange(selectedStudios, startTime24, newEndTime24);
+      if (onDurationChange && selectedStudios.length > 0) {
+        onDurationChange(selectedStudios, startTime24, newEndTime24);
+      }
+    } else {
+      // For DIY: ensure endTime is at least minDuration after startTime
+      const currentEnd24 = to24Hour(endTime);
+      const [endH, endM] = currentEnd24.split(':').map(Number);
+      const currentEndMinutes = endH * 60 + endM;
+      
+      // If current end time is before or equal to start + minDuration, auto-adjust
+      if (currentEndMinutes <= startMinutes + minDurationMinutes) {
+        const newEndMinutes = startMinutes + minDurationMinutes;
+        const newEndH = Math.floor(newEndMinutes / 60);
+        const newEndM = newEndMinutes % 60;
+        const adjustedEndTime = to12Hour(`${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`);
+        setEndTime(adjustedEndTime);
+      }
     }
   };
 
-  // Handle end time change - for serviced sessions, calculate new duration from start/end times
+  // Handle end time change - ensure minimum duration is maintained
   const handleEndTimeChange = (newEndTime: string) => {
+    const startTime24 = to24Hour(startTime);
+    const endTime24 = to24Hour(newEndTime);
+    const [startH, startM] = startTime24.split(':').map(Number);
+    const [endH, endM] = endTime24.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    
+    // Minimum booking duration is 1 hour (60 minutes)
+    const minDurationMinutes = 60;
+    
     if (sessionType === 'serviced') {
       // Calculate new duration from start and end times
       const newDuration = calculateHours(startTime, newEndTime);
@@ -1014,11 +1046,21 @@ export function NewBookingModal({
         setSessionDuration(newDuration);
         // Notify calendar view
         if (onDurationChange && selectedStudios.length > 0) {
-          onDurationChange(selectedStudios, to24Hour(startTime), to24Hour(newEndTime));
+          onDurationChange(selectedStudios, startTime24, endTime24);
         }
       }
     } else {
-      setEndTime(newEndTime);
+      // For DIY: only allow if end is after start + minDuration
+      if (endMinutes >= startMinutes + minDurationMinutes) {
+        setEndTime(newEndTime);
+      } else {
+        // Auto-correct to minimum valid end time
+        const newEndMinutes = startMinutes + minDurationMinutes;
+        const newEndH = Math.floor(newEndMinutes / 60);
+        const newEndM = newEndMinutes % 60;
+        const correctedEndTime = to12Hour(`${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`);
+        setEndTime(correctedEndTime);
+      }
     }
   };
 
