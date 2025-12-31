@@ -15,6 +15,11 @@ interface DiyRate {
   time_slots?: { type: string } | null;
 }
 
+interface SharedStudioGroup {
+  id: string;
+  members: { studio_id: string }[];
+}
+
 interface DayViewProps {
   currentDate: Date;
   bookings: StudioBooking[];
@@ -23,6 +28,7 @@ interface DayViewProps {
   operatingEnd?: string;
   bufferMinutes?: number;
   diyRates?: DiyRate[];
+  sharedStudioGroups?: SharedStudioGroup[];
   onSlotClick?: (studioId: string, time: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
   onOpenBookingModal?: (studioIds: string[], startTime: string, endTime: string, estimatedCost: number) => void;
@@ -100,6 +106,7 @@ export function DayView({
   operatingEnd = '22:00',
   bufferMinutes = 15,
   diyRates = [],
+  sharedStudioGroups = [],
   onSlotClick,
   onBookingClick,
   onOpenBookingModal,
@@ -210,13 +217,40 @@ export function DayView({
     });
   }, [buyoutBookings, studios]);
 
+  // Get all studio IDs in the same shared group(s) as the given studio
+  const getSharedStudioIds = useCallback((studioId: string): string[] => {
+    if (!sharedStudioGroups || sharedStudioGroups.length === 0) return [];
+    const groups = sharedStudioGroups.filter(g => 
+      g.members.some(m => m.studio_id === studioId)
+    );
+    const sharedIds = new Set<string>();
+    groups.forEach(g => g.members.forEach(m => sharedIds.add(m.studio_id)));
+    sharedIds.delete(studioId); // Exclude the original studio
+    return Array.from(sharedIds);
+  }, [sharedStudioGroups]);
+
+  // Check if a slot is blocked by existing bookings on shared studios
+  const isSlotBlockedBySharedGroup = useCallback((studioId: string, slot: string) => {
+    const sharedIds = getSharedStudioIds(studioId);
+    if (sharedIds.length === 0) return false;
+    
+    const slotMins = timeToMinutes(slot);
+    return dayBookings.some(b => {
+      if (!sharedIds.includes(b.studio_id)) return false;
+      if (b.status === 'cancelled') return false;
+      const startMins = timeToMinutes(b.start_time);
+      const endMins = timeToMinutes(b.end_time);
+      return slotMins >= startMins && slotMins < endMins;
+    });
+  }, [dayBookings, getSharedStudioIds]);
+
   const isSlotBooked = useCallback((studioId: string, slot: string) => {
     return getBookingsForSlot(studioId, slot).length > 0;
   }, [getBookingsForSlot]);
 
   const isSlotUnavailable = useCallback((studioId: string, slot: string) => {
-    return isSlotBooked(studioId, slot) || isSlotInBuffer(studioId, slot) || isSlotBlockedByBuyout(studioId, slot);
-  }, [isSlotBooked, isSlotInBuffer, isSlotBlockedByBuyout]);
+    return isSlotBooked(studioId, slot) || isSlotInBuffer(studioId, slot) || isSlotBlockedByBuyout(studioId, slot) || isSlotBlockedBySharedGroup(studioId, slot);
+  }, [isSlotBooked, isSlotInBuffer, isSlotBlockedByBuyout, isSlotBlockedBySharedGroup]);
 
   // Check if a range is available for all studios in pending booking
   const isRangeAvailable = useCallback((startMins: number, endMins: number, studioIds: string[]) => {
@@ -244,6 +278,24 @@ export function DayView({
       maxSlot: Math.max(startMins, endMins),
     };
   }, [pendingBooking]);
+
+  // Check if a slot is blocked by the pending (temp) booking selection on a shared studio
+  const isSlotBlockedByPendingSharedGroup = useCallback((studioId: string, slot: string) => {
+    if (!pendingBooking || !pendingRange) return false;
+    if (pendingBooking.studioIds.includes(studioId)) return false; // Not blocked if it's the active studio
+    
+    // Check if any studio in pending booking shares a group with this studio
+    const hasSharedGroup = pendingBooking.studioIds.some(pendingStudioId => {
+      const sharedIds = getSharedStudioIds(pendingStudioId);
+      return sharedIds.includes(studioId);
+    });
+    
+    if (!hasSharedGroup) return false;
+    
+    // Check if this slot falls within the pending time range
+    const slotMins = timeToMinutes(slot);
+    return slotMins >= pendingRange.minSlot && slotMins <= pendingRange.maxSlot;
+  }, [pendingBooking, pendingRange, getSharedStudioIds]);
 
   const isSlotInPendingRange = useCallback((studioId: string, slot: string) => {
     if (!pendingBooking || !pendingRange) return false;
@@ -638,7 +690,9 @@ export function DayView({
                     const isBooked = isSlotBooked(studio.id, time);
                     const isBuffer = isSlotInBuffer(studio.id, time);
                     const isBlockedByBuyout = isSlotBlockedByBuyout(studio.id, time);
-                    const isUnavailable = isBooked || isBuffer || isBlockedByBuyout;
+                    const isBlockedByShared = isSlotBlockedBySharedGroup(studio.id, time);
+                    const isBlockedByPendingShared = isSlotBlockedByPendingSharedGroup(studio.id, time);
+                    const isUnavailable = isBooked || isBuffer || isBlockedByBuyout || isBlockedByShared;
                     const isInPending = isSlotInPendingRange(studio.id, time);
                     const isStartOfPending = isPendingStartSlot(studio.id, time);
                     const isEndOfPending = isPendingEndSlot(studio.id, time);
@@ -646,13 +700,14 @@ export function DayView({
                     
                     // Hover state
                     const isHovered = hoveredSlot?.studioId === studio.id && hoveredSlot?.time === time;
-                    const showHoverState = isHovered && !isUnavailable && !pendingBooking;
+                    const showHoverState = isHovered && !isUnavailable && !isBlockedByPendingShared && !pendingBooking;
                     
-                    // Show + button for studios not in selection but in time range
+                    // Show + button for studios not in selection but in time range (but not if blocked by shared group)
                     const showAddButton = pendingBooking && 
                       !pendingBooking.studioIds.includes(studio.id) && 
                       isSlotInPendingTimeRange(time) && 
-                      !isUnavailable;
+                      !isUnavailable &&
+                      !isBlockedByPendingShared;
                     
                     // Only show + on the first slot of the range
                     const isFirstSlotOfRange = pendingRange && timeToMinutes(time) === pendingRange.minSlot;
@@ -662,9 +717,11 @@ export function DayView({
                           key={studio.id}
                           className={cn(
                             "py-0.5 px-1 border-r min-h-[28px] h-7 relative transition-colors",
-                            !isUnavailable && !isInPending && !pendingBooking && "cursor-pointer",
+                            !isUnavailable && !isInPending && !pendingBooking && !isBlockedByPendingShared && "cursor-pointer",
                             isBuffer && "bg-amber-500/10",
                             isBlockedByBuyout && "bg-destructive/10",
+                            isBlockedByShared && !isBooked && "bg-muted/60",
+                            isBlockedByPendingShared && !isBooked && !isBlockedByShared && "bg-muted/40",
                             isInPending && "border-transparent", // Hide cell borders within pending
                             isInPendingBuffer && !isBooked && !isBuffer && "bg-muted",
                             showHoverState && "bg-primary"
@@ -688,9 +745,23 @@ export function DayView({
                         )}
                         
                         {/* Blocked by buyout indicator */}
-                        {isBlockedByBuyout && !isBooked && !isBuffer && (
+                        {isBlockedByBuyout && !isBooked && !isBuffer && !isBlockedByShared && (
                           <div className="absolute inset-0 flex items-center justify-center">
                             <span className="text-[10px] text-destructive/50">blocked</span>
+                          </div>
+                        )}
+                        
+                        {/* Blocked by shared studio group indicator */}
+                        {isBlockedByShared && !isBooked && !isBuffer && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-muted/60">
+                            <span className="text-[10px] text-muted-foreground/60">shared</span>
+                          </div>
+                        )}
+                        
+                        {/* Blocked by pending shared studio group indicator */}
+                        {isBlockedByPendingShared && !isBooked && !isBuffer && !isBlockedByShared && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-muted/40">
+                            <span className="text-[10px] text-muted-foreground/50">shared</span>
                           </div>
                         )}
                         
