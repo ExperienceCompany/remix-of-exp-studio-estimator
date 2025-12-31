@@ -1,5 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { DollarSign } from 'lucide-react';
 import type { EstimatorSelection } from '@/types/estimator';
 import { STUDIO_LABELS, StudioType } from '@/types/estimator';
@@ -11,10 +13,40 @@ interface LiveCostDisplayProps {
   originalTotal: number | null;
 }
 
+// Helper to derive time slot type from booking date and start time
+const getTimeSlotTypeFromDateTime = (
+  bookingDate: string | undefined, 
+  startTime: string | undefined
+): string | null => {
+  if (!bookingDate || !startTime) return null;
+  
+  const date = new Date(bookingDate + 'T12:00:00'); // Avoid timezone issues
+  const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+  
+  // Parse start time (e.g., "13:45:00" or "13:45")
+  let hour = 0;
+  if (startTime.includes(':')) {
+    hour = parseInt(startTime.split(':')[0], 10);
+  }
+  
+  // Day (10am-4pm) vs Evening (4pm-10pm)
+  const isEvening = hour >= 16;
+  
+  // Mon-Wed = 1,2,3 | Thu-Fri = 4,5 | Sat-Sun = 0,6
+  if (dayOfWeek >= 1 && dayOfWeek <= 3) {
+    return isEvening ? 'mon_wed_eve' : 'mon_wed_day';
+  } else if (dayOfWeek === 4 || dayOfWeek === 5) {
+    return isEvening ? 'thu_fri_eve' : 'thu_fri_day';
+  } else {
+    return isEvening ? 'sat_sun_eve' : 'sat_sun_day';
+  }
+};
+
 export function LiveCostDisplay({ selection, elapsedSeconds, originalTotal }: LiveCostDisplayProps) {
   const { data: diyRates } = useDiyRates();
   const { data: providerLevels } = useProviderLevels();
   const { data: cameraAddons } = useVodcastCameraAddons();
+  const [includeEditing, setIncludeEditing] = useState(true);
 
   const costBreakdown = useMemo(() => {
     if (!selection) return { lineItems: [], total: 0 };
@@ -23,10 +55,16 @@ export function LiveCostDisplay({ selection, elapsedSeconds, originalTotal }: Li
     const lineItems: Array<{ label: string; amount: number }> = [];
     let total = 0;
 
+    // Derive time slot type from date/time if not provided
+    const bookingDate = (selection as any)?.bookingDate;
+    const startTime = (selection as any)?.startTime;
+    const effectiveTimeSlot = selection.timeSlotType || 
+      getTimeSlotTypeFromDateTime(bookingDate, startTime);
+
     // Find matching DIY rate
     const matchingRate = diyRates?.find(
       r => r.studios?.type === selection.studioType && 
-           r.time_slots?.type === selection.timeSlotType
+           r.time_slots?.type === effectiveTimeSlot
     );
 
     // Calculate studio cost
@@ -106,8 +144,8 @@ export function LiveCostDisplay({ selection, elapsedSeconds, originalTotal }: Li
       });
     }
 
-    // Editing items (fixed cost, not time-based)
-    if (selection.editingItems && selection.editingItems.length > 0) {
+    // Editing items (fixed cost, not time-based) - only if toggle is on
+    if (includeEditing && selection.editingItems && selection.editingItems.length > 0) {
       selection.editingItems.forEach(item => {
         const itemCost = item.customerPrice * item.quantity;
         lineItems.push({
@@ -119,7 +157,7 @@ export function LiveCostDisplay({ selection, elapsedSeconds, originalTotal }: Li
     }
 
     return { lineItems, total };
-  }, [selection, elapsedSeconds, diyRates, providerLevels, cameraAddons]);
+  }, [selection, elapsedSeconds, diyRates, providerLevels, cameraAddons, includeEditing]);
 
   const formatDuration = (seconds: number): string => {
     const hrs = Math.floor(seconds / 3600);
@@ -158,6 +196,20 @@ export function LiveCostDisplay({ selection, elapsedSeconds, originalTotal }: Li
             </div>
           ))}
         </div>
+
+        {/* Editing toggle */}
+        {selection?.editingItems && selection.editingItems.length > 0 && (
+          <div className="flex items-center justify-between py-2 border-t">
+            <Label htmlFor="include-editing" className="text-sm text-muted-foreground cursor-pointer">
+              Include Post-Production
+            </Label>
+            <Switch 
+              id="include-editing"
+              checked={includeEditing} 
+              onCheckedChange={setIncludeEditing}
+            />
+          </div>
+        )}
 
         <div className="border-t pt-4">
           <div className="flex justify-between items-center">
