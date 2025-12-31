@@ -58,8 +58,10 @@ export function StepStudio() {
 
   const handleNext = () => {
     if (selection.studioType) {
-      // Go to Day & Time (step 3)
-      setCurrentStep(3);
+      // DIY: Studio is step 1 → Day/Time is step 2
+      // Serviced: Studio is step 2 → Day/Time is step 3
+      const nextStep = selection.sessionType === 'diy' ? 2 : 3;
+      setCurrentStep(nextStep);
     }
   };
 

@@ -98,11 +98,15 @@ export function StepConfigure() {
   };
 
   const handleNext = () => {
-    setCurrentStep(7);
+    // DIY: Configure is step 5 → Summary is step 6
+    // Serviced: Configure is step 6 → Summary is step 7
+    setCurrentStep(selection.sessionType === 'diy' ? 6 : 7);
   };
 
   const handleBack = () => {
-    setCurrentStep(5);
+    // DIY: Configure is step 5 → Addons is step 4
+    // Serviced: Configure is step 6 → Addons is step 5
+    setCurrentStep(selection.sessionType === 'diy' ? 4 : 5);
   };
 
   // If no video editing items to configure, this step shouldn't be shown

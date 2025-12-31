@@ -314,7 +314,21 @@ export function StepSummary() {
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setCurrentStep(5)}>
+        <Button variant="outline" onClick={() => {
+          // Check if we should go back to Configure (if video editing exists) or Addons
+          const hasVideoEditing = selection.editingItems.some(item => item.category !== 'photo_editing');
+          const isDiy = selection.sessionType === 'diy';
+          
+          if (hasVideoEditing) {
+            // DIY: Summary is step 6 → Configure is step 5
+            // Serviced: Summary is step 7 → Configure is step 6
+            setCurrentStep(isDiy ? 5 : 6);
+          } else {
+            // DIY: Summary is step 6 → Addons is step 4
+            // Serviced: Summary is step 7 → Addons is step 5
+            setCurrentStep(isDiy ? 4 : 5);
+          }
+        }}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
