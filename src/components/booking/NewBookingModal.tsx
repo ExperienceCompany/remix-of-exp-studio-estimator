@@ -558,7 +558,17 @@ export function NewBookingModal({
           
           // Holder type
           if (sel.holderType) setHolderType(sel.holderType);
-          if (sel.wantsEditing !== undefined) setWantsEditing(sel.wantsEditing);
+          
+          // Infer wantsEditing from editingItems if not explicitly set
+          if (sel.wantsEditing === true || sel.wantsEditing === false) {
+            setWantsEditing(sel.wantsEditing);
+          } else if (sel.editingItems && sel.editingItems.some((item: any) => 
+            item.category === 'photo_editing' || 
+            item.name?.toLowerCase().includes('retouch') ||
+            item.name?.toLowerCase().includes('edit')
+          )) {
+            setWantsEditing(true);
+          }
         } else if (existingBooking.quote_id && isLoadingLinkedQuote) {
           // Quote is still loading - don't set defaults yet, wait for linkedQuote to load
           // The useEffect will re-run when linkedQuote becomes available
@@ -632,7 +642,17 @@ export function NewBookingModal({
                 
                 // Holder type & wantsEditing
                 if (sel.holderType) setHolderType(sel.holderType as HolderType);
-                if (sel.wantsEditing !== undefined) setWantsEditing(sel.wantsEditing as boolean);
+                
+                // Infer wantsEditing from editingItems if not explicitly set
+                if (sel.wantsEditing === true || sel.wantsEditing === false) {
+                  setWantsEditing(sel.wantsEditing as boolean);
+                } else if (sel.editingItems && Array.isArray(sel.editingItems) && (sel.editingItems as any[]).some((item: any) => 
+                  item.category === 'photo_editing' || 
+                  item.name?.toLowerCase().includes('retouch') ||
+                  item.name?.toLowerCase().includes('edit')
+                )) {
+                  setWantsEditing(true);
+                }
               } else {
                 // No linked quote - use defaults for service details
                 setServiceType(null);
