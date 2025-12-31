@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
@@ -14,6 +15,8 @@ interface SpanningBookingCardProps {
     customer_name: string | null;
     session_type: string | null;
     title: string | null;
+    start_time: string;
+    end_time: string;
   };
   top: number;
   height: number;
@@ -23,6 +26,23 @@ interface SpanningBookingCardProps {
   onDuplicate?: (booking: StudioBooking) => void;
   onCancel?: (booking: StudioBooking, scope: 'occurrence' | 'from_here' | 'series') => void;
 }
+
+const formatTime = (time: string) => {
+  const [hour, min] = time.split(':').map(Number);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${min.toString().padStart(2, '0')} ${ampm}`;
+};
+
+const calculateDuration = (startTime: string, endTime: string): string => {
+  const [startH, startM] = startTime.split(':').map(Number);
+  const [endH, endM] = endTime.split(':').map(Number);
+  const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+  const hours = totalMinutes / 60;
+  if (hours === 1) return '1 hr';
+  if (hours % 1 === 0) return `${hours} hrs`;
+  return `${hours.toFixed(1)} hrs`;
+};
 
 const getBookingTypeBorderColor = (type: string, status: string) => {
   if (status === 'cancelled') return 'border-l-muted-foreground';
@@ -48,10 +68,12 @@ export function SpanningBookingCard({
   onDuplicate,
   onCancel,
 }: SpanningBookingCardProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const borderColor = getBookingTypeBorderColor(booking.booking_type, booking.status);
   const displayText = getBookingDisplayText(booking, isStaffOrAdmin);
   const isCancelled = booking.status === 'cancelled';
   const isShort = height < 40;
+  const timeDisplay = `${formatTime(booking.start_time)} - ${formatTime(booking.end_time)} (${calculateDuration(booking.start_time, booking.end_time)})`;
 
   const cardContent = (
     <div
@@ -76,12 +98,20 @@ export function SpanningBookingCard({
             {displayText}
           </span>
           {!isShort && (
-            <span className={cn(
-              'text-[10px] text-muted-foreground truncate',
-              isCancelled && 'line-through'
-            )}>
-              {booking.session_type === 'serviced' ? 'EXP Session' : 'DIY Session'}
-            </span>
+            <>
+              <span className={cn(
+                'text-[10px] text-muted-foreground truncate',
+                isCancelled && 'line-through'
+              )}>
+                {booking.session_type === 'serviced' ? 'EXP Session' : 'DIY Session'}
+              </span>
+              <span className={cn(
+                'text-[10px] text-muted-foreground truncate',
+                isCancelled && 'line-through'
+              )}>
+                {timeDisplay}
+              </span>
+            </>
           )}
         </div>
         <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
@@ -92,18 +122,26 @@ export function SpanningBookingCard({
   // Wrap with context menu and hover card for staff/admin
   if (isStaffOrAdmin) {
     return (
-      <HoverCard openDelay={300}>
+      <HoverCard openDelay={300} open={isMenuOpen ? false : undefined}>
         <HoverCardTrigger>
           <BookingContextMenu
             booking={booking as StudioBooking}
             onViewEdit={() => onClick?.()}
             onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
             onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
+            onOpenChange={setIsMenuOpen}
           >
             {cardContent}
           </BookingContextMenu>
         </HoverCardTrigger>
-        <HoverCardContent className="w-72" side="right" align="start">
+        <HoverCardContent 
+          className="w-72" 
+          side="right" 
+          align="start"
+          sideOffset={8}
+          avoidCollisions={true}
+          collisionPadding={16}
+        >
           <BookingHoverContent booking={booking as StudioBooking} studioName={studioName} />
         </HoverCardContent>
       </HoverCard>

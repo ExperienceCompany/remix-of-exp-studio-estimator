@@ -18,6 +18,7 @@ interface BookingContextMenuProps {
   onDuplicate: () => void;
   onCancel: (scope: 'occurrence' | 'from_here' | 'series') => void;
   disabled?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function BookingContextMenu({
@@ -27,6 +28,7 @@ export function BookingContextMenu({
   onDuplicate,
   onCancel,
   disabled = false,
+  onOpenChange,
 }: BookingContextMenuProps) {
   const isRepeatBooking = !!booking.repeat_series_id;
   const isCancelled = booking.status === 'cancelled';
@@ -36,7 +38,7 @@ export function BookingContextMenu({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         {children}
       </DropdownMenuTrigger>
