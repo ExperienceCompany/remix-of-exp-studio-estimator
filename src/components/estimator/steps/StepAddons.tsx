@@ -216,10 +216,16 @@ export function StepAddons() {
       return menuItem && menuItem.category !== 'photo_editing';
     });
     
+    const isDiy = selection.sessionType === 'diy';
+    
     if (hasVideoEditingToConfig) {
-      setCurrentStep(6); // Go to Configure step
+      // DIY: Addons is step 4 → Configure is step 5
+      // Serviced: Addons is step 5 → Configure is step 6
+      setCurrentStep(isDiy ? 5 : 6);
     } else {
-      setCurrentStep(7); // Skip to Summary
+      // DIY: Addons is step 4 → Summary is step 6
+      // Serviced: Addons is step 5 → Summary is step 7
+      setCurrentStep(isDiy ? 6 : 7);
     }
   };
 
@@ -592,7 +598,11 @@ export function StepAddons() {
       )}
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setCurrentStep(4)}>
+        <Button variant="outline" onClick={() => {
+          // DIY: Addons is step 4 → Duration is step 3
+          // Serviced: Addons is step 5 → Duration is step 4
+          setCurrentStep(selection.sessionType === 'diy' ? 3 : 4);
+        }}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
