@@ -3,6 +3,7 @@ import { useTimeSlots, useDiyRates, useProviderLevels } from '@/hooks/useEstimat
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { TimeSlotType, PROVIDER_LEVEL_LABELS } from '@/types/estimator';
 import { Sun, Moon, ArrowLeft, ArrowRight, Check, Camera, Sparkles, Users } from 'lucide-react';
@@ -247,7 +248,7 @@ export function StepTimeSlot() {
         </div>
       )}
 
-      {dayGroups.map(group => (
+      {dayGroups.map((group, index) => (
         <div key={group.label}>
           <h3 className="text-sm font-medium text-muted-foreground mb-2">{group.label}</h3>
           <div className="grid grid-cols-2 gap-3">
@@ -287,6 +288,9 @@ export function StepTimeSlot() {
               );
             })}
           </div>
+          {index < dayGroups.length - 1 && (
+            <Separator className="mt-6 bg-border" />
+          )}
         </div>
       ))}
 
