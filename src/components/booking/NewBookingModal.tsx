@@ -588,9 +588,32 @@ export function NewBookingModal({
         setEndTime(to12Hour(existingBooking.end_time));
         // Initialize repeat config - parse existing pattern if editing series
         const bookingDate = parseISO(existingBooking.booking_date);
-        if (existingBooking.repeat_pattern && (editScope === 'from_here' || editScope === 'series')) {
+        if (existingBooking.repeat_pattern && existingBooking.repeat_series_id && (editScope === 'from_here' || editScope === 'series')) {
           const parsedConfig = parseRepeatPatternToConfig(existingBooking.repeat_pattern, bookingDate);
-          setRepeatConfig(parsedConfig || createDefaultRepeatConfig(bookingDate));
+          
+          // Fetch the actual series end date from the last booking in the series
+          supabase
+            .from('studio_bookings')
+            .select('booking_date')
+            .eq('repeat_series_id', existingBooking.repeat_series_id)
+            .neq('status', 'cancelled')
+            .order('booking_date', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+            .then(({ data: lastBooking }) => {
+              if (parsedConfig && lastBooking) {
+                const lastDate = parseISO(lastBooking.booking_date);
+                setRepeatConfig({
+                  ...parsedConfig,
+                  endType: 'by_date',
+                  endByDate: lastDate,
+                });
+              } else if (parsedConfig) {
+                setRepeatConfig(parsedConfig);
+              } else {
+                setRepeatConfig(createDefaultRepeatConfig(bookingDate));
+              }
+            });
         } else {
           setRepeatConfig(createDefaultRepeatConfig(bookingDate));
         }
