@@ -20,7 +20,7 @@ const VIDEO_EDITING_CONFIG: Record<string, { baseDuration: number; incrementDura
   'social': { baseDuration: 30, incrementDuration: 30 },
   'general_basic': { baseDuration: 30, incrementDuration: 30 },
   'general_advanced': { baseDuration: 30, incrementDuration: 30 },
-  'long_form_basic': { baseDuration: 900, incrementDuration: 900 },
+  'long_form_simple': { baseDuration: 900, incrementDuration: 900 },
   'long_form_advanced': { baseDuration: 900, incrementDuration: 900 },
 };
 
