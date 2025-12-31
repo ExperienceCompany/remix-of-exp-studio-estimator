@@ -183,9 +183,9 @@ export default function SessionTimer() {
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
             <p className="text-destructive mb-4">Session not found</p>
-            <Button onClick={() => navigate('/estimate')}>
+            <Button onClick={() => navigate('/sessions')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Estimator
+              Back to Sessions
             </Button>
           </CardContent>
         </Card>
@@ -211,7 +211,7 @@ export default function SessionTimer() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/estimate')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/sessions')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
