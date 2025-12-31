@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { format, getDay, parseISO } from 'date-fns';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { format, getDay, parseISO, addDays } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -330,6 +330,16 @@ export function NewBookingModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [overlapError, setOverlapError] = useState<string | null>(null);
   const [linkedQuote, setLinkedQuote] = useState<any>(null);
+  
+  // Availability conflict state for service step validation
+  const [availabilityConflict, setAvailabilityConflict] = useState<{
+    hasConflict: boolean;
+    message?: string;
+    suggestedTimes?: { before: string[]; after: string[] };
+    nextDayTime?: { date: Date; time: string };
+  } | null>(null);
+  const [showDateTimeEditor, setShowDateTimeEditor] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   // Fetch linked quote when editing a booking with a quote_id
   useEffect(() => {
@@ -1089,6 +1099,284 @@ export function NewBookingModal({
     return { hasConflict: false };
   };
 
+  // Find available time slots before/after the desired time
+  const findAvailableSlots = useCallback(async (
+    studioIdsToCheck: string[],
+    bookingDate: string,
+    desiredStart24: string,
+    durationMins: number,
+    bufferMins: number = 15
+  ): Promise<{
+    beforeSlots: string[];
+    afterSlots: string[];
+    nextDaySlot?: { date: Date; time: string };
+  }> => {
+    // Parse operating hours
+    const operatingStartMins = parseInt(operatingStart.split(':')[0]) * 60 + parseInt(operatingStart.split(':')[1]);
+    const operatingEndMins = parseInt(operatingEnd.split(':')[0]) * 60 + parseInt(operatingEnd.split(':')[1]);
+    const desiredStartMins = parseInt(desiredStart24.split(':')[0]) * 60 + parseInt(desiredStart24.split(':')[1]);
+    
+    // Fetch all bookings for the date including buyout conflicts
+    const { data: dayBookings } = await supabase
+      .from('studio_bookings')
+      .select('*')
+      .eq('booking_date', bookingDate)
+      .neq('status', 'cancelled');
+    
+    // Build blocked ranges
+    const blockedRanges: { start: number; end: number }[] = [];
+    const buyoutStudio = studios.find(s => s.type === 'full_studio_buyout');
+    
+    for (const booking of dayBookings || []) {
+      // Skip if editing this booking
+      if (existingBooking && booking.id === existingBooking.id) continue;
+      
+      const bStart = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+      const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+      
+      // Check if this booking affects any studio we're checking
+      const affectsOurStudios = studioIdsToCheck.includes(booking.studio_id);
+      const isBuyoutBooking = buyoutStudio && booking.studio_id === buyoutStudio.id;
+      const weWantBuyout = buyoutStudio && studioIdsToCheck.includes(buyoutStudio.id);
+      
+      if (affectsOurStudios || isBuyoutBooking || weWantBuyout) {
+        blockedRanges.push({ start: bStart, end: bEnd + bufferMins });
+      }
+    }
+    
+    // Helper to check if a slot is available
+    const isSlotAvailable = (startMins: number): boolean => {
+      const endMins = startMins + durationMins;
+      if (startMins < operatingStartMins || endMins > operatingEndMins) return false;
+      
+      for (const range of blockedRanges) {
+        if (!(endMins <= range.start || startMins >= range.end)) {
+          return false;
+        }
+      }
+      return true;
+    };
+    
+    // Find slots BEFORE desired time (up to 3)
+    const beforeSlots: string[] = [];
+    let checkTime = desiredStartMins - 15;
+    while (checkTime >= operatingStartMins && beforeSlots.length < 3) {
+      if (isSlotAvailable(checkTime)) {
+        const h = Math.floor(checkTime / 60);
+        const m = checkTime % 60;
+        beforeSlots.unshift(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+      }
+      checkTime -= 15;
+    }
+    
+    // Find slots AFTER desired time (up to 3)
+    const afterSlots: string[] = [];
+    checkTime = desiredStartMins + 15;
+    while (checkTime + durationMins <= operatingEndMins && afterSlots.length < 3) {
+      if (isSlotAvailable(checkTime)) {
+        const h = Math.floor(checkTime / 60);
+        const m = checkTime % 60;
+        afterSlots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+      }
+      checkTime += 15;
+    }
+    
+    // If no slots today, check next day
+    let nextDaySlot: { date: Date; time: string } | undefined;
+    if (beforeSlots.length === 0 && afterSlots.length === 0 && date) {
+      const nextDate = addDays(parseISO(bookingDate), 1);
+      const nextDateStr = format(nextDate, 'yyyy-MM-dd');
+      
+      // Fetch next day bookings
+      const { data: nextDayBookings } = await supabase
+        .from('studio_bookings')
+        .select('*')
+        .eq('booking_date', nextDateStr)
+        .neq('status', 'cancelled');
+      
+      const nextDayBlocked: { start: number; end: number }[] = [];
+      for (const booking of nextDayBookings || []) {
+        const bStart = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+        const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+        
+        const affectsOurStudios = studioIdsToCheck.includes(booking.studio_id);
+        const isBuyoutBooking = buyoutStudio && booking.studio_id === buyoutStudio.id;
+        const weWantBuyout = buyoutStudio && studioIdsToCheck.includes(buyoutStudio.id);
+        
+        if (affectsOurStudios || isBuyoutBooking || weWantBuyout) {
+          nextDayBlocked.push({ start: bStart, end: bEnd + bufferMins });
+        }
+      }
+      
+      // Check around the same time as requested
+      const isNextDaySlotAvailable = (startMins: number): boolean => {
+        const endMins = startMins + durationMins;
+        if (startMins < operatingStartMins || endMins > operatingEndMins) return false;
+        
+        for (const range of nextDayBlocked) {
+          if (!(endMins <= range.start || startMins >= range.end)) {
+            return false;
+          }
+        }
+        return true;
+      };
+      
+      // Try the same time, then earlier, then later
+      const timesToTry = [desiredStartMins, desiredStartMins - 60, desiredStartMins + 60, operatingStartMins];
+      for (const tryTime of timesToTry) {
+        if (tryTime >= operatingStartMins && tryTime + durationMins <= operatingEndMins && isNextDaySlotAvailable(tryTime)) {
+          const h = Math.floor(tryTime / 60);
+          const m = tryTime % 60;
+          nextDaySlot = { 
+            date: nextDate, 
+            time: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}` 
+          };
+          break;
+        }
+      }
+    }
+    
+    return { beforeSlots, afterSlots, nextDaySlot };
+  }, [operatingStart, operatingEnd, studios, existingBooking, date]);
+
+  // Check availability for selected studios
+  const checkServiceAvailability = useCallback(async (studioIdsToCheck: string[]) => {
+    if (!date || studioIdsToCheck.length === 0) return;
+    
+    setIsCheckingAvailability(true);
+    
+    try {
+      const bookingDate = format(date, 'yyyy-MM-dd');
+      const durationMins = sessionDuration * 60;
+      const startTime24 = to24Hour(startTime);
+      const startMins = parseInt(startTime24.split(':')[0]) * 60 + parseInt(startTime24.split(':')[1]);
+      const endMins = startMins + durationMins;
+      
+      // Fetch existing bookings for the date
+      const { data: existingBookings } = await supabase
+        .from('studio_bookings')
+        .select('*')
+        .eq('booking_date', bookingDate)
+        .in('studio_id', studioIdsToCheck)
+        .neq('status', 'cancelled');
+      
+      // Check for time overlaps
+      let hasConflict = false;
+      let conflictMessage = '';
+      
+      for (const booking of existingBookings || []) {
+        if (existingBooking && booking.id === existingBooking.id) continue;
+        
+        const bookingStartMins = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+        const bookingEndMins = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+        
+        const hasOverlap = !(endMins <= bookingStartMins || startMins >= bookingEndMins);
+        
+        if (hasOverlap) {
+          const studioName = studios.find(s => s.id === booking.studio_id)?.name || 'Studio';
+          hasConflict = true;
+          conflictMessage = `${studioName} already has a booking from ${booking.start_time.slice(0,5)} to ${booking.end_time.slice(0,5)}`;
+          break;
+        }
+      }
+      
+      // Check Full Studio Buyout conflicts
+      if (!hasConflict) {
+        const buyoutStudio = studios.find(s => s.type === 'full_studio_buyout');
+        if (buyoutStudio) {
+          const isBuyoutSelected = studioIdsToCheck.includes(buyoutStudio.id);
+          
+          if (isBuyoutSelected) {
+            const { data: otherBookings } = await supabase
+              .from('studio_bookings')
+              .select('*, studios!inner(name)')
+              .eq('booking_date', bookingDate)
+              .not('studio_id', 'eq', buyoutStudio.id)
+              .neq('status', 'cancelled');
+            
+            for (const booking of otherBookings || []) {
+              const bookingStartMins = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+              const bookingEndMins = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+              const hasOverlap = !(endMins <= bookingStartMins || startMins >= bookingEndMins);
+              
+              if (hasOverlap) {
+                hasConflict = true;
+                conflictMessage = 'Full Studio Buyout conflicts with existing booking in another space';
+                break;
+              }
+            }
+          } else {
+            const { data: buyoutBookings } = await supabase
+              .from('studio_bookings')
+              .select('*')
+              .eq('booking_date', bookingDate)
+              .eq('studio_id', buyoutStudio.id)
+              .neq('status', 'cancelled');
+            
+            for (const booking of buyoutBookings || []) {
+              const bookingStartMins = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+              const bookingEndMins = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+              const hasOverlap = !(endMins <= bookingStartMins || startMins >= bookingEndMins);
+              
+              if (hasOverlap) {
+                hasConflict = true;
+                conflictMessage = 'This time is blocked by a Full Studio Buyout';
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      if (hasConflict) {
+        // Find alternative times
+        const suggestions = await findAvailableSlots(studioIdsToCheck, bookingDate, startTime24, durationMins, 15);
+        
+        setAvailabilityConflict({
+          hasConflict: true,
+          message: conflictMessage,
+          suggestedTimes: {
+            before: suggestions.beforeSlots,
+            after: suggestions.afterSlots,
+          },
+          nextDayTime: suggestions.nextDaySlot,
+        });
+      } else {
+        setAvailabilityConflict(null);
+      }
+    } catch (error) {
+      console.error('Error checking service availability:', error);
+      setAvailabilityConflict(null);
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+  }, [date, sessionDuration, startTime, studios, existingBooking, findAvailableSlots]);
+
+  // Handle selecting a suggested time
+  const handleSuggestedTimeSelect = async (time24: string) => {
+    setStartTime(to12Hour(time24));
+    setAvailabilityConflict(null);
+    // Re-check after a tick to allow state update
+    setTimeout(() => {
+      if (selectedStudios.length > 0) {
+        checkServiceAvailability(selectedStudios);
+      }
+    }, 100);
+  };
+
+  // Handle selecting next day
+  const handleNextDaySelect = async (newDate: Date, time24: string) => {
+    setDate(newDate);
+    setStartTime(to12Hour(time24));
+    setAvailabilityConflict(null);
+    // Re-check after a tick
+    setTimeout(() => {
+      if (selectedStudios.length > 0) {
+        checkServiceAvailability(selectedStudios);
+      }
+    }, 100);
+  };
+
   // Get current step index based on session type
   const activeSteps = sessionType === 'diy' ? DIY_STEPS : SERVICED_STEPS;
   const currentStepIndex = activeSteps.findIndex(s => s.key === step);
@@ -1134,6 +1422,11 @@ export function NewBookingModal({
     } else if (step === 'service') {
       if (!serviceType) {
         toast({ title: 'Please select a service', variant: 'destructive' });
+        return;
+      }
+      // Block if there's an availability conflict
+      if (availabilityConflict?.hasConflict) {
+        toast({ title: 'Please resolve the availability conflict', description: 'Select an available time slot to continue.', variant: 'destructive' });
         return;
       }
       // Require editing preference selection for photoshoot and vodcast
@@ -2057,25 +2350,34 @@ export function NewBookingModal({
                         "cursor-pointer transition-all hover:shadow-md",
                         isSelected && "ring-2 ring-primary"
                       )}
-                      onClick={() => {
+                      onClick={async () => {
                         setServiceType(service.type);
                         setWantsEditing(null); // Reset editing preference when service changes
                         setEditingItems([]); // Clear editing items when service changes
+                        setAvailabilityConflict(null); // Reset conflict state
                         
                         // Auto-select studio based on service type
+                        let autoSelectedStudios: string[] = [];
                         if (SINGLE_STUDIO_SERVICES[service.type]) {
                           const studioType = SINGLE_STUDIO_SERVICES[service.type];
                           const matchedStudio = studios.find(s => s.type === studioType);
                           if (matchedStudio) {
-                            setSelectedStudios([matchedStudio.id]);
+                            autoSelectedStudios = [matchedStudio.id];
+                            setSelectedStudios(autoSelectedStudios);
                           }
                         } else if (MULTI_STUDIO_SERVICES[service.type]) {
                           // For multi-studio services, default to first valid option
                           const validTypes = MULTI_STUDIO_SERVICES[service.type];
                           const matchedStudio = studios.find(s => validTypes.includes(s.type));
                           if (matchedStudio) {
-                            setSelectedStudios([matchedStudio.id]);
+                            autoSelectedStudios = [matchedStudio.id];
+                            setSelectedStudios(autoSelectedStudios);
                           }
+                        }
+                        
+                        // Check availability for auto-selected studio
+                        if (autoSelectedStudios.length > 0) {
+                          checkServiceAvailability(autoSelectedStudios);
                         }
                       }}
                     >
@@ -2193,7 +2495,11 @@ export function NewBookingModal({
                             "cursor-pointer transition-all hover:shadow-md",
                             selectedStudios.includes(studio.id) && "ring-2 ring-primary"
                           )}
-                          onClick={() => setSelectedStudios([studio.id])}
+                          onClick={() => {
+                            setSelectedStudios([studio.id]);
+                            setAvailabilityConflict(null);
+                            checkServiceAvailability([studio.id]);
+                          }}
                         >
                           <CardHeader className="p-4">
                             <div className="flex items-center gap-3">
@@ -2211,7 +2517,7 @@ export function NewBookingModal({
               )}
 
               {/* Studio confirmation for single-studio services */}
-              {serviceType && SINGLE_STUDIO_SERVICES[serviceType] && (
+              {serviceType && SINGLE_STUDIO_SERVICES[serviceType] && !availabilityConflict?.hasConflict && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-md">
                   <Building2 className="h-4 w-4" />
                   <span>
@@ -2219,6 +2525,175 @@ export function NewBookingModal({
                   </span>
                 </div>
               )}
+
+              {/* Loading state while checking availability */}
+              {isCheckingAvailability && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 rounded-md border">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <span>Checking availability...</span>
+                </div>
+              )}
+
+              {/* Availability Conflict Banner */}
+              {availabilityConflict?.hasConflict && !isCheckingAvailability && (
+                <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950/30">
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="h-5 w-5" />
+                      <CardTitle className="text-sm">Time Slot Unavailable</CardTitle>
+                    </div>
+                    <CardDescription className="text-xs text-amber-600 dark:text-amber-500">
+                      {availabilityConflict.message}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-3">
+                    {/* Suggested times BEFORE */}
+                    {availabilityConflict.suggestedTimes?.before && availabilityConflict.suggestedTimes.before.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium mb-2">Earlier options:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {availabilityConflict.suggestedTimes.before.map(time => (
+                            <Button
+                              key={time}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSuggestedTimeSelect(time)}
+                            >
+                              {to12Hour(time)}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Suggested times AFTER */}
+                    {availabilityConflict.suggestedTimes?.after && availabilityConflict.suggestedTimes.after.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium mb-2">Later options:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {availabilityConflict.suggestedTimes.after.map(time => (
+                            <Button
+                              key={time}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSuggestedTimeSelect(time)}
+                            >
+                              {to12Hour(time)}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Next day suggestion */}
+                    {availabilityConflict.nextDayTime && (
+                      <div>
+                        <p className="text-xs font-medium mb-2">Next available day:</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleNextDaySelect(
+                            availabilityConflict.nextDayTime!.date,
+                            availabilityConflict.nextDayTime!.time
+                          )}
+                        >
+                          {format(availabilityConflict.nextDayTime.date, 'EEE, MMM d')} at {to12Hour(availabilityConflict.nextDayTime.time)}
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <Separator />
+                    
+                    {/* Manual date/time change */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setShowDateTimeEditor(true)}
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      Choose a different date/time
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Date/Time Editor Dialog */}
+              <Dialog open={showDateTimeEditor} onOpenChange={setShowDateTimeEditor}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Change Date & Time</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Date</Label>
+                      <div className="mt-2">
+                        <Calendar
+                          mode="single"
+                          selected={date}
+                          onSelect={(newDate) => {
+                            if (newDate) {
+                              setDate(newDate);
+                            }
+                          }}
+                          disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                          className="pointer-events-auto rounded-md border"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Start Time</Label>
+                        <Select value={startTime} onValueChange={setStartTime}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timeSlots.map(slot => (
+                              <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Duration</Label>
+                        <Select 
+                          value={sessionDuration.toString()} 
+                          onValueChange={(v) => setSessionDuration(Number(v))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8].map(h => (
+                              <SelectItem key={h} value={h.toString()}>{formatDuration(h)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowDateTimeEditor(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        setShowDateTimeEditor(false);
+                        // Re-check availability with new time
+                        if (selectedStudios.length > 0) {
+                          await checkServiceAvailability(selectedStudios);
+                        }
+                      }}
+                    >
+                      Check Availability
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 
