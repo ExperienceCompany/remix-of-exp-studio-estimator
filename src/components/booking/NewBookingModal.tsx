@@ -588,7 +588,7 @@ export function NewBookingModal({
         setEndTime(to12Hour(existingBooking.end_time));
         // Initialize repeat config - parse existing pattern if editing series
         const bookingDate = parseISO(existingBooking.booking_date);
-        if (existingBooking.repeat_pattern && existingBooking.repeat_series_id && (editScope === 'from_here' || editScope === 'series')) {
+        if (existingBooking.repeat_pattern && existingBooking.repeat_series_id) {
           const parsedConfig = parseRepeatPatternToConfig(existingBooking.repeat_pattern, bookingDate);
           
           // Fetch the actual series end date from the last booking in the series
@@ -2892,45 +2892,34 @@ export function NewBookingModal({
 
               {/* Repeat */}
               {isEditing && existingRepeatInfo?.pattern ? (
-                editScope === 'occurrence' ? (
-                  // Read-only for single occurrence edit
-                  <div className="space-y-2">
+                // Editable repeat options for all edit scopes
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
                     <Label className="flex items-center gap-1">
                       Repeat Series
-                      <Badge variant="secondary" className="ml-2 font-normal">Part of series</Badge>
+                      <Badge variant={editScope === 'occurrence' ? 'secondary' : 'default'} className="ml-2 font-normal">
+                        {editScope === 'series' 
+                          ? 'Editing full series' 
+                          : editScope === 'from_here'
+                          ? 'Editing this & following'
+                          : 'Part of series'}
+                      </Badge>
                     </Label>
-                    <div className="flex items-center gap-2 p-3 rounded-md border bg-muted/50">
-                      <Repeat className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{existingRepeatInfo.pattern}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      This booking is part of a repeat series. Editing only affects this occurrence.
-                    </p>
                   </div>
-                ) : (
-                  // Editable for series or from_here scope
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-1">
-                        Repeat Series
-                        <Badge variant="default" className="ml-2 font-normal">
-                          {editScope === 'series' ? 'Editing full series' : 'Editing this & following'}
-                        </Badge>
-                      </Label>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {editScope === 'series' 
-                        ? 'Changing repeat settings will update all bookings in this series.'
-                        : 'Changing repeat settings will update this booking and all following occurrences.'}
-                    </p>
-                    <RepeatOptions
-                      config={repeatConfig}
-                      onChange={setRepeatConfig}
-                      startDate={date || new Date()}
-                      startTime={startTime}
-                    />
-                  </div>
-                )
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {editScope === 'series' 
+                      ? 'Changing repeat settings will update all bookings in this series.'
+                      : editScope === 'from_here'
+                      ? 'Changing repeat settings will update this booking and all following occurrences.'
+                      : 'Changes to repeat settings will apply to the full series.'}
+                  </p>
+                  <RepeatOptions
+                    config={repeatConfig}
+                    onChange={setRepeatConfig}
+                    startDate={date || new Date()}
+                    startTime={startTime}
+                  />
+                </div>
               ) : !isEditing ? (
                 // Full repeat options for new bookings
                 <RepeatOptions
