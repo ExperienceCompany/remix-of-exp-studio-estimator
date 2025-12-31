@@ -50,9 +50,10 @@ export function StepAddons() {
   const photoEditingItems = editingMenu?.filter(item => item.category === 'photo_editing')
     .sort((a, b) => PHOTO_EDITING_ORDER.indexOf(a.name) - PHOTO_EDITING_ORDER.indexOf(b.name)) || [];
 
-  // Determine minimum for Simple Retouch Edit based on service type
-  const isPhotoshoot = selection.serviceType === 'photoshoot';
-  const simpleRetouchMinimum = isPhotoshoot ? 10 : 5;
+  // Determine minimum for Simple Retouch Edit based on flow
+  // Package flow: 10 edits minimum, Regular photoshoot: 5 edits minimum
+  const isPackage = selection.packagePricing !== null;
+  const simpleRetouchMinimum = isPackage ? 10 : 5;
 
   // Filter for video editing (non-photo categories) and sort so long-form is at bottom
   const videoEditingItems = editingMenu?.filter(item => 
