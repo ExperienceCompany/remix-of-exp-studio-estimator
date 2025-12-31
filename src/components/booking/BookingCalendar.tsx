@@ -450,6 +450,7 @@ export function BookingCalendar({
               bufferMinutes={defaultSettings.bufferMinutes}
               diyRates={diyRates}
               sharedStudioGroups={sharedStudioGroups}
+              calendarSettings={calendarSettings}
               onSlotClick={(studioId, time) => onDateSelect?.(currentDate, studioId)}
               onBookingClick={handleBookingClickForEdit}
               onOpenBookingModal={handleOpenModalFromDayView}
