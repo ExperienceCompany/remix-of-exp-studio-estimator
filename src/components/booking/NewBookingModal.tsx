@@ -1793,49 +1793,40 @@ export function NewBookingModal({
   const handleNext = async () => {
     // Validate basic step for all session types
     if (step === 'basic') {
-      if (!date) {
-        toast({ title: 'Please select a date', variant: 'destructive' });
-        return;
-      }
-      // Only require manual space selection for DIY sessions
-      if (sessionType === 'diy' && selectedStudios.length === 0) {
-        toast({ title: 'Please select at least one space', variant: 'destructive' });
-        return;
-      }
-      // Calculate hours using correct end time based on session type
-      // For serviced sessions, endTime state is stale - use computedEndTime instead
-      const effectiveEndTime = sessionType === 'serviced' ? computedEndTime : endTime;
-      const calculatedHours = calculateHours(startTime, effectiveEndTime);
-      if (calculatedHours <= 0) {
-        toast({ title: 'End time must be after start time', variant: 'destructive' });
-        return;
-      }
-      
-      // Check for overlap conflicts
-      setOverlapError(null);
-      const overlapResult = await checkOverlapConflicts();
-      if (overlapResult.hasConflict) {
-        setOverlapError(overlapResult.message || 'Time slot conflicts with existing booking');
-        toast({ title: 'Booking Conflict', description: overlapResult.message, variant: 'destructive' });
-        return;
-      }
-      
-      // DIY goes to addons step
+      // DIY sessions require date/time validation in basic step
       if (sessionType === 'diy') {
+        if (!date) {
+          toast({ title: 'Please select a date', variant: 'destructive' });
+          return;
+        }
+        if (selectedStudios.length === 0) {
+          toast({ title: 'Please select at least one space', variant: 'destructive' });
+          return;
+        }
+        const calculatedHours = calculateHours(startTime, endTime);
+        if (calculatedHours <= 0) {
+          toast({ title: 'End time must be after start time', variant: 'destructive' });
+          return;
+        }
+        
+        // Check for overlap conflicts
+        setOverlapError(null);
+        const overlapResult = await checkOverlapConflicts();
+        if (overlapResult.hasConflict) {
+          setOverlapError(overlapResult.message || 'Time slot conflicts with existing booking');
+          toast({ title: 'Booking Conflict', description: overlapResult.message, variant: 'destructive' });
+          return;
+        }
+        
         setStep('addons');
         return;
       }
       
-      // Serviced goes to service step
+      // Serviced sessions skip date/time validation here - they select it in summary step
       setStep('service');
     } else if (step === 'service') {
       if (!serviceType) {
         toast({ title: 'Please select a service', variant: 'destructive' });
-        return;
-      }
-      // Block if there's an availability conflict
-      if (availabilityConflict?.hasConflict) {
-        toast({ title: 'Please resolve the availability conflict', description: 'Select an available time slot to continue.', variant: 'destructive' });
         return;
       }
       // Require editing preference selection for photoshoot and vodcast
@@ -2020,6 +2011,28 @@ export function NewBookingModal({
   };
 
   const handleAddToCalendar = async () => {
+    // Validate date selection for serviced sessions
+    if (!date) {
+      toast({ title: 'Please select a date', variant: 'destructive' });
+      return;
+    }
+    
+    if (selectedStudios.length === 0) {
+      toast({ title: 'No space selected', variant: 'destructive' });
+      return;
+    }
+    
+    // Check for conflicts before submission
+    const overlapResult = await checkOverlapConflicts();
+    if (overlapResult.hasConflict) {
+      toast({ 
+        title: 'Booking Conflict', 
+        description: overlapResult.message || 'Please select an available time slot', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -2722,202 +2735,203 @@ export function NewBookingModal({
                 </div>
               )}
 
-              {/* Date */}
-              <div className="space-y-2">
-                <Label>Date *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "EEEE, MMM d, yyyy") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={setDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+              {/* Date, Time, Repeat - Only show in basic step for DIY sessions */}
+              {sessionType === 'diy' && (
+                <>
+                  {/* Date */}
+                  <div className="space-y-2">
+                    <Label>Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !date && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {date ? format(date, "EEEE, MMM d, yyyy") : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={date}
+                          onSelect={setDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
-              {/* Time */}
-              <div className="space-y-2">
-                <Label>Time *</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">From</Label>
-                    <Select value={startTime} onValueChange={handleStartTimeChange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeSlots.map(slot => (
-                          <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">To</Label>
-                    <Select 
-                      value={sessionType === 'serviced' ? computedEndTime : endTime} 
-                      onValueChange={handleEndTimeChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeSlots.map(slot => (
-                          <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {sessionType === 'diy' && hours > 0 && (
-                  <p className="text-xs text-muted-foreground">{hours} hour{hours !== 1 ? 's' : ''}</p>
-                )}
-                {sessionType === 'serviced' && sessionDuration > 0 && (
-                  <p className="text-xs text-muted-foreground">{formatDuration(sessionDuration)} — synced with Duration step</p>
-                )}
-                
-                {/* Live Availability Summary */}
-                {selectedStudios.length > 0 && date && startTime && (sessionType === 'serviced' ? computedEndTime : endTime) && (() => {
-                  const conflicts = selectedStudios
-                    .filter(id => studioAvailability[id]?.available === false)
-                    .map(id => {
-                      const studio = studios.find(s => s.id === id);
-                      return {
-                        name: studio?.name || 'Unknown',
-                        time: studioAvailability[id]?.conflictTime
-                      };
-                    });
-                  
-                  if (conflicts.length === 0) {
-                    return (
-                      <div className="flex items-center gap-2 text-green-600 text-sm mt-2">
-                        <Check className="h-4 w-4" />
-                        <span>All selected spaces are available</span>
+                  {/* Time */}
+                  <div className="space-y-2">
+                    <Label>Time *</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">From</Label>
+                        <Select value={startTime} onValueChange={handleStartTimeChange}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timeSlots.map(slot => (
+                              <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    );
-                  }
-                  
-                  return (
-                    <div className="space-y-2 mt-2">
-                      {conflicts.map((c, i) => (
-                        <div key={i} className="flex items-center gap-2 text-destructive text-sm">
-                          <Ban className="h-4 w-4" />
-                          <span>
-                            <strong>{c.name}</strong> unavailable
-                            {c.time && <span className="text-muted-foreground"> ({c.time})</span>}
-                          </span>
-                        </div>
-                      ))}
-                      
-                      {/* Find Available Slot Button */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-2"
-                        onClick={async () => {
-                          if (!date || selectedStudios.length === 0 || !startTime) return;
-                          setIsCheckingAvailability(true);
-                          try {
-                            const bookingDate = format(date, 'yyyy-MM-dd');
-                            const startTime24 = to24Hour(startTime);
-                            const effectiveEndTime = sessionType === 'serviced' ? computedEndTime : endTime;
-                            const durationMins = Math.round(calculateHours(startTime, effectiveEndTime) * 60);
-                            
-                            const suggestions = await findAvailableSlots(
-                              selectedStudios,
-                              bookingDate,
-                              startTime24,
-                              durationMins,
-                              15
-                            );
-                            
-                            const nextSlot = suggestions.afterSlots[0] || suggestions.beforeSlots[0];
-                            
-                            if (nextSlot) {
-                              setStartTime(to12Hour(nextSlot));
-                              const [h, m] = nextSlot.split(':').map(Number);
-                              const newEndMins = h * 60 + m + durationMins;
-                              const newEndH = Math.floor(newEndMins / 60);
-                              const newEndM = newEndMins % 60;
-                              const newEndTime = to12Hour(`${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`);
-                              setEndTime(newEndTime);
-                              toast({ title: 'Available slot found', description: `Updated to ${to12Hour(nextSlot)} - ${newEndTime}` });
-                            } else if (suggestions.nextDaySlot) {
-                              toast({ title: 'No slots today', description: `Try ${format(suggestions.nextDaySlot.date, 'MMM d')} at ${to12Hour(suggestions.nextDaySlot.time)}` });
-                            } else {
-                              toast({ title: 'No available slots', description: 'Try a different date or shorter duration.', variant: 'destructive' });
-                            }
-                          } catch (error) {
-                            console.error('Error finding slot:', error);
-                          } finally {
-                            setIsCheckingAvailability(false);
-                          }
-                        }}
-                        disabled={isCheckingAvailability}
-                      >
-                        <Search className="h-4 w-4" />
-                        {isCheckingAvailability ? 'Searching...' : 'Find Available Slot'}
-                      </Button>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">To</Label>
+                        <Select 
+                          value={endTime} 
+                          onValueChange={handleEndTimeChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timeSlots.map(slot => (
+                              <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  );
-                })()}
-              </div>
-
-              {/* Repeat */}
-              {isEditing && existingRepeatInfo?.pattern ? (
-                // Editable repeat options for all edit scopes
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="flex items-center gap-1">
-                      Repeat Series
-                      <Badge variant={editScope === 'occurrence' ? 'secondary' : 'default'} className="ml-2 font-normal">
-                        {editScope === 'series' 
-                          ? 'Editing full series' 
-                          : editScope === 'from_here'
-                          ? 'Editing this & following'
-                          : 'Part of series'}
-                      </Badge>
-                    </Label>
+                    {hours > 0 && (
+                      <p className="text-xs text-muted-foreground">{hours} hour{hours !== 1 ? 's' : ''}</p>
+                    )}
+                    
+                    {/* Live Availability Summary */}
+                    {selectedStudios.length > 0 && date && startTime && endTime && (() => {
+                      const conflicts = selectedStudios
+                        .filter(id => studioAvailability[id]?.available === false)
+                        .map(id => {
+                          const studio = studios.find(s => s.id === id);
+                          return {
+                            name: studio?.name || 'Unknown',
+                            time: studioAvailability[id]?.conflictTime
+                          };
+                        });
+                      
+                      if (conflicts.length === 0) {
+                        return (
+                          <div className="flex items-center gap-2 text-green-600 text-sm mt-2">
+                            <Check className="h-4 w-4" />
+                            <span>All selected spaces are available</span>
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div className="space-y-2 mt-2">
+                          {conflicts.map((c, i) => (
+                            <div key={i} className="flex items-center gap-2 text-destructive text-sm">
+                              <Ban className="h-4 w-4" />
+                              <span>
+                                <strong>{c.name}</strong> unavailable
+                                {c.time && <span className="text-muted-foreground"> ({c.time})</span>}
+                              </span>
+                            </div>
+                          ))}
+                          
+                          {/* Find Available Slot Button */}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full gap-2"
+                            onClick={async () => {
+                              if (!date || selectedStudios.length === 0 || !startTime) return;
+                              setIsCheckingAvailability(true);
+                              try {
+                                const bookingDate = format(date, 'yyyy-MM-dd');
+                                const startTime24 = to24Hour(startTime);
+                                const durationMins = Math.round(calculateHours(startTime, endTime) * 60);
+                                
+                                const suggestions = await findAvailableSlots(
+                                  selectedStudios,
+                                  bookingDate,
+                                  startTime24,
+                                  durationMins,
+                                  15
+                                );
+                                
+                                const nextSlot = suggestions.afterSlots[0] || suggestions.beforeSlots[0];
+                                
+                                if (nextSlot) {
+                                  setStartTime(to12Hour(nextSlot));
+                                  const [h, m] = nextSlot.split(':').map(Number);
+                                  const newEndMins = h * 60 + m + durationMins;
+                                  const newEndH = Math.floor(newEndMins / 60);
+                                  const newEndM = newEndMins % 60;
+                                  const newEndTime = to12Hour(`${newEndH.toString().padStart(2, '0')}:${newEndM.toString().padStart(2, '0')}`);
+                                  setEndTime(newEndTime);
+                                  toast({ title: 'Available slot found', description: `Updated to ${to12Hour(nextSlot)} - ${newEndTime}` });
+                                } else if (suggestions.nextDaySlot) {
+                                  toast({ title: 'No slots today', description: `Try ${format(suggestions.nextDaySlot.date, 'MMM d')} at ${to12Hour(suggestions.nextDaySlot.time)}` });
+                                } else {
+                                  toast({ title: 'No available slots', description: 'Try a different date or shorter duration.', variant: 'destructive' });
+                                }
+                              } catch (error) {
+                                console.error('Error finding slot:', error);
+                              } finally {
+                                setIsCheckingAvailability(false);
+                              }
+                            }}
+                            disabled={isCheckingAvailability}
+                          >
+                            <Search className="h-4 w-4" />
+                            {isCheckingAvailability ? 'Searching...' : 'Find Available Slot'}
+                          </Button>
+                        </div>
+                      );
+                    })()}
                   </div>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    {editScope === 'series' 
-                      ? 'Changing repeat settings will update all bookings in this series.'
-                      : editScope === 'from_here'
-                      ? 'Changing repeat settings will update this booking and all following occurrences.'
-                      : 'Changes to repeat settings will apply to the full series.'}
-                  </p>
-                  <RepeatOptions
-                    config={repeatConfig}
-                    onChange={setRepeatConfig}
-                    startDate={date || new Date()}
-                    startTime={startTime}
-                  />
-                </div>
-              ) : !isEditing ? (
-                // Full repeat options for new bookings
-                <RepeatOptions
-                  config={repeatConfig}
-                  onChange={setRepeatConfig}
-                  startDate={date || new Date()}
-                  startTime={startTime}
-                />
-              ) : null}
+
+                  {/* Repeat */}
+                  {isEditing && existingRepeatInfo?.pattern ? (
+                    // Editable repeat options for all edit scopes
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-1">
+                          Repeat Series
+                          <Badge variant={editScope === 'occurrence' ? 'secondary' : 'default'} className="ml-2 font-normal">
+                            {editScope === 'series' 
+                              ? 'Editing full series' 
+                              : editScope === 'from_here'
+                              ? 'Editing this & following'
+                              : 'Part of series'}
+                          </Badge>
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {editScope === 'series' 
+                          ? 'Changing repeat settings will update all bookings in this series.'
+                          : editScope === 'from_here'
+                          ? 'Changing repeat settings will update this booking and all following occurrences.'
+                          : 'Changes to repeat settings will apply to the full series.'}
+                      </p>
+                      <RepeatOptions
+                        config={repeatConfig}
+                        onChange={setRepeatConfig}
+                        startDate={date || new Date()}
+                        startTime={startTime}
+                      />
+                    </div>
+                  ) : !isEditing ? (
+                    // Full repeat options for new bookings
+                    <RepeatOptions
+                      config={repeatConfig}
+                      onChange={setRepeatConfig}
+                      startDate={date || new Date()}
+                      startTime={startTime}
+                    />
+                  ) : null}
+                </>
+              )}
 
 
               {/* Price & Payment - Only for DIY */}
@@ -3776,6 +3790,171 @@ export function NewBookingModal({
           {/* STEP: SUMMARY */}
           {step === 'summary' && (
             <div className="space-y-4">
+              {/* Schedule Your Session Card - for serviced sessions */}
+              <Card className="border-primary/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CalendarPlus className="h-4 w-4" />
+                    Schedule Your Session
+                  </CardTitle>
+                  <CardDescription>Select when you'd like to book</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Date Picker */}
+                  <div className="space-y-2">
+                    <Label>Date *</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !date && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {date ? format(date, "EEEE, MMM d, yyyy") : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={date}
+                          onSelect={setDate}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Start Time Selector */}
+                  <div className="space-y-2">
+                    <Label>Start Time *</Label>
+                    <Select value={startTime} onValueChange={handleStartTimeChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlots.map(slot => (
+                          <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Session ends at {computedEndTime} ({formatDuration(sessionDuration)})
+                    </p>
+                  </div>
+
+                  {/* Live Availability Indicator */}
+                  {date && selectedStudios.length > 0 && (() => {
+                    const conflicts = selectedStudios
+                      .filter(id => studioAvailability[id]?.available === false)
+                      .map(id => {
+                        const studio = studios.find(s => s.id === id);
+                        return {
+                          name: studio?.name || 'Unknown',
+                          time: studioAvailability[id]?.conflictTime
+                        };
+                      });
+                    
+                    if (conflicts.length === 0) {
+                      return (
+                        <div className="flex items-center gap-2 text-green-600 text-sm p-2 bg-green-50 dark:bg-green-950/30 rounded">
+                          <Check className="h-4 w-4" />
+                          <span>Time slot is available!</span>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="space-y-2 p-2 bg-destructive/10 rounded">
+                        <div className="flex items-center gap-2 text-destructive text-sm">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span>This time slot has conflicts</span>
+                        </div>
+                        {conflicts.map((c, i) => (
+                          <div key={i} className="flex items-center gap-2 text-destructive text-xs pl-6">
+                            <span><strong>{c.name}</strong> unavailable{c.time && ` @ ${c.time}`}</span>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full gap-2 mt-2"
+                          onClick={async () => {
+                            if (!date || selectedStudios.length === 0 || !startTime) return;
+                            setIsCheckingAvailability(true);
+                            try {
+                              const bookingDate = format(date, 'yyyy-MM-dd');
+                              const startTime24 = to24Hour(startTime);
+                              const durationMins = Math.round(sessionDuration * 60);
+                              
+                              const suggestions = await findAvailableSlots(
+                                selectedStudios,
+                                bookingDate,
+                                startTime24,
+                                durationMins,
+                                15
+                              );
+                              
+                              const nextSlot = suggestions.afterSlots[0] || suggestions.beforeSlots[0];
+                              
+                              if (nextSlot) {
+                                setStartTime(to12Hour(nextSlot));
+                                toast({ title: 'Available slot found', description: `Updated to ${to12Hour(nextSlot)}` });
+                              } else if (suggestions.nextDaySlot) {
+                                setDate(suggestions.nextDaySlot.date);
+                                setStartTime(to12Hour(suggestions.nextDaySlot.time));
+                                toast({ title: 'No slots today', description: `Moved to ${format(suggestions.nextDaySlot.date, 'MMM d')} at ${to12Hour(suggestions.nextDaySlot.time)}` });
+                              } else {
+                                toast({ title: 'No available slots', description: 'Try a different date or shorter duration.', variant: 'destructive' });
+                              }
+                            } catch (error) {
+                              console.error('Error finding slot:', error);
+                            } finally {
+                              setIsCheckingAvailability(false);
+                            }
+                          }}
+                          disabled={isCheckingAvailability}
+                        >
+                          <Search className="h-4 w-4" />
+                          {isCheckingAvailability ? 'Searching...' : 'Find Available Slot'}
+                        </Button>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Repeat Options */}
+                  {!isEditing && (
+                    <RepeatOptions
+                      config={repeatConfig}
+                      onChange={setRepeatConfig}
+                      startDate={date || new Date()}
+                      startTime={startTime}
+                    />
+                  )}
+                  {isEditing && existingRepeatInfo?.pattern && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Repeat className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Part of repeat series</span>
+                        <Badge variant="secondary" className="font-normal">
+                          {editScope === 'series' ? 'Full series' : editScope === 'from_here' ? 'This & following' : 'Single occurrence'}
+                        </Badge>
+                      </div>
+                      <RepeatOptions
+                        config={repeatConfig}
+                        onChange={setRepeatConfig}
+                        startDate={date || new Date()}
+                        startTime={startTime}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Session Details */}
               <Card>
                 <CardContent className="p-4 space-y-3">
@@ -3786,14 +3965,6 @@ export function NewBookingModal({
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Service</span>
                     <span>{services.find(s => s.type === serviceType)?.name || serviceType}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Date</span>
-                    <span>{date ? format(date, 'EEEE, MMM d, yyyy') : '-'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Time</span>
-                    <span>{startTime} – {computedEndTime}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Duration</span>
