@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { getBookingDisplayText } from '@/lib/bookingDisplayUtils';
 import { BookingHoverContent } from './BookingHoverContent';
-import { BookingContextMenu } from './BookingContextMenu';
+import { MoreVertical, Pencil, Copy, Trash2 } from 'lucide-react';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface BookingCardProps {
@@ -19,6 +29,7 @@ interface BookingCardProps {
     customer_name: string | null;
     session_type: string | null;
     title: string | null;
+    repeat_series_id?: string | null;
   };
   studioName?: string;
   compact?: boolean;
@@ -66,6 +77,7 @@ export function BookingCard({
   const dotColor = getBookingTypeDotColor(booking.booking_type, booking.status);
   const displayText = getBookingDisplayText(booking, isStaffOrAdmin);
   const isCancelled = booking.status === 'cancelled';
+  const isRepeatBooking = !!(booking as StudioBooking).repeat_series_id;
 
   const handleDragStart = (e: React.DragEvent) => {
     if (onDragStart) {
@@ -73,33 +85,106 @@ export function BookingCard({
     }
   };
 
-  const cardContent = compact ? (
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.(e);
+  };
+
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  // Menu content for staff/admin
+  const menuContent = isStaffOrAdmin ? (
+    <DropdownMenu onOpenChange={setIsMenuOpen}>
+      <DropdownMenuTrigger asChild>
+        <button 
+          className="p-0.5 rounded hover:bg-muted/80 transition-colors shrink-0"
+          onClick={handleMenuClick}
+        >
+          <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        <DropdownMenuItem onClick={() => onClick?.()}>
+          <Pencil className="h-4 w-4 mr-2" />
+          View/edit details
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onDuplicate?.(booking as StudioBooking)}>
+          <Copy className="h-4 w-4 mr-2" />
+          Duplicate
+        </DropdownMenuItem>
+        
+        {!isCancelled && (
+          <>
+            <DropdownMenuSeparator />
+            
+            {isRepeatBooking ? (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="text-destructive focus:text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove...
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem 
+                    onClick={() => onCancel?.(booking as StudioBooking, 'occurrence')}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    ...this occurrence
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onCancel?.(booking as StudioBooking, 'from_here')}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    ...this and following
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => onCancel?.(booking as StudioBooking, 'series')}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    ...the full series
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ) : (
+              <DropdownMenuItem 
+                onClick={() => onCancel?.(booking as StudioBooking, 'occurrence')}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
+
+  const compactCardContent = (
     <div
       className={cn(
         'text-xs px-1 py-0.5 rounded truncate cursor-pointer bg-card border border-border/50 hover:bg-muted/50 transition-colors flex items-center gap-1.5'
       )}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick?.(e);
-      }}
+      onClick={handleCardClick}
       draggable={draggable}
       onDragStart={handleDragStart}
       title={`${displayText} - ${formatTime(booking.start_time)}`}
     >
       <span className={cn('w-2 h-2 rounded-full shrink-0', dotColor)} />
-      <span className={cn('truncate', isCancelled && 'line-through text-muted-foreground')}>
+      <span className={cn('truncate flex-1', isCancelled && 'line-through text-muted-foreground')}>
         {formatTime(booking.start_time)} {displayText}
       </span>
+      {menuContent}
     </div>
-  ) : (
+  );
+
+  const fullCardContent = (
     <div
       className={cn(
         'p-2 rounded-md border border-border/50 bg-card cursor-pointer transition-all hover:bg-muted/50 hover:shadow-sm'
       )}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick?.(e);
-      }}
+      onClick={handleCardClick}
       draggable={draggable}
       onDragStart={handleDragStart}
     >
@@ -110,9 +195,12 @@ export function BookingCard({
             {displayText}
           </span>
         </div>
-        <Badge variant="secondary" className="text-xs shrink-0">
-          {booking.session_type === 'serviced' ? 'EXP' : 'DIY'}
-        </Badge>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Badge variant="secondary" className="text-xs">
+            {booking.session_type === 'serviced' ? 'EXP' : 'DIY'}
+          </Badge>
+          {menuContent}
+        </div>
       </div>
       <div className={cn('text-xs mt-1 text-muted-foreground pl-4.5', isCancelled && 'line-through')}>
         {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
@@ -125,20 +213,14 @@ export function BookingCard({
     </div>
   );
 
-  // Wrap with context menu and hover card for staff/admin
+  const cardContent = compact ? compactCardContent : fullCardContent;
+
+  // Wrap with hover card for staff/admin
   if (isStaffOrAdmin) {
     return (
       <HoverCard openDelay={300} open={isMenuOpen ? false : undefined}>
-        <HoverCardTrigger>
-          <BookingContextMenu
-            booking={booking as StudioBooking}
-            onViewEdit={() => onClick?.()}
-            onDuplicate={() => onDuplicate?.(booking as StudioBooking)}
-            onCancel={(scope) => onCancel?.(booking as StudioBooking, scope)}
-            onOpenChange={setIsMenuOpen}
-          >
-            {cardContent}
-          </BookingContextMenu>
+        <HoverCardTrigger asChild>
+          {cardContent}
         </HoverCardTrigger>
         <HoverCardContent 
           className="w-72" 
