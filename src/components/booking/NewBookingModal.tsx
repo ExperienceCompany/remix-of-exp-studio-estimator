@@ -272,7 +272,7 @@ function getRepeatPatternText(config: RepeatConfig, startDate: Date): string {
       return config.dailyRule === 'weekdays' ? 'Every weekday' : 'Every weekend';
       
     case 'weekly':
-      const dayName = DAYS_OF_WEEK[getDay(startDate)];
+      const dayName = DAYS_OF_WEEK[config.weeklyRule.dayOfWeek];
       return config.weeklyRule.interval === 1 
         ? `Weekly on ${dayName}s` 
         : `Every ${config.weeklyRule.interval} weeks on ${dayName}s`;
@@ -291,6 +291,79 @@ function getRepeatPatternText(config: RepeatConfig, startDate: Date): string {
     default:
       return '';
   }
+}
+
+// Parse existing repeat pattern text back into a RepeatConfig
+function parseRepeatPatternToConfig(pattern: string, startDate: Date): RepeatConfig | null {
+  const defaultConfig = createDefaultRepeatConfig(startDate);
+  
+  // Daily patterns
+  if (pattern === 'Daily') {
+    return { ...defaultConfig, frequency: 'daily', dailyRule: 'every_n_days', dailyInterval: 1 };
+  }
+  if (pattern === 'Every weekday') {
+    return { ...defaultConfig, frequency: 'daily', dailyRule: 'weekdays' };
+  }
+  if (pattern === 'Every weekend') {
+    return { ...defaultConfig, frequency: 'daily', dailyRule: 'weekends' };
+  }
+  const everyNDaysMatch = pattern.match(/^Every (\d+) days$/);
+  if (everyNDaysMatch) {
+    return { ...defaultConfig, frequency: 'daily', dailyRule: 'every_n_days', dailyInterval: parseInt(everyNDaysMatch[1]) };
+  }
+  
+  // Weekly patterns
+  const weeklyMatch = pattern.match(/^Weekly on (\w+)s$/);
+  if (weeklyMatch) {
+    const dayIndex = DAYS_OF_WEEK.indexOf(weeklyMatch[1]);
+    return { ...defaultConfig, frequency: 'weekly', weeklyRule: { interval: 1, dayOfWeek: dayIndex >= 0 ? dayIndex : getDay(startDate) } };
+  }
+  const everyNWeeksMatch = pattern.match(/^Every (\d+) weeks on (\w+)s$/);
+  if (everyNWeeksMatch) {
+    const dayIndex = DAYS_OF_WEEK.indexOf(everyNWeeksMatch[2]);
+    return { ...defaultConfig, frequency: 'weekly', weeklyRule: { interval: parseInt(everyNWeeksMatch[1]), dayOfWeek: dayIndex >= 0 ? dayIndex : getDay(startDate) } };
+  }
+  
+  // Monthly patterns
+  const monthlyDayMatch = pattern.match(/^Monthly on day (\d+)$/);
+  if (monthlyDayMatch) {
+    return { 
+      ...defaultConfig, 
+      frequency: 'monthly', 
+      monthlyRule: { ...defaultConfig.monthlyRule, type: 'day_of_month', dayOfMonth: parseInt(monthlyDayMatch[1]), interval: 1 } 
+    };
+  }
+  const everyNMonthsMatch = pattern.match(/^Every (\d+) months on day (\d+)$/);
+  if (everyNMonthsMatch) {
+    return { 
+      ...defaultConfig, 
+      frequency: 'monthly', 
+      monthlyRule: { ...defaultConfig.monthlyRule, type: 'day_of_month', dayOfMonth: parseInt(everyNMonthsMatch[2]), interval: parseInt(everyNMonthsMatch[1]) } 
+    };
+  }
+  const monthlyNthWeekdayMatch = pattern.match(/^Monthly on the (\w+) (\w+)$/);
+  if (monthlyNthWeekdayMatch) {
+    const dayIndex = DAYS_OF_WEEK.indexOf(monthlyNthWeekdayMatch[2]);
+    return { 
+      ...defaultConfig, 
+      frequency: 'monthly', 
+      monthlyRule: { 
+        ...defaultConfig.monthlyRule, 
+        type: 'nth_weekday', 
+        nthWeek: monthlyNthWeekdayMatch[1], 
+        dayOfWeek: dayIndex >= 0 ? dayIndex : getDay(startDate),
+        interval: 1 
+      } 
+    };
+  }
+  
+  // Yearly pattern
+  if (pattern === 'Yearly') {
+    return { ...defaultConfig, frequency: 'yearly' };
+  }
+  
+  // Couldn't parse - return null
+  return null;
 }
 
 export function NewBookingModal({
@@ -513,7 +586,14 @@ export function NewBookingModal({
         setDate(parseISO(existingBooking.booking_date));
         setStartTime(to12Hour(existingBooking.start_time));
         setEndTime(to12Hour(existingBooking.end_time));
-        setRepeatConfig(createDefaultRepeatConfig(parseISO(existingBooking.booking_date)));
+        // Initialize repeat config - parse existing pattern if editing series
+        const bookingDate = parseISO(existingBooking.booking_date);
+        if (existingBooking.repeat_pattern && (editScope === 'from_here' || editScope === 'series')) {
+          const parsedConfig = parseRepeatPatternToConfig(existingBooking.repeat_pattern, bookingDate);
+          setRepeatConfig(parsedConfig || createDefaultRepeatConfig(bookingDate));
+        } else {
+          setRepeatConfig(createDefaultRepeatConfig(bookingDate));
+        }
         setSelectedStudios([existingBooking.studio_id]);
         setHolderType(existingBooking.customer_name ? 'customer' : 'casual');
         setCustomerName(existingBooking.customer_name || '');
@@ -2147,7 +2227,11 @@ export function NewBookingModal({
         bookingEndTime = `${endH % 12 || 12}:${endM.toString().padStart(2, '0')} ${endH >= 12 ? 'PM' : 'AM'}`;
       }
       
-      const bookingUpdates = {
+      // Determine if we should update the repeat_pattern
+      const shouldUpdateRepeatPattern = (editScope === 'from_here' || editScope === 'series') && repeatConfig.frequency !== 'none';
+      const newRepeatPattern = shouldUpdateRepeatPattern ? getRepeatPatternText(repeatConfig, date) : undefined;
+      
+      const bookingUpdates: any = {
         booking_date: format(date, 'yyyy-MM-dd'),
         start_time: to24Hour(startTime),
         end_time: to24Hour(bookingEndTime),
@@ -2160,6 +2244,8 @@ export function NewBookingModal({
         details: details || null,
         title: title || null,
         people_count: peopleCount || 1,
+        // Include repeat_pattern update when editing series
+        ...(newRepeatPattern && { repeat_pattern: newRepeatPattern }),
       };
       
       // Determine which update method to use based on editScope
@@ -2783,43 +2869,45 @@ export function NewBookingModal({
 
               {/* Repeat */}
               {isEditing && existingRepeatInfo?.pattern ? (
-                // Display for existing repeat bookings - context changes based on editScope
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1">
-                    Repeat Series
-                    <Badge 
-                      variant={editScope === 'occurrence' ? 'secondary' : 'default'} 
-                      className="ml-2 font-normal"
-                    >
-                      {editScope === 'series' 
-                        ? 'Editing full series' 
-                        : editScope === 'from_here' 
-                          ? 'Editing this & following' 
-                          : 'Part of series'}
-                    </Badge>
-                  </Label>
-                  <div className={cn(
-                    "flex items-center gap-2 p-3 rounded-md border",
-                    editScope === 'occurrence' 
-                      ? "bg-muted/50" 
-                      : "bg-primary/10 border-primary/20"
-                  )}>
-                    <Repeat className={cn(
-                      "h-4 w-4",
-                      editScope === 'occurrence' 
-                        ? "text-muted-foreground" 
-                        : "text-primary"
-                    )} />
-                    <span className="text-sm">{existingRepeatInfo.pattern}</span>
+                editScope === 'occurrence' ? (
+                  // Read-only for single occurrence edit
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1">
+                      Repeat Series
+                      <Badge variant="secondary" className="ml-2 font-normal">Part of series</Badge>
+                    </Label>
+                    <div className="flex items-center gap-2 p-3 rounded-md border bg-muted/50">
+                      <Repeat className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{existingRepeatInfo.pattern}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      This booking is part of a repeat series. Editing only affects this occurrence.
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {editScope === 'series' 
-                      ? 'Changes will apply to all bookings in this series.'
-                      : editScope === 'from_here'
-                        ? 'Changes will apply to this booking and all following occurrences.'
-                        : 'This booking is part of a repeat series. Editing only affects this occurrence.'}
-                  </p>
-                </div>
+                ) : (
+                  // Editable for series or from_here scope
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-1">
+                        Repeat Series
+                        <Badge variant="default" className="ml-2 font-normal">
+                          {editScope === 'series' ? 'Editing full series' : 'Editing this & following'}
+                        </Badge>
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {editScope === 'series' 
+                        ? 'Changing repeat settings will update all bookings in this series.'
+                        : 'Changing repeat settings will update this booking and all following occurrences.'}
+                    </p>
+                    <RepeatOptions
+                      config={repeatConfig}
+                      onChange={setRepeatConfig}
+                      startDate={date || new Date()}
+                      startTime={startTime}
+                    />
+                  </div>
+                )
               ) : !isEditing ? (
                 // Full repeat options for new bookings
                 <RepeatOptions
