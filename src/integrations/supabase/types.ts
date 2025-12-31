@@ -1062,6 +1062,8 @@ export type Database = {
       }
       studio_bookings: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           booking_date: string
           booking_type: Database["public"]["Enums"]["booking_type"]
           created_at: string
@@ -1069,15 +1071,21 @@ export type Database = {
           customer_email: string | null
           customer_name: string | null
           customer_phone: string | null
+          deposit_amount: number | null
+          deposit_paid: boolean | null
+          deposit_paid_at: string | null
           details: string | null
           end_time: string
+          estimated_total: number | null
           id: string
           notes: string | null
           people_count: number | null
           quote_id: string | null
           repeat_pattern: string | null
           repeat_series_id: string | null
+          requires_approval: boolean | null
           session_type: string | null
+          square_payment_id: string | null
           start_time: string
           status: Database["public"]["Enums"]["booking_status"]
           studio_id: string
@@ -1085,6 +1093,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           booking_date: string
           booking_type?: Database["public"]["Enums"]["booking_type"]
           created_at?: string
@@ -1092,15 +1102,21 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          deposit_amount?: number | null
+          deposit_paid?: boolean | null
+          deposit_paid_at?: string | null
           details?: string | null
           end_time: string
+          estimated_total?: number | null
           id?: string
           notes?: string | null
           people_count?: number | null
           quote_id?: string | null
           repeat_pattern?: string | null
           repeat_series_id?: string | null
+          requires_approval?: boolean | null
           session_type?: string | null
+          square_payment_id?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["booking_status"]
           studio_id: string
@@ -1108,6 +1124,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           booking_date?: string
           booking_type?: Database["public"]["Enums"]["booking_type"]
           created_at?: string
@@ -1115,15 +1133,21 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          deposit_amount?: number | null
+          deposit_paid?: boolean | null
+          deposit_paid_at?: string | null
           details?: string | null
           end_time?: string
+          estimated_total?: number | null
           id?: string
           notes?: string | null
           people_count?: number | null
           quote_id?: string | null
           repeat_pattern?: string | null
           repeat_series_id?: string | null
+          requires_approval?: boolean | null
           session_type?: string | null
+          square_payment_id?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"]
           studio_id?: string
@@ -1328,7 +1352,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "staff" | "user" | "affiliate"
-      booking_status: "pending" | "confirmed" | "cancelled" | "completed"
+      booking_status:
+        | "pending"
+        | "approved"
+        | "confirmed"
+        | "cancelled"
+        | "completed"
       booking_type: "customer" | "internal" | "unavailable"
       provider_level: "lv1" | "lv2" | "lv3"
       quote_status: "draft" | "sent" | "approved" | "completed"
@@ -1479,7 +1508,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "staff", "user", "affiliate"],
-      booking_status: ["pending", "confirmed", "cancelled", "completed"],
+      booking_status: [
+        "pending",
+        "approved",
+        "confirmed",
+        "cancelled",
+        "completed",
+      ],
       booking_type: ["customer", "internal", "unavailable"],
       provider_level: ["lv1", "lv2", "lv3"],
       quote_status: ["draft", "sent", "approved", "completed"],

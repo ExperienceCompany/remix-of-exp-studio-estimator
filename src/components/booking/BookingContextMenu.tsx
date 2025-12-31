@@ -8,7 +8,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Pencil, Copy, Trash2 } from 'lucide-react';
+import { Pencil, Copy, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface BookingContextMenuProps {
@@ -17,8 +17,11 @@ interface BookingContextMenuProps {
   onViewEdit: () => void;
   onDuplicate: () => void;
   onCancel: (scope: 'occurrence' | 'from_here' | 'series') => void;
+  onApprove?: () => void;
+  onReject?: () => void;
   disabled?: boolean;
   onOpenChange?: (open: boolean) => void;
+  isAdmin?: boolean;
 }
 
 export function BookingContextMenu({
@@ -27,11 +30,16 @@ export function BookingContextMenu({
   onViewEdit,
   onDuplicate,
   onCancel,
+  onApprove,
+  onReject,
   disabled = false,
   onOpenChange,
+  isAdmin = false,
 }: BookingContextMenuProps) {
   const isRepeatBooking = !!booking.repeat_series_id;
   const isCancelled = booking.status === 'cancelled';
+  const isPendingApproval = booking.status === 'pending' && booking.requires_approval;
+  const isApproved = booking.status === 'approved';
 
   if (disabled) {
     return <>{children}</>;
@@ -52,7 +60,28 @@ export function BookingContextMenu({
           Duplicate
         </DropdownMenuItem>
         
-        {!isCancelled && (
+        {/* Admin approval actions for pending recurring bookings */}
+        {isAdmin && isPendingApproval && isRepeatBooking && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={onApprove}
+              className="text-green-600 focus:text-green-600"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Approve Series
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={onReject}
+              className="text-destructive focus:text-destructive"
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Reject Series
+            </DropdownMenuItem>
+          </>
+        )}
+        
+        {!isCancelled && !isPendingApproval && !isApproved && (
           <>
             <DropdownMenuSeparator />
             

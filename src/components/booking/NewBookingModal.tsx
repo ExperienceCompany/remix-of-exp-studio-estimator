@@ -995,6 +995,39 @@ export function NewBookingModal({
     return Math.round(total * 100) / 100;
   }, [date, selectedStudios, hours, startTime, sessionType, sessionDuration, crewAllocation, cameraCount, serviceType, selectedAddons, bookingType, diyRates, providerLevels, vodcastCameraAddons, sessionAddonsData, autoIncludedAddons, editingItems, addonHours]);
 
+  // Calculate recurring booking totals with 10% discount
+  const recurringCostBreakdown = useMemo(() => {
+    const isRepeating = repeatConfig.frequency !== 'none';
+    if (!isRepeating || !date) {
+      return {
+        occurrenceCount: 1,
+        singleSessionCost: calculatedPrice,
+        subtotal: calculatedPrice,
+        discount: 0,
+        recurringTotal: calculatedPrice,
+        depositAmount: 0,
+        requiresApproval: false,
+      };
+    }
+    
+    const repeatDates = calculateRepeatDates(repeatConfig, date);
+    const occurrenceCount = repeatDates.length;
+    const subtotal = calculatedPrice * occurrenceCount;
+    const discount = subtotal * 0.10; // 10% recurring discount
+    const recurringTotal = subtotal - discount;
+    const depositAmount = recurringTotal * 0.50; // 50% deposit
+    
+    return {
+      occurrenceCount,
+      singleSessionCost: calculatedPrice,
+      subtotal,
+      discount,
+      recurringTotal,
+      depositAmount,
+      requiresApproval: occurrenceCount > 1,
+    };
+  }, [repeatConfig, date, calculatedPrice]);
+
   const displayPrice = manualPrice !== '' ? parseFloat(manualPrice) || 0 : calculatedPrice;
 
   // Compute end time based on start time + duration
@@ -1946,6 +1979,9 @@ export function NewBookingModal({
       const repeatSeriesId = isRepeating ? crypto.randomUUID() : null;
       const repeatPattern = isRepeating ? getRepeatPatternText(repeatConfig, date) : null;
 
+      // Determine status: recurring bookings require approval
+      const bookingStatus = isRepeating ? 'pending' : 'confirmed';
+      
       const bookingPromises = selectedStudios.map(studioId => 
         createBooking.mutateAsync({
           studio_id: studioId,
@@ -1953,7 +1989,7 @@ export function NewBookingModal({
           start_time: to24Hour(startTime),
           end_time: to24Hour(bookingEndTime),
           booking_type: bookingType,
-          status: 'confirmed',
+          status: bookingStatus,
           customer_name: holderType === 'customer' ? customerName : null,
           customer_email: holderType === 'customer' ? customerEmail : null,
           customer_phone: holderType === 'customer' ? customerPhone : null,
@@ -1966,6 +2002,10 @@ export function NewBookingModal({
           people_count: peopleCount || 1,
           repeat_series_id: repeatSeriesId,
           repeat_pattern: repeatPattern,
+          // Recurring approval fields
+          requires_approval: isRepeating,
+          estimated_total: isRepeating ? recurringCostBreakdown.recurringTotal : calculatedPrice,
+          deposit_amount: isRepeating ? recurringCostBreakdown.depositAmount : null,
         })
       );
 
@@ -1983,7 +2023,7 @@ export function NewBookingModal({
                 start_time: to24Hour(startTime),
                 end_time: to24Hour(bookingEndTime),
                 booking_type: bookingType,
-                status: 'confirmed',
+                status: bookingStatus,
                 customer_name: holderType === 'customer' ? customerName : null,
                 customer_email: holderType === 'customer' ? customerEmail : null,
                 customer_phone: holderType === 'customer' ? customerPhone : null,
@@ -1996,6 +2036,10 @@ export function NewBookingModal({
                 people_count: peopleCount || 1,
                 repeat_series_id: repeatSeriesId,
                 repeat_pattern: repeatPattern,
+                // Recurring approval fields
+                requires_approval: isRepeating,
+                estimated_total: isRepeating ? recurringCostBreakdown.recurringTotal : calculatedPrice,
+                deposit_amount: isRepeating ? recurringCostBreakdown.depositAmount : null,
               })
             );
           }
@@ -4077,11 +4121,42 @@ export function NewBookingModal({
                 </Card>
               )}
 
-              {/* Total */}
-              <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg">
-                <span className="font-medium">Estimated Total</span>
-                <span className="text-2xl font-bold">${displayPrice.toFixed(2)}</span>
-              </div>
+              {/* Total - Show recurring breakdown if applicable */}
+              {recurringCostBreakdown.occurrenceCount > 1 ? (
+                <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Single Session</span>
+                    <span>${recurringCostBreakdown.singleSessionCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">× {recurringCostBreakdown.occurrenceCount} occurrences</span>
+                    <span>${recurringCostBreakdown.subtotal.toFixed(2)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Recurring Discount (10%)</span>
+                    <span>-${recurringCostBreakdown.discount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center font-medium">
+                    <span>Series Total</span>
+                    <span className="text-xl font-bold">${recurringCostBreakdown.recurringTotal.toFixed(2)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Required Deposit (50%)</span>
+                    <span className="font-medium">${recurringCostBreakdown.depositAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    <span>Recurring bookings require admin approval + 50% deposit</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg">
+                  <span className="font-medium">Estimated Total</span>
+                  <span className="text-2xl font-bold">${displayPrice.toFixed(2)}</span>
+                </div>
+              )}
 
               {/* Affiliate Code with auto-validation */}
               <AffiliateCodeInput

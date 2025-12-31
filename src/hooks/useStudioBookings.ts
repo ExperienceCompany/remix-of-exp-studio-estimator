@@ -8,7 +8,7 @@ export interface StudioBooking {
   start_time: string;
   end_time: string;
   booking_type: 'customer' | 'internal' | 'unavailable';
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'approved';
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
@@ -23,6 +23,15 @@ export interface StudioBooking {
   people_count: number | null;
   repeat_series_id: string | null;
   repeat_pattern: string | null;
+  // Approval & deposit tracking
+  requires_approval: boolean | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  deposit_amount: number | null;
+  deposit_paid: boolean | null;
+  deposit_paid_at: string | null;
+  square_payment_id: string | null;
+  estimated_total: number | null;
 }
 
 export interface BlockedDate {
@@ -85,11 +94,23 @@ export function useBlockedDates(studioId?: string) {
   });
 }
 
+// Booking create input type - approval fields are optional
+type CreateBookingInput = Omit<StudioBooking, 'id' | 'created_at' | 'updated_at' | 'requires_approval' | 'approved_by' | 'approved_at' | 'deposit_amount' | 'deposit_paid' | 'deposit_paid_at' | 'square_payment_id' | 'estimated_total'> & {
+  requires_approval?: boolean | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  deposit_amount?: number | null;
+  deposit_paid?: boolean | null;
+  deposit_paid_at?: string | null;
+  square_payment_id?: string | null;
+  estimated_total?: number | null;
+};
+
 export function useCreateBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (booking: Omit<StudioBooking, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (booking: CreateBookingInput) => {
       const { data, error } = await supabase
         .from('studio_bookings')
         .insert(booking)
@@ -284,6 +305,60 @@ export function useUpdateEntireSeries() {
         .update(updates)
         .eq('repeat_series_id', seriesId)
         .neq('status', 'cancelled')
+        .select();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['studio_bookings'] });
+    },
+  });
+}
+
+// Approve recurring series (admin action)
+export function useApproveSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      seriesId,
+      approvedBy
+    }: { 
+      seriesId: string;
+      approvedBy: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('studio_bookings')
+        .update({ 
+          status: 'approved',
+          approved_by: approvedBy,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('repeat_series_id', seriesId)
+        .eq('status', 'pending')
+        .select();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['studio_bookings'] });
+    },
+  });
+}
+
+// Reject recurring series (admin action)
+export function useRejectSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (seriesId: string) => {
+      const { data, error } = await supabase
+        .from('studio_bookings')
+        .update({ status: 'cancelled' })
+        .eq('repeat_series_id', seriesId)
+        .eq('status', 'pending')
         .select();
       
       if (error) throw error;
