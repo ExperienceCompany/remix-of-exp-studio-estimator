@@ -5,14 +5,50 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { TimeSlotType, PROVIDER_LEVEL_LABELS } from '@/types/estimator';
-import { Sun, Moon, ArrowLeft, ArrowRight, Check, Camera, Sparkles, Users } from 'lucide-react';
+import { TimeSlotType, PROVIDER_LEVEL_LABELS, EditingItem } from '@/types/estimator';
+import { Sun, Moon, ArrowLeft, ArrowRight } from 'lucide-react';
 
 const formatTime12Hour = (time24: string): string => {
   const [hours, minutes] = time24.split(':').map(Number);
   const period = hours >= 12 ? 'PM' : 'AM';
   const hours12 = hours % 12 || 12;
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
+
+// Video editing config for duration-based pricing
+const VIDEO_EDITING_CONFIG: Record<string, { baseDuration: number; incrementDuration: number }> = {
+  'social': { baseDuration: 30, incrementDuration: 30 },
+  'general_basic': { baseDuration: 30, incrementDuration: 30 },
+  'general_advanced': { baseDuration: 30, incrementDuration: 30 },
+  'long_form_basic': { baseDuration: 900, incrementDuration: 900 },
+  'long_form_advanced': { baseDuration: 900, incrementDuration: 900 },
+};
+
+const EDITING_CREW_MULTIPLIERS: Record<string, number> = { lv1: 0.75, lv2: 1, lv3: 1.25 };
+
+// Calculate video editing item price with duration-based pricing and crew multiplier
+const calculateEditingItemTotal = (item: EditingItem): number => {
+  const config = VIDEO_EDITING_CONFIG[item.category];
+  
+  if (config) {
+    // Video editing: duration-based pricing
+    const duration = item.quantity;
+    let baseItemTotal: number;
+    
+    if (duration <= config.baseDuration) {
+      baseItemTotal = item.customerPrice || item.basePrice;
+    } else {
+      const additionalIncrements = Math.ceil((duration - config.baseDuration) / config.incrementDuration);
+      baseItemTotal = (item.customerPrice || item.basePrice) + (additionalIncrements * (item.incrementPrice || 0));
+    }
+    
+    const crewLevel = item.crewLevel || 'lv2';
+    const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel] || 1;
+    return Math.round(baseItemTotal * multiplier);
+  } else {
+    // Photo editing: simple quantity × price
+    return (item.customerPrice || item.basePrice) * item.quantity;
+  }
 };
 
 export function StepTimeSlot() {
@@ -51,7 +87,7 @@ export function StepTimeSlot() {
 
   const providerRate = getProviderRate();
 
-  // Calculate running total from session add-ons, editing items, and provider (note: provider is per hour, shown separately)
+  // Calculate running total from session add-ons, editing items, and provider
   const calculateRunningTotal = () => {
     let total = 0;
     
@@ -62,9 +98,9 @@ export function StepTimeSlot() {
       }
     });
     
-    // Editing items
+    // Editing items with proper calculation
     selection.editingItems.forEach(item => {
-      total += item.quantity * (item.customerPrice || item.basePrice);
+      total += calculateEditingItemTotal(item);
     });
     
     return total;
@@ -163,7 +199,7 @@ export function StepTimeSlot() {
                     ({item.quantity} {selection.serviceType === 'photoshoot' ? 'edits' : 'sec'})
                   </span>
                 </span>
-                <span className="text-sm font-medium">+${item.quantity * (item.customerPrice || item.basePrice)}</span>
+                <span className="text-sm font-medium">+${calculateEditingItemTotal(item)}</span>
               </div>
             ))}
             
