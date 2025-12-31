@@ -854,6 +854,8 @@ export type Database = {
           notes: string | null
           people_count: number | null
           quote_id: string | null
+          repeat_pattern: string | null
+          repeat_series_id: string | null
           session_type: string | null
           start_time: string
           status: Database["public"]["Enums"]["booking_status"]
@@ -875,6 +877,8 @@ export type Database = {
           notes?: string | null
           people_count?: number | null
           quote_id?: string | null
+          repeat_pattern?: string | null
+          repeat_series_id?: string | null
           session_type?: string | null
           start_time: string
           status?: Database["public"]["Enums"]["booking_status"]
@@ -896,6 +900,8 @@ export type Database = {
           notes?: string | null
           people_count?: number | null
           quote_id?: string | null
+          repeat_pattern?: string | null
+          repeat_series_id?: string | null
           session_type?: string | null
           start_time?: string
           status?: Database["public"]["Enums"]["booking_status"]

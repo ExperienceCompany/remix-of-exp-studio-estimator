@@ -300,6 +300,8 @@ export function BookingForm({
         created_by: null,
         title: null,
         people_count: 1,
+        repeat_series_id: null,
+        repeat_pattern: null,
       });
 
       setSubmitted(true);

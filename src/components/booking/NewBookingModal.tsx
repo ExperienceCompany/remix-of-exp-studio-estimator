@@ -254,6 +254,42 @@ function to12Hour(time24: string): string {
   return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
 }
 
+// Days of week for repeat pattern text
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Generate human-readable repeat pattern text from RepeatConfig
+function getRepeatPatternText(config: RepeatConfig, startDate: Date): string {
+  if (config.frequency === 'none') return '';
+  
+  switch (config.frequency) {
+    case 'daily':
+      if (config.dailyRule === 'every_n_days') {
+        return config.dailyInterval === 1 ? 'Daily' : `Every ${config.dailyInterval} days`;
+      }
+      return config.dailyRule === 'weekdays' ? 'Every weekday' : 'Every weekend';
+      
+    case 'weekly':
+      const dayName = DAYS_OF_WEEK[getDay(startDate)];
+      return config.weeklyRule.interval === 1 
+        ? `Weekly on ${dayName}s` 
+        : `Every ${config.weeklyRule.interval} weeks on ${dayName}s`;
+      
+    case 'monthly':
+      if (config.monthlyRule.type === 'day_of_month') {
+        return config.monthlyRule.interval === 1
+          ? `Monthly on day ${config.monthlyRule.dayOfMonth}`
+          : `Every ${config.monthlyRule.interval} months on day ${config.monthlyRule.dayOfMonth}`;
+      }
+      return `Monthly on the ${config.monthlyRule.nthWeek} ${DAYS_OF_WEEK[config.monthlyRule.dayOfWeek]}`;
+      
+    case 'yearly':
+      return 'Yearly';
+      
+    default:
+      return '';
+  }
+}
+
 export function NewBookingModal({
   open,
   onClose,
@@ -1676,6 +1712,11 @@ export function NewBookingModal({
       }
 
       // Create bookings for each selected studio
+      // Generate repeat series info if repeating
+      const isRepeating = repeatConfig.frequency !== 'none';
+      const repeatSeriesId = isRepeating ? crypto.randomUUID() : null;
+      const repeatPattern = isRepeating ? getRepeatPatternText(repeatConfig, date) : null;
+
       const bookingPromises = selectedStudios.map(studioId => 
         createBooking.mutateAsync({
           studio_id: studioId,
@@ -1694,11 +1735,13 @@ export function NewBookingModal({
           created_by: null,
           title: title || null,
           people_count: peopleCount || 1,
+          repeat_series_id: repeatSeriesId,
+          repeat_pattern: repeatPattern,
         })
       );
 
       // If repeating, create additional bookings for each repeat date
-      if (repeatConfig.frequency !== 'none') {
+      if (isRepeating) {
         const repeatDates = calculateRepeatDates(repeatConfig, date);
         
         // Skip the first date (already created above)
@@ -1722,6 +1765,8 @@ export function NewBookingModal({
                 created_by: null,
                 title: title || null,
                 people_count: peopleCount || 1,
+                repeat_series_id: repeatSeriesId,
+                repeat_pattern: repeatPattern,
               })
             );
           }
@@ -1809,6 +1854,8 @@ export function NewBookingModal({
           created_by: null,
           title: title || null,
           people_count: peopleCount || 1,
+          repeat_series_id: null,
+          repeat_pattern: null,
         })
       );
 

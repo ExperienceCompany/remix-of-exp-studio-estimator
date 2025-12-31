@@ -21,6 +21,8 @@ export interface StudioBooking {
   updated_at: string;
   title: string | null;
   people_count: number | null;
+  repeat_series_id: string | null;
+  repeat_pattern: string | null;
 }
 
 export interface BlockedDate {

@@ -1,4 +1,4 @@
-import { Clock, MapPin, User, DollarSign, FileText, Users, ListChecks } from 'lucide-react';
+import { Clock, MapPin, User, DollarSign, FileText, Users, ListChecks, Repeat } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
@@ -91,6 +91,14 @@ export function BookingHoverContent({ booking, studioName }: BookingHoverContent
           <div className="flex items-start gap-2 text-muted-foreground">
             <ListChecks className="h-4 w-4 shrink-0 mt-0.5" />
             <span className="text-xs line-clamp-2">{booking.details}</span>
+          </div>
+        )}
+
+        {/* Repeat Pattern */}
+        {booking.repeat_pattern && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Repeat className="h-4 w-4 shrink-0" />
+            <span className="text-xs">{booking.repeat_pattern}</span>
           </div>
         )}
       </div>
