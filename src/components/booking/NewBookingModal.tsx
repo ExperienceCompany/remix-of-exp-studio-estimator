@@ -3181,13 +3181,13 @@ export function NewBookingModal({
                   )}
                   
                   {/* Video Editing Add-ons */}
-                  {editingItems.filter(item => item.category !== 'photo').length > 0 && (
+                  {editingItems.filter(item => item.category !== 'photo' && item.category !== 'photo_editing').length > 0 && (
                     <>
                       <Separator className="my-2" />
                       <div className="space-y-2">
                         <span className="text-sm text-muted-foreground">Video Editing</span>
                         {editingItems
-                          .filter(item => item.category !== 'photo')
+                          .filter(item => item.category !== 'photo' && item.category !== 'photo_editing')
                           .map((item, idx) => {
                             const crewParts: string[] = [];
                             let itemTotal = 0;
@@ -3216,13 +3216,13 @@ export function NewBookingModal({
                   )}
 
                   {/* Photo Editing Add-ons */}
-                  {editingItems.filter(item => item.category === 'photo').length > 0 && (
+                  {editingItems.filter(item => item.category === 'photo' || item.category === 'photo_editing').length > 0 && (
                     <>
                       <Separator className="my-2" />
                       <div className="space-y-2">
                         <span className="text-sm text-muted-foreground">Photo Editing</span>
                         {editingItems
-                          .filter(item => item.category === 'photo')
+                          .filter(item => item.category === 'photo' || item.category === 'photo_editing')
                           .map((item, idx) => (
                             <div key={idx} className="flex justify-between text-sm pl-2">
                               <span>{item.name} ({item.quantity} edits)</span>
