@@ -390,18 +390,26 @@ export function NewBookingModal({
     series_id: string | null;
     pattern: string | null;
   } | null>(null);
+  
+  // Track loading state for linked quote to prevent race condition
+  const [isLoadingLinkedQuote, setIsLoadingLinkedQuote] = useState(false);
 
   // Fetch linked quote when editing a booking with a quote_id
   useEffect(() => {
     if (open && existingBooking?.quote_id) {
+      setIsLoadingLinkedQuote(true);
       supabase
         .from('quotes')
         .select('*')
         .eq('id', existingBooking.quote_id)
         .maybeSingle()
-        .then(({ data }) => setLinkedQuote(data));
+        .then(({ data }) => {
+          setLinkedQuote(data);
+          setIsLoadingLinkedQuote(false);
+        });
     } else {
       setLinkedQuote(null);
+      setIsLoadingLinkedQuote(false);
     }
   }, [open, existingBooking?.quote_id]);
 
@@ -551,8 +559,9 @@ export function NewBookingModal({
           // Holder type
           if (sel.holderType) setHolderType(sel.holderType);
           if (sel.wantsEditing !== undefined) setWantsEditing(sel.wantsEditing);
-        } else {
-          // No linked quote - use defaults
+        } else if (!existingBooking.quote_id || !isLoadingLinkedQuote) {
+          // Only reset to defaults if there's no quote to load OR loading is complete
+          // This prevents race condition where defaults override quote data
           setServiceType(null);
           setSessionDuration(1);
           setCrewAllocation({ lv1: 0, lv2: 1, lv3: 0 });
@@ -678,7 +687,7 @@ export function NewBookingModal({
         setExistingRepeatInfo(null);
       }
     }
-  }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking, linkedQuote, duplicatingFrom]);
+  }, [open, defaultDate, defaultStudioIds, defaultStartTime, defaultEndTime, existingBooking, linkedQuote, duplicatingFrom, isLoadingLinkedQuote]);
 
   const timeSlots = useMemo(() => {
     return generateTimeSlots(operatingStart, operatingEnd);
