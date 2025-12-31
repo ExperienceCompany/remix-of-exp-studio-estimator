@@ -2351,8 +2351,9 @@ export function NewBookingModal({
                                 <Check className="h-3 w-3" /> Available
                               </span>
                             ) : (
-                              <span className="text-xs text-destructive flex items-center gap-1" title={status?.conflictTime}>
+                              <span className="text-xs text-destructive flex items-center gap-1">
                                 <Ban className="h-3 w-3" /> Unavailable
+                                {status?.conflictTime && <span className="text-muted-foreground">@ {status.conflictTime}</span>}
                               </span>
                             )
                           )}
