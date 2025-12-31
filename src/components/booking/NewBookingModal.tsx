@@ -1649,7 +1649,7 @@ export function NewBookingModal({
   }, [operatingStart, operatingEnd, studios, existingBooking, date]);
 
   // Check availability for selected studios
-  const checkServiceAvailability = useCallback(async (studioIdsToCheck: string[]) => {
+  const checkServiceAvailability = useCallback(async (studioIdsToCheck: string[], overrideStartTime?: string) => {
     if (!date || studioIdsToCheck.length === 0) return;
     
     setIsCheckingAvailability(true);
@@ -1657,7 +1657,8 @@ export function NewBookingModal({
     try {
       const bookingDate = format(date, 'yyyy-MM-dd');
       const durationMins = sessionDuration * 60;
-      const startTime24 = to24Hour(startTime);
+      const effectiveStartTime = overrideStartTime || startTime;
+      const startTime24 = to24Hour(effectiveStartTime);
       const startMins = parseInt(startTime24.split(':')[0]) * 60 + parseInt(startTime24.split(':')[1]);
       const endMins = startMins + durationMins;
       
@@ -1763,27 +1764,25 @@ export function NewBookingModal({
 
   // Handle selecting a suggested time
   const handleSuggestedTimeSelect = async (time24: string) => {
-    setStartTime(to12Hour(time24));
+    const newTime12 = to12Hour(time24);
+    setStartTime(newTime12);
     setAvailabilityConflict(null);
-    // Re-check after a tick to allow state update
-    setTimeout(() => {
-      if (selectedStudios.length > 0) {
-        checkServiceAvailability(selectedStudios);
-      }
-    }, 100);
+    // Pass new time directly to avoid stale closure
+    if (selectedStudios.length > 0) {
+      await checkServiceAvailability(selectedStudios, newTime12);
+    }
   };
 
   // Handle selecting next day
   const handleNextDaySelect = async (newDate: Date, time24: string) => {
+    const newTime12 = to12Hour(time24);
     setDate(newDate);
-    setStartTime(to12Hour(time24));
+    setStartTime(newTime12);
     setAvailabilityConflict(null);
-    // Re-check after a tick
-    setTimeout(() => {
-      if (selectedStudios.length > 0) {
-        checkServiceAvailability(selectedStudios);
-      }
-    }, 100);
+    // Pass new time directly to avoid stale closure
+    if (selectedStudios.length > 0) {
+      await checkServiceAvailability(selectedStudios, newTime12);
+    }
   };
 
   // Get current step index based on session type
