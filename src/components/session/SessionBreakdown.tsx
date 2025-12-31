@@ -8,11 +8,35 @@ import {
   TimeSlotType,
 } from '@/types/estimator';
 import type { EstimatorSelection } from '@/types/estimator';
-import { Package, Film, Users } from 'lucide-react';
+import { Package, Film, Users, Calendar, Clock, User } from 'lucide-react';
 
 interface SessionBreakdownProps {
   selection: EstimatorSelection | null;
 }
+
+const formatTime12hr = (time: string): string => {
+  if (!time) return '';
+  const [hours, minutes] = time.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHour = hours % 12 || 12;
+  return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
+
+const getSessionDuration = (sel: any): number | string => {
+  if (sel.hours) return sel.hours;
+  
+  const start = sel.startTime;
+  const end = sel.endTime;
+  if (start && end) {
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH, endM] = end.split(':').map(Number);
+    const startMins = startH * 60 + startM;
+    const endMins = endH * 60 + endM;
+    const diffHours = (endMins - startMins) / 60;
+    return diffHours > 0 ? diffHours : '-';
+  }
+  return '-';
+};
 
 export function SessionBreakdown({ selection }: SessionBreakdownProps) {
   if (!selection) {
@@ -31,13 +55,17 @@ export function SessionBreakdown({ selection }: SessionBreakdownProps) {
     );
   }
 
-  // Build crew display string
-  const { lv1, lv2, lv3 } = selection.crewAllocation;
+  // Safe destructuring with defaults
+  const crewAllocation = selection.crewAllocation || { lv1: 0, lv2: 0, lv3: 0 };
+  const { lv1, lv2, lv3 } = crewAllocation;
   const crewParts: string[] = [];
   if (lv1 > 0) crewParts.push(lv1 > 1 ? `Lv1 ×${lv1}` : 'Lv1');
   if (lv2 > 0) crewParts.push(lv2 > 1 ? `Lv2 ×${lv2}` : 'Lv2');
   if (lv3 > 0) crewParts.push(lv3 > 1 ? `Lv3 ×${lv3}` : 'Lv3');
   const crewDisplay = crewParts.length > 0 ? crewParts.join(', ') : null;
+
+  // Cast for booking-derived fields
+  const sel = selection as any;
 
   return (
     <Card>
@@ -48,6 +76,13 @@ export function SessionBreakdown({ selection }: SessionBreakdownProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Title (for booking-created sessions) */}
+        {sel.title && (
+          <div className="border-b pb-3">
+            <p className="font-semibold text-lg">{sel.title}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-muted-foreground">Session Type</p>
@@ -58,9 +93,32 @@ export function SessionBreakdown({ selection }: SessionBreakdownProps) {
           <div>
             <p className="text-muted-foreground">Studio</p>
             <p className="font-medium">
-              {selection.studioType ? STUDIO_LABELS[selection.studioType as StudioType] : '-'}
+              {sel.studioName || (selection.studioType ? STUDIO_LABELS[selection.studioType as StudioType] : '-')}
             </p>
           </div>
+
+          {/* Booking Date */}
+          {sel.bookingDate && (
+            <div>
+              <p className="text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3" /> Date
+              </p>
+              <p className="font-medium">{sel.bookingDate}</p>
+            </div>
+          )}
+
+          {/* Time Range */}
+          {sel.startTime && sel.endTime && (
+            <div>
+              <p className="text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Time
+              </p>
+              <p className="font-medium">
+                {formatTime12hr(sel.startTime)} - {formatTime12hr(sel.endTime)}
+              </p>
+            </div>
+          )}
+
           {selection.serviceType && (
             <div>
               <p className="text-muted-foreground">Service</p>
@@ -69,16 +127,39 @@ export function SessionBreakdown({ selection }: SessionBreakdownProps) {
               </p>
             </div>
           )}
+
+          {selection.timeSlotType && (
+            <div>
+              <p className="text-muted-foreground">Time Slot</p>
+              <p className="font-medium">
+                {TIME_SLOT_LABELS[selection.timeSlotType as TimeSlotType]}
+              </p>
+            </div>
+          )}
+
           <div>
-            <p className="text-muted-foreground">Time Slot</p>
-            <p className="font-medium">
-              {selection.timeSlotType ? TIME_SLOT_LABELS[selection.timeSlotType as TimeSlotType] : '-'}
-            </p>
+            <p className="text-muted-foreground">Duration</p>
+            <p className="font-medium">{getSessionDuration(selection)} hour(s)</p>
           </div>
-          <div>
-            <p className="text-muted-foreground">Booked Duration</p>
-            <p className="font-medium">{selection.hours} hour(s)</p>
-          </div>
+
+          {/* Customer Name */}
+          {sel.customerName && (
+            <div>
+              <p className="text-muted-foreground flex items-center gap-1">
+                <User className="h-3 w-3" /> Customer
+              </p>
+              <p className="font-medium">{sel.customerName}</p>
+            </div>
+          )}
+
+          {/* People Count */}
+          {sel.peopleCount && sel.peopleCount > 1 && (
+            <div>
+              <p className="text-muted-foreground">People</p>
+              <p className="font-medium">{sel.peopleCount}</p>
+            </div>
+          )}
+
           {crewDisplay && (
             <div>
               <p className="text-muted-foreground flex items-center gap-1">
@@ -87,10 +168,19 @@ export function SessionBreakdown({ selection }: SessionBreakdownProps) {
               <p className="font-medium">{crewDisplay}</p>
             </div>
           )}
+
           {selection.serviceType === 'vodcast' && selection.cameraCount > 0 && (
             <div>
               <p className="text-muted-foreground">Cameras</p>
               <p className="font-medium">{selection.cameraCount}</p>
+            </div>
+          )}
+
+          {/* Estimated Total */}
+          {sel.estimatedTotal && (
+            <div>
+              <p className="text-muted-foreground">Estimated Total</p>
+              <p className="font-medium">${Number(sel.estimatedTotal).toFixed(2)}</p>
             </div>
           )}
         </div>
