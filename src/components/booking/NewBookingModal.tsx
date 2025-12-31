@@ -559,6 +559,12 @@ export function NewBookingModal({
 
   // Filter session addons based on studio and session type
   const availableAddons = useMemo(() => {
+    // Check if any selected studio is Full Studio Buyout
+    const hasFullStudioBuyout = selectedStudios.some(studioId => {
+      const studio = studios.find(s => s.id === studioId);
+      return studio?.type === 'full_studio_buyout';
+    });
+    
     return sessionAddonsData.filter(addon => {
       if (!addon.is_active) return false;
       // Hide service type addons (like Revisions) - they appear separately
@@ -566,9 +572,11 @@ export function NewBookingModal({
       if (addon.applies_to_session_type && addon.applies_to_session_type !== sessionType) return false;
       // Hide Set Design addon - it's auto-included for photoshoots, not user-selectable
       if (addon.name.includes('Set Design') || addon.name.includes('Photoshoot setup')) return false;
+      // Hide Event Setup & Breakdown for non-Full Studio Buyout sessions
+      if (addon.name.includes('Event Setup') && !hasFullStudioBuyout) return false;
       return true;
     });
-  }, [sessionAddonsData, sessionType]);
+  }, [sessionAddonsData, sessionType, selectedStudios, studios]);
 
   // Get auto-included addons (like Photoshoot setup fee) - serviced photoshoots only
   const autoIncludedAddons = useMemo(() => {
@@ -2821,25 +2829,7 @@ export function NewBookingModal({
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Select any additional services.</p>
 
-              {/* Auto-Included Add-ons */}
-              {autoIncludedAddons.length > 0 && (
-                <Card className="bg-primary/5 border-primary/20">
-                  <CardHeader className="p-4 pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-primary" />
-                      Included with Session
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    {autoIncludedAddons.map(addon => (
-                      <div key={addon.id} className="flex items-center justify-between py-1">
-                        <span className="text-sm">Photoshoot setup fee (included)</span>
-                        <Badge variant="secondary">+${addon.flat_amount}</Badge>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+              {/* Auto-Included Add-ons - hidden from UI but still calculated in price */}
 
               {/* Session Add-ons */}
               {availableAddons.length > 0 && (
@@ -3101,64 +3091,7 @@ export function NewBookingModal({
                 </Card>
               )}
 
-              {/* Revisions add-on (hourly) */}
-              {revisionsAddon && sessionType === 'serviced' && (
-                <Card>
-                  <CardHeader className="p-4 pb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          checked={selectedAddons.includes(revisionsAddon.id)}
-                          onCheckedChange={() => toggleAddon(revisionsAddon.id)}
-                        />
-                        <div>
-                          <CardTitle className="text-sm">{revisionsAddon.name}</CardTitle>
-                          {revisionsAddon.description && (
-                            <CardDescription className="text-xs">{revisionsAddon.description}</CardDescription>
-                          )}
-                        </div>
-                      </div>
-                      <Badge variant="secondary">+${revisionsAddon.flat_amount}/hr</Badge>
-                    </div>
-                  </CardHeader>
-                  {selectedAddons.includes(revisionsAddon.id) && (
-                    <CardContent className="p-4 pt-0">
-                      <div className="flex items-center justify-between pl-12">
-                        <span className="text-xs text-muted-foreground">Hours:</span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => updateAddonHours(revisionsAddon.id, (addonHours[revisionsAddon.id] || 1) - 1)}
-                            disabled={(addonHours[revisionsAddon.id] || 1) <= 1}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <Input
-                            type="number"
-                            value={addonHours[revisionsAddon.id] || 1}
-                            onChange={(e) => updateAddonHours(revisionsAddon.id, parseInt(e.target.value) || 1)}
-                            className="w-14 h-7 text-center text-sm"
-                            min={1}
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => updateAddonHours(revisionsAddon.id, (addonHours[revisionsAddon.id] || 1) + 1)}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <span className="text-sm font-medium ml-2">
-                            = ${(addonHours[revisionsAddon.id] || 1) * Number(revisionsAddon.flat_amount)}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              )}
+              {/* Revisions add-on - only available in post-production flow, not calendar booking */}
 
               {/* Line Items Breakdown */}
               {lineItems.length > 0 && (
