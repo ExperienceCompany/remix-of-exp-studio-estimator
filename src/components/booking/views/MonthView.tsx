@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { BookingCard } from '../BookingCard';
 import { useUpdateBooking } from '@/hooks/useStudioBookings';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface MonthViewProps {
@@ -34,6 +35,7 @@ export function MonthView({
   onBookingClick,
 }: MonthViewProps) {
   const { toast } = useToast();
+  const { isStaff } = useAuth();
   const updateBooking = useUpdateBooking();
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
@@ -154,6 +156,7 @@ export function MonthView({
                     onClick={() => onBookingClick?.(booking)}
                     draggable
                     onDragStart={handleDragStart}
+                    isStaffOrAdmin={isStaff}
                   />
                 ))}
                 {dayBookings.length > 3 && (

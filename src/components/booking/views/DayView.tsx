@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { SpanningBookingCard } from '../SpanningBookingCard';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, DollarSign, Plus, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface DiyRate {
@@ -103,6 +104,7 @@ export function DayView({
   clearPendingTrigger,
   externalPendingUpdate,
 }: DayViewProps) {
+  const { isStaff } = useAuth();
   const [pendingBooking, setPendingBooking] = useState<PendingBooking | null>(null);
   const [hoveredSlot, setHoveredSlot] = useState<{ studioId: string; time: string } | null>(null);
   
@@ -796,6 +798,8 @@ export function DayView({
                       top={0}
                       height={height}
                       onClick={() => onBookingClick?.(booking)}
+                      studioName={studio.name}
+                      isStaffOrAdmin={isStaff}
                     />
                   </div>
                 );

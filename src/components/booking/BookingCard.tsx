@@ -1,5 +1,8 @@
 import { Badge } from '@/components/ui/badge';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
+import { getBookingDisplayText } from '@/lib/bookingDisplayUtils';
+import { BookingHoverContent } from './BookingHoverContent';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface BookingCardProps {
@@ -20,6 +23,7 @@ interface BookingCardProps {
   onClick?: (e?: React.MouseEvent) => void;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent, booking: StudioBooking) => void;
+  isStaffOrAdmin?: boolean;
 }
 
 const formatTime = (time: string) => {
@@ -43,10 +47,6 @@ const getBookingTypeDotColor = (type: string, status: string) => {
   }
 };
 
-const getDisplayText = (booking: BookingCardProps['booking']) => {
-  return booking.title || booking.customer_name || booking.booking_type;
-};
-
 export function BookingCard({ 
   booking, 
   studioName, 
@@ -54,9 +54,10 @@ export function BookingCard({
   onClick,
   draggable = false,
   onDragStart,
+  isStaffOrAdmin = false,
 }: BookingCardProps) {
   const dotColor = getBookingTypeDotColor(booking.booking_type, booking.status);
-  const displayText = getDisplayText(booking);
+  const displayText = getBookingDisplayText(booking, isStaffOrAdmin);
   const isCancelled = booking.status === 'cancelled';
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -65,29 +66,25 @@ export function BookingCard({
     }
   };
 
-  if (compact) {
-    return (
-      <div
-        className={cn(
-          'text-xs px-1 py-0.5 rounded truncate cursor-pointer bg-card border border-border/50 hover:bg-muted/50 transition-colors flex items-center gap-1.5'
-        )}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick?.(e);
-        }}
-        draggable={draggable}
-        onDragStart={handleDragStart}
-        title={`${displayText} - ${formatTime(booking.start_time)}`}
-      >
-        <span className={cn('w-2 h-2 rounded-full shrink-0', dotColor)} />
-        <span className={cn('truncate', isCancelled && 'line-through text-muted-foreground')}>
-          {formatTime(booking.start_time)} {displayText}
-        </span>
-      </div>
-    );
-  }
-
-  return (
+  const cardContent = compact ? (
+    <div
+      className={cn(
+        'text-xs px-1 py-0.5 rounded truncate cursor-pointer bg-card border border-border/50 hover:bg-muted/50 transition-colors flex items-center gap-1.5'
+      )}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(e);
+      }}
+      draggable={draggable}
+      onDragStart={handleDragStart}
+      title={`${displayText} - ${formatTime(booking.start_time)}`}
+    >
+      <span className={cn('w-2 h-2 rounded-full shrink-0', dotColor)} />
+      <span className={cn('truncate', isCancelled && 'line-through text-muted-foreground')}>
+        {formatTime(booking.start_time)} {displayText}
+      </span>
+    </div>
+  ) : (
     <div
       className={cn(
         'p-2 rounded-md border border-border/50 bg-card cursor-pointer transition-all hover:bg-muted/50 hover:shadow-sm'
@@ -120,4 +117,20 @@ export function BookingCard({
       )}
     </div>
   );
+
+  // Wrap with HoverCard for staff/admin
+  if (isStaffOrAdmin) {
+    return (
+      <HoverCard openDelay={300}>
+        <HoverCardTrigger asChild>
+          {cardContent}
+        </HoverCardTrigger>
+        <HoverCardContent className="w-72" side="right" align="start">
+          <BookingHoverContent booking={booking as StudioBooking} studioName={studioName} />
+        </HoverCardContent>
+      </HoverCard>
+    );
+  }
+
+  return cardContent;
 }

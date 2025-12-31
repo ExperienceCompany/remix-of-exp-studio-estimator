@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { BookingCard } from '../BookingCard';
 import { useUpdateBooking } from '@/hooks/useStudioBookings';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface GridViewProps {
@@ -24,6 +25,7 @@ export function GridView({
   onBookingClick,
 }: GridViewProps) {
   const { toast } = useToast();
+  const { isStaff } = useAuth();
   const updateBooking = useUpdateBooking();
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
 
@@ -168,6 +170,7 @@ export function GridView({
                             onClick={() => onBookingClick?.(booking)}
                             draggable
                             onDragStart={handleDragStart}
+                            isStaffOrAdmin={isStaff}
                           />
                         ))}
                         {hasMore && (

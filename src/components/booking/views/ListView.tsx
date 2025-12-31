@@ -5,7 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { getBookingDisplayText } from '@/lib/bookingDisplayUtils';
+import { BookingHoverContent } from '../BookingHoverContent';
 import type { StudioBooking } from '@/hooks/useStudioBookings';
 
 interface ListViewProps {
@@ -48,6 +52,7 @@ export function ListView({
   endDate,
   onDateRangeChange,
 }: ListViewProps) {
+  const { isStaff } = useAuth();
 
   const getStudioName = (studioId: string) => {
     return studios.find((s) => s.id === studioId)?.name || 'Unknown';
@@ -168,40 +173,58 @@ export function ListView({
                 </Badge>
               </div>
               <div className="space-y-2">
-                {groupedBookings[dateStr].map((booking, idx) => (
-                  <div
-                    key={booking.id}
-                    className={cn(
-                      'flex items-center gap-4 p-3 rounded-lg border cursor-pointer hover:opacity-80 transition-opacity',
-                      getBookingTypeColor(booking.booking_type, booking.status),
-                      idx !== groupedBookings[dateStr].length - 1 && 'border-b border-muted-foreground/20'
-                    )}
-                    onClick={() => onBookingClick?.(booking)}
-                  >
-                    <div className="w-24 font-mono text-sm">
-                      {formatTime(booking.start_time)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium">
-                        {booking.customer_name || booking.booking_type}
+                {groupedBookings[dateStr].map((booking, idx) => {
+                  const displayText = getBookingDisplayText(booking, isStaff);
+                  const bookingItem = (
+                    <div
+                      key={booking.id}
+                      className={cn(
+                        'flex items-center gap-4 p-3 rounded-lg border cursor-pointer hover:opacity-80 transition-opacity',
+                        getBookingTypeColor(booking.booking_type, booking.status),
+                        idx !== groupedBookings[dateStr].length - 1 && 'border-b border-muted-foreground/20'
+                      )}
+                      onClick={() => onBookingClick?.(booking)}
+                    >
+                      <div className="w-24 font-mono text-sm">
+                        {formatTime(booking.start_time)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {displayText}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {getStudioName(booking.studio_id)}
+                        </div>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {getStudioName(booking.studio_id)}
+                        {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
                       </div>
+                      <Badge variant="outline">
+                        {booking.session_type === 'serviced' ? 'EXP' : 'DIY'}
+                      </Badge>
+                      <Badge
+                        variant={booking.status === 'confirmed' ? 'default' : 'secondary'}
+                      >
+                        {booking.status}
+                      </Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
-                    </div>
-                    <Badge variant="outline">
-                      {booking.session_type === 'serviced' ? 'EXP' : 'DIY'}
-                    </Badge>
-                    <Badge
-                      variant={booking.status === 'confirmed' ? 'default' : 'secondary'}
-                    >
-                      {booking.status}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+
+                  if (isStaff) {
+                    return (
+                      <HoverCard key={booking.id} openDelay={300}>
+                        <HoverCardTrigger asChild>
+                          {bookingItem}
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-72" side="right" align="start">
+                          <BookingHoverContent booking={booking} studioName={getStudioName(booking.studio_id)} />
+                        </HoverCardContent>
+                      </HoverCard>
+                    );
+                  }
+
+                  return bookingItem;
+                })}
               </div>
             </div>
           ))}
