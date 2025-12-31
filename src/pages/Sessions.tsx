@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays, User, Clock, Calculator } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Square, Timer, ExternalLink, RefreshCw, CalendarDays, User, Clock, Calculator, UserCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, startOfDay } from 'date-fns';
 import type { EstimatorSelection } from '@/types/estimator';
@@ -292,6 +292,34 @@ export default function Sessions() {
     return null;
   };
 
+  // Get holder info (creator or customer) with role
+  const getHolderInfo = (session: Session): { name: string | null; role: string | null } => {
+    const sel = session.selections_json as any;
+    const creatorName = sel?.creatorName;
+    const creatorRole = sel?.creatorRole;
+    const customerName = sel?.customerName;
+    
+    if (creatorName) {
+      return { name: creatorName, role: creatorRole || null };
+    }
+    if (customerName) {
+      return { name: customerName, role: null };
+    }
+    return { name: null, role: null };
+  };
+
+  const getHolderRoleBadge = (role: string | null) => {
+    if (!role) return null;
+    switch (role) {
+      case 'admin':
+        return <Badge variant="destructive" className="text-xs">Admin</Badge>;
+      case 'staff':
+        return <Badge variant="default" className="text-xs">Staff</Badge>;
+      default:
+        return <Badge variant="secondary" className="text-xs">{role}</Badge>;
+    }
+  };
+
   const getSessionTitle = (session: Session): string | null => {
     return (session.selections_json as any)?.title || null;
   };
@@ -539,14 +567,21 @@ export default function Sessions() {
                       )}
                     </div>
 
-                    {/* Row 4: Customer, People, Crew, Estimate */}
+                    {/* Row 4: Holder, People, Crew, Estimate */}
                     <div className="flex items-center gap-3 text-sm flex-wrap">
-                      {getCustomerName(session) && (
-                        <span className="flex items-center gap-1 text-foreground">
-                          <User className="h-3.5 w-3.5" />
-                          {getCustomerName(session)}
-                        </span>
-                      )}
+                      {(() => {
+                        const holder = getHolderInfo(session);
+                        if (holder.name) {
+                          return (
+                            <span className="flex items-center gap-1.5 text-foreground">
+                              <UserCircle className="h-3.5 w-3.5" />
+                              <span>{holder.name}</span>
+                              {getHolderRoleBadge(holder.role)}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                       {getPeopleCount(session) && getPeopleCount(session)! > 1 && (
                         <Badge variant="outline" className="text-xs">
                           {getPeopleCount(session)} people
@@ -632,6 +667,7 @@ export default function Sessions() {
                     <TableHead>Type</TableHead>
                     <TableHead>Source</TableHead>
                     <TableHead>Studio</TableHead>
+                    <TableHead>Holder</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Duration</TableHead>
                     <TableHead className="text-right">Total</TableHead>
@@ -639,36 +675,49 @@ export default function Sessions() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sessions.map(session => (
-                    <TableRow key={session.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/session/${session.id}`)}>
-                      <TableCell>{format(new Date(session.created_at), 'MMM d, yyyy')}</TableCell>
-                      <TableCell>{session.session_type === 'diy' ? 'DIY' : 'EXP'}</TableCell>
-                      <TableCell>{getSourceBadge(session)}</TableCell>
-                      <TableCell>{getStudioName(session)}</TableCell>
-                      <TableCell>{getStatusBadge(session.status)}</TableCell>
-                      <TableCell>
-                        {session.actual_duration_seconds
-                          ? formatDuration(session.actual_duration_seconds)
-                          : session.status === 'active' || session.status === 'paused'
-                          ? formatTime(getElapsedSeconds(session))
-                          : '—'}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {session.final_total != null
-                          ? `$${session.final_total.toFixed(2)}`
-                          : session.original_total != null
-                          ? `$${session.original_total.toFixed(2)}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="ghost" asChild onClick={e => e.stopPropagation()}>
-                          <Link to={`/session/${session.id}`}>
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {sessions.map(session => {
+                    const holder = getHolderInfo(session);
+                    return (
+                      <TableRow key={session.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/session/${session.id}`)}>
+                        <TableCell>{format(new Date(session.created_at), 'MMM d, yyyy')}</TableCell>
+                        <TableCell>{session.session_type === 'diy' ? 'DIY' : 'EXP'}</TableCell>
+                        <TableCell>{getSourceBadge(session)}</TableCell>
+                        <TableCell>{getStudioName(session)}</TableCell>
+                        <TableCell>
+                          {holder.name ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate max-w-[120px]">{holder.name}</span>
+                              {getHolderRoleBadge(holder.role)}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(session.status)}</TableCell>
+                        <TableCell>
+                          {session.actual_duration_seconds
+                            ? formatDuration(session.actual_duration_seconds)
+                            : session.status === 'active' || session.status === 'paused'
+                            ? formatTime(getElapsedSeconds(session))
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {session.final_total != null
+                            ? `$${session.final_total.toFixed(2)}`
+                            : session.original_total != null
+                            ? `$${session.original_total.toFixed(2)}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" asChild onClick={e => e.stopPropagation()}>
+                            <Link to={`/session/${session.id}`}>
+                              <ExternalLink className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

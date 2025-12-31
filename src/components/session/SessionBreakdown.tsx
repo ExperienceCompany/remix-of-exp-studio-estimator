@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   STUDIO_LABELS, 
   SERVICE_LABELS, 
@@ -8,7 +9,7 @@ import {
   TimeSlotType,
 } from '@/types/estimator';
 import type { EstimatorSelection } from '@/types/estimator';
-import { Package, Film, Users, Calendar, Clock, User } from 'lucide-react';
+import { Package, Film, Users, Calendar, Clock, User, UserCircle } from 'lucide-react';
 
 interface SessionBreakdownProps {
   selection: EstimatorSelection | null;
@@ -80,6 +81,23 @@ export function SessionBreakdown({ selection }: SessionBreakdownProps) {
         {sel.title && (
           <div className="border-b pb-3">
             <p className="font-semibold text-lg">{sel.title}</p>
+          </div>
+        )}
+
+        {/* Holder (creator or customer) */}
+        {(sel.creatorName || sel.customerName) && (
+          <div className="flex items-center gap-2 pb-3 border-b">
+            <UserCircle className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Holder:</span>
+            <span className="font-medium">{sel.creatorName || sel.customerName}</span>
+            {sel.creatorRole && (
+              <Badge 
+                variant={sel.creatorRole === 'admin' ? 'destructive' : sel.creatorRole === 'staff' ? 'default' : 'secondary'}
+                className="text-xs"
+              >
+                {sel.creatorRole === 'admin' ? 'Admin' : sel.creatorRole === 'staff' ? 'Staff' : 'User'}
+              </Badge>
+            )}
           </div>
         )}
 
