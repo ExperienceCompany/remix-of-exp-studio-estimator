@@ -11,9 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 import { AffiliateEarningsCard } from '@/components/AffiliateEarningsCard';
 import { AffiliateCodeInput } from '@/components/AffiliateCodeInput';
 
-// Minimum edits for Enhance tier
-const ENHANCE_MINIMUM = 10;
-const ENHANCE_MINIMUM_PRICE = 100; // Customer-facing price ($10/edit × 10 edits)
+// Minimum edits for post-production flow (standalone /services route)
+const ENHANCE_MINIMUM = 1;
+const ENHANCE_MINIMUM_PRICE = 10; // Customer-facing price ($10/edit × 1 edit)
 
 interface EstimatorState {
   step: number;
@@ -31,7 +31,7 @@ export function PhotoEditingEstimator() {
   const [state, setState] = useState<EstimatorState>({
     step: 1,
     serviceId: null,
-    quantity: 10,
+    quantity: 1,
     affiliateCode: '',
     affiliateName: null,
   });
@@ -83,7 +83,7 @@ export function PhotoEditingEstimator() {
     setState({
       step: 1,
       serviceId: null,
-      quantity: 10,
+      quantity: 1,
       affiliateCode: '',
       affiliateName: null,
     });
@@ -113,7 +113,6 @@ export function PhotoEditingEstimator() {
             className="space-y-3"
           >
             {photoServices.map((service) => {
-              const isEnhanceItem = service.name?.toLowerCase().includes('enhance');
               return (
                 <div
                   key={service.id}
@@ -134,7 +133,6 @@ export function PhotoEditingEstimator() {
                     )}
                     <p className="text-xs font-medium text-primary mt-2">
                       ${service.customer_price || service.base_price}/edit
-                      {isEnhanceItem && <span className="text-muted-foreground ml-1">($100 minimum)</span>}
                     </p>
                   </div>
                 </div>
