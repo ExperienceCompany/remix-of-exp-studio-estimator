@@ -547,6 +547,13 @@ export function NewBookingModal({
     return calculateHours(startTime, endTime);
   }, [startTime, endTime]);
 
+  // Fetch all bookings for the selected date to check availability
+  const { data: dateBookings } = useStudioBookings(
+    undefined, // all studios
+    date ? format(date, 'yyyy-MM-dd') : undefined,
+    date ? format(date, 'yyyy-MM-dd') : undefined
+  );
+
   // Get the primary studio type for service filtering
   const primaryStudioType = useMemo(() => {
     if (selectedStudios.length === 0) return null;
@@ -724,6 +731,89 @@ export function NewBookingModal({
     const hour12 = endH % 12 || 12;
     return `${hour12}:${endM.toString().padStart(2, '0')} ${ampm}`;
   }, [startTime, sessionDuration, hours, sessionType]);
+
+  // Compute per-studio availability for the current date/time selection
+  const studioAvailability = useMemo(() => {
+    if (!date || !startTime) return {};
+    
+    const effectiveEndTime = sessionType === 'serviced' ? computedEndTime : endTime;
+    if (!effectiveEndTime) return {};
+    
+    const startTime24 = to24Hour(startTime);
+    const endTime24 = to24Hour(effectiveEndTime);
+    const startMins = parseInt(startTime24.split(':')[0]) * 60 + parseInt(startTime24.split(':')[1]);
+    const endMins = parseInt(endTime24.split(':')[0]) * 60 + parseInt(endTime24.split(':')[1]);
+    
+    if (startMins >= endMins) return {};
+    
+    const availability: Record<string, { available: boolean; conflictTime?: string }> = {};
+    const buyoutStudio = studios.find(s => s.type === 'full_studio_buyout');
+    
+    for (const studio of studios) {
+      // Check this studio's bookings for conflicts
+      const studioBookings = dateBookings?.filter(b => 
+        b.studio_id === studio.id && 
+        b.status !== 'cancelled' &&
+        (!existingBooking || b.id !== existingBooking.id)
+      ) || [];
+      
+      let conflict: string | null = null;
+      for (const booking of studioBookings) {
+        const bStart = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+        const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+        
+        if (startMins < bEnd && endMins > bStart) {
+          conflict = `${booking.start_time.slice(0, 5)} - ${booking.end_time.slice(0, 5)}`;
+          break;
+        }
+      }
+      
+      // Check if Full Studio Buyout blocks this studio
+      if (buyoutStudio && !conflict && studio.id !== buyoutStudio.id) {
+        const buyoutBookings = dateBookings?.filter(b => 
+          b.studio_id === buyoutStudio.id && 
+          b.status !== 'cancelled' &&
+          (!existingBooking || b.id !== existingBooking.id)
+        ) || [];
+        
+        for (const booking of buyoutBookings) {
+          const bStart = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+          const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+          
+          if (startMins < bEnd && endMins > bStart) {
+            conflict = 'Blocked by Buyout';
+            break;
+          }
+        }
+      }
+      
+      // Check if this is a buyout and any other studio has bookings
+      if (studio.type === 'full_studio_buyout' && !conflict) {
+        const otherBookings = dateBookings?.filter(b => 
+          b.studio_id !== studio.id && 
+          b.status !== 'cancelled' &&
+          (!existingBooking || b.id !== existingBooking.id)
+        ) || [];
+        
+        for (const booking of otherBookings) {
+          const bStart = parseInt(booking.start_time.split(':')[0]) * 60 + parseInt(booking.start_time.split(':')[1]);
+          const bEnd = parseInt(booking.end_time.split(':')[0]) * 60 + parseInt(booking.end_time.split(':')[1]);
+          
+          if (startMins < bEnd && endMins > bStart) {
+            conflict = 'Other studios booked';
+            break;
+          }
+        }
+      }
+      
+      availability[studio.id] = {
+        available: !conflict,
+        conflictTime: conflict || undefined
+      };
+    }
+    
+    return availability;
+  }, [date, startTime, endTime, computedEndTime, sessionType, dateBookings, studios, existingBooking]);
 
   // Generate line items for cost breakdown
   const lineItems = useMemo(() => {
@@ -2240,18 +2330,35 @@ export function NewBookingModal({
                         No spaces selected
                       </div>
                     )}
-                    {studios.filter(s => s.is_active).map(studio => (
-                      <div key={studio.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={studio.id}
-                          checked={selectedStudios.includes(studio.id)}
-                          onCheckedChange={() => handleStudioToggle(studio.id)}
-                        />
-                        <label htmlFor={studio.id} className="text-sm cursor-pointer flex-1">
-                          {studio.name}
-                        </label>
-                      </div>
-                    ))}
+                    {studios.filter(s => s.is_active).map(studio => {
+                      const status = studioAvailability[studio.id];
+                      const isAvailable = status?.available !== false;
+                      const showIndicator = date && startTime && endTime;
+                      
+                      return (
+                        <div key={studio.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={studio.id}
+                            checked={selectedStudios.includes(studio.id)}
+                            onCheckedChange={() => handleStudioToggle(studio.id)}
+                          />
+                          <label htmlFor={studio.id} className="text-sm cursor-pointer flex-1">
+                            {studio.name}
+                          </label>
+                          {showIndicator && (
+                            isAvailable ? (
+                              <span className="text-xs text-green-600 flex items-center gap-1">
+                                <Check className="h-3 w-3" /> Available
+                              </span>
+                            ) : (
+                              <span className="text-xs text-destructive flex items-center gap-1" title={status?.conflictTime}>
+                                <Ban className="h-3 w-3" /> Unavailable
+                              </span>
+                            )
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2324,6 +2431,42 @@ export function NewBookingModal({
                 {sessionType === 'serviced' && sessionDuration > 0 && (
                   <p className="text-xs text-muted-foreground">{formatDuration(sessionDuration)} — synced with Duration step</p>
                 )}
+                
+                {/* Live Availability Summary */}
+                {selectedStudios.length > 0 && date && startTime && (sessionType === 'serviced' ? computedEndTime : endTime) && (() => {
+                  const conflicts = selectedStudios
+                    .filter(id => studioAvailability[id]?.available === false)
+                    .map(id => {
+                      const studio = studios.find(s => s.id === id);
+                      return {
+                        name: studio?.name || 'Unknown',
+                        time: studioAvailability[id]?.conflictTime
+                      };
+                    });
+                  
+                  if (conflicts.length === 0) {
+                    return (
+                      <div className="flex items-center gap-2 text-green-600 text-sm mt-2">
+                        <Check className="h-4 w-4" />
+                        <span>All selected spaces are available</span>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div className="space-y-1 mt-2">
+                      {conflicts.map((c, i) => (
+                        <div key={i} className="flex items-center gap-2 text-destructive text-sm">
+                          <Ban className="h-4 w-4" />
+                          <span>
+                            <strong>{c.name}</strong> unavailable
+                            {c.time && <span className="text-muted-foreground"> ({c.time})</span>}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Repeat */}
