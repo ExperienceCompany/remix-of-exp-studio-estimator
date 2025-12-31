@@ -12,6 +12,7 @@ import { useSessionAddons, useEditingMenu, useDiyRates, useTimeSlots } from '@/h
 import { useToast } from '@/hooks/use-toast';
 import { format, getDay } from 'date-fns';
 import { CheckCircle, Loader2, ArrowLeft, Minus, Plus, ChevronRight } from 'lucide-react';
+import { validateBookingCustomer } from '@/lib/bookingValidation';
 
 interface EditingItemSelection {
   id: string;
@@ -58,6 +59,9 @@ export function BookingForm({
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [addonHours, setAddonHours] = useState<Record<string, number>>({});
   const [editingItems, setEditingItems] = useState<EditingItemSelection[]>([]);
+  
+  // Validation errors
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Fetch data
   const { data: sessionAddons = [] } = useSessionAddons();
@@ -233,10 +237,22 @@ export function BookingForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.customerName || !formData.customerEmail) {
-      toast({ title: 'Please fill in required fields', variant: 'destructive' });
+    // Validate customer info with Zod schema
+    const validation = validateBookingCustomer({
+      customerName: formData.customerName,
+      customerEmail: formData.customerEmail,
+      customerPhone: formData.customerPhone,
+      notes: formData.notes,
+    });
+    
+    if (!validation.success) {
+      setValidationErrors(validation.errors);
+      const firstError = Object.values(validation.errors)[0];
+      toast({ title: 'Validation Error', description: firstError, variant: 'destructive' });
       return;
     }
+    
+    setValidationErrors({});
 
     try {
       await createBooking.mutateAsync({
@@ -527,10 +543,19 @@ export function BookingForm({
             <Input
               id="name"
               value={formData.customerName}
-              onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, customerName: e.target.value }));
+                if (validationErrors.customerName) {
+                  setValidationErrors(prev => ({ ...prev, customerName: '' }));
+                }
+              }}
               placeholder="Your full name"
-              required
+              maxLength={100}
+              className={validationErrors.customerName ? 'border-destructive' : ''}
             />
+            {validationErrors.customerName && (
+              <p className="text-sm text-destructive">{validationErrors.customerName}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -539,10 +564,19 @@ export function BookingForm({
               id="email"
               type="email"
               value={formData.customerEmail}
-              onChange={(e) => setFormData(prev => ({ ...prev, customerEmail: e.target.value }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, customerEmail: e.target.value }));
+                if (validationErrors.customerEmail) {
+                  setValidationErrors(prev => ({ ...prev, customerEmail: '' }));
+                }
+              }}
               placeholder="your@email.com"
-              required
+              maxLength={255}
+              className={validationErrors.customerEmail ? 'border-destructive' : ''}
             />
+            {validationErrors.customerEmail && (
+              <p className="text-sm text-destructive">{validationErrors.customerEmail}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -551,9 +585,19 @@ export function BookingForm({
               id="phone"
               type="tel"
               value={formData.customerPhone}
-              onChange={(e) => setFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, customerPhone: e.target.value }));
+                if (validationErrors.customerPhone) {
+                  setValidationErrors(prev => ({ ...prev, customerPhone: '' }));
+                }
+              }}
               placeholder="(555) 123-4567"
+              maxLength={20}
+              className={validationErrors.customerPhone ? 'border-destructive' : ''}
             />
+            {validationErrors.customerPhone && (
+              <p className="text-sm text-destructive">{validationErrors.customerPhone}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -561,34 +605,26 @@ export function BookingForm({
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              onChange={(e) => {
+                setFormData(prev => ({ ...prev, notes: e.target.value }));
+                if (validationErrors.notes) {
+                  setValidationErrors(prev => ({ ...prev, notes: '' }));
+                }
+              }}
               placeholder="Any special requests or details about your session..."
               rows={3}
+              maxLength={500}
+              className={validationErrors.notes ? 'border-destructive' : ''}
             />
+            {validationErrors.notes && (
+              <p className="text-sm text-destructive">{validationErrors.notes}</p>
+            )}
           </div>
 
           {/* Summary of selections */}
           <div className="bg-muted/50 rounded-lg p-4 space-y-2">
             <h4 className="font-medium">Booking Summary</h4>
             <div className="text-sm space-y-1">
-              <div className="flex justify-between">
-                <span>Session Type</span>
-                <span className="capitalize">{formData.sessionType}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>{studioName}</span>
-                <span>${baseStudioCost.toFixed(2)}</span>
-              </div>
-              {selectedAddons.length > 0 && (
-                <div className="text-muted-foreground">
-                  + {selectedAddons.length} add-on(s)
-                </div>
-              )}
-              {editingItems.length > 0 && (
-                <div className="text-muted-foreground">
-                  + {editingItems.reduce((sum, i) => sum + i.quantity, 0)} photo edit(s)
-                </div>
-              )}
               <div className="flex justify-between font-semibold pt-2 border-t">
                 <span>Estimated Total</span>
                 <span>${totalCost.toFixed(2)}</span>
