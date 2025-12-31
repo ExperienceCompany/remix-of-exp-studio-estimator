@@ -2058,6 +2058,33 @@ export function NewBookingModal({
                 </div>
               )}
 
+              {/* Spaces - only show for DIY sessions */}
+              {sessionType === 'diy' && (
+                <div className="space-y-2">
+                  <Label>Spaces *</Label>
+                  <div className="border rounded-md p-3 space-y-2">
+                    {selectedStudios.length === 0 && (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <AlertTriangle className="h-4 w-4 text-warning" />
+                        No spaces selected
+                      </div>
+                    )}
+                    {studios.filter(s => s.is_active).map(studio => (
+                      <div key={studio.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={studio.id}
+                          checked={selectedStudios.includes(studio.id)}
+                          onCheckedChange={() => handleStudioToggle(studio.id)}
+                        />
+                        <label htmlFor={studio.id} className="text-sm cursor-pointer flex-1">
+                          {studio.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Date */}
               <div className="space-y-2">
                 <Label>Date *</Label>
@@ -2135,33 +2162,6 @@ export function NewBookingModal({
                 startDate={date || new Date()}
                 startTime={startTime}
               />
-
-              {/* Spaces - only show for DIY sessions */}
-              {sessionType === 'diy' && (
-                <div className="space-y-2">
-                  <Label>Spaces *</Label>
-                  <div className="border rounded-md p-3 space-y-2">
-                    {selectedStudios.length === 0 && (
-                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                        <AlertTriangle className="h-4 w-4 text-warning" />
-                        No spaces selected
-                      </div>
-                    )}
-                    {studios.filter(s => s.is_active).map(studio => (
-                      <div key={studio.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={studio.id}
-                          checked={selectedStudios.includes(studio.id)}
-                          onCheckedChange={() => handleStudioToggle(studio.id)}
-                        />
-                        <label htmlFor={studio.id} className="text-sm cursor-pointer flex-1">
-                          {studio.name}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Holder */}
               {bookingType !== 'unavailable' && (
