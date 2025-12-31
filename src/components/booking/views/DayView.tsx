@@ -20,6 +20,12 @@ interface SharedStudioGroup {
   members: { studio_id: string }[];
 }
 
+interface CalendarSettingsData {
+  studio_id: string;
+  min_booking_hours: number;
+  time_increment_minutes: number;
+}
+
 interface DayViewProps {
   currentDate: Date;
   bookings: StudioBooking[];
@@ -29,6 +35,7 @@ interface DayViewProps {
   bufferMinutes?: number;
   diyRates?: DiyRate[];
   sharedStudioGroups?: SharedStudioGroup[];
+  calendarSettings?: CalendarSettingsData[];
   onSlotClick?: (studioId: string, time: string) => void;
   onBookingClick?: (booking: StudioBooking) => void;
   onOpenBookingModal?: (studioIds: string[], startTime: string, endTime: string, estimatedCost: number) => void;
@@ -107,6 +114,7 @@ export function DayView({
   bufferMinutes = 15,
   diyRates = [],
   sharedStudioGroups = [],
+  calendarSettings = [],
   onSlotClick,
   onBookingClick,
   onOpenBookingModal,
@@ -343,15 +351,44 @@ export function DayView({
     return slotMins >= pendingRange.minSlot && slotMins <= pendingRange.maxSlot;
   }, [pendingRange]);
 
+  // Get minimum booking duration for studio(s) in minutes
+  const getMinDurationMins = useCallback((studioIds: string[]) => {
+    const maxMinHours = Math.max(
+      ...studioIds.map(id => {
+        const settings = calendarSettings.find(s => s.studio_id === id);
+        return settings?.min_booking_hours ?? 1;
+      })
+    );
+    return maxMinHours * 60;
+  }, [calendarSettings]);
+
   // Click on slot to create booking
   const handleSlotClick = (studioId: string, slot: string) => {
     if (isSlotUnavailable(studioId, slot)) return;
     if (pendingBooking) return; // Already have a pending booking
     
+    // Get studio's min booking duration
+    const minDurationMins = getMinDurationMins([studioId]);
+    
+    // Calculate end slot based on minimum duration
+    const startMins = timeToMinutes(slot);
+    const endSlotMins = startMins + minDurationMins - 15; // -15 because endSlot is inclusive
+    
+    // Clamp to operating hours
+    const operatingEndMins = timeToMinutes(operatingEnd) - 15;
+    const clampedEndMins = Math.min(endSlotMins, operatingEndMins);
+    
+    // Check if the entire range is available
+    for (let mins = startMins; mins <= clampedEndMins; mins += 15) {
+      if (isSlotUnavailable(studioId, minutesToTime(mins))) {
+        return; // Can't create booking if range has conflicts
+      }
+    }
+    
     setPendingBooking({
       studioIds: [studioId],
       startSlot: slot,
-      endSlot: slot,
+      endSlot: minutesToTime(clampedEndMins),
     });
   };
 
@@ -422,11 +459,15 @@ export function DayView({
         const slotIndex = Math.floor(relativeY / SLOT_HEIGHT);
         const targetSlotMins = timeToMinutes(operatingStart) + (slotIndex * 15);
         
+        const minDurationMins = getMinDurationMins(pendingBooking.studioIds);
+        
         if (resizeMode === 'top') {
           // Resize from top - adjust start time
+          // Ensure we don't go below minimum duration
+          const maxStartForMinDuration = pendingRange.maxSlot - minDurationMins + 15;
           const newStartMins = Math.max(
             timeToMinutes(operatingStart),
-            Math.min(targetSlotMins, pendingRange.maxSlot)
+            Math.min(targetSlotMins, maxStartForMinDuration)
           );
           
           // Check availability
@@ -439,8 +480,10 @@ export function DayView({
           }
         } else {
           // Resize from bottom - adjust end time
+          // Ensure we don't go below minimum duration
+          const minEndForMinDuration = pendingRange.minSlot + minDurationMins - 15;
           const newEndMins = Math.max(
-            pendingRange.minSlot,
+            minEndForMinDuration,
             Math.min(targetSlotMins, timeToMinutes(operatingEnd) - 15)
           );
           
