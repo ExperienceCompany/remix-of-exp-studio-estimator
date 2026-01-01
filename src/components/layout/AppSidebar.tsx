@@ -134,7 +134,7 @@ export function AppSidebar() {
                 collapsed && "justify-center px-2"
               )}
             >
-              <item.icon className={cn("h-5 w-5 shrink-0", isActive(item.href) && "text-primary")} />
+              <item.icon className="h-5 w-5 shrink-0" />
               {!collapsed && <span>{item.title}</span>}
             </Link>
           ))}
@@ -160,7 +160,7 @@ export function AppSidebar() {
                   collapsed && "justify-center px-2"
                 )}
               >
-                <item.icon className={cn("h-5 w-5 shrink-0", isActive(item.href) && "text-primary")} />
+                <item.icon className="h-5 w-5 shrink-0" />
                 {!collapsed && <span>{item.title}</span>}
               </Link>
             ))}
@@ -187,7 +187,7 @@ export function AppSidebar() {
                   collapsed && "justify-center px-2"
                 )}
               >
-                <item.icon className={cn("h-5 w-5 shrink-0", isActive(item.href) && "text-primary")} />
+                <item.icon className="h-5 w-5 shrink-0" />
                 {!collapsed && <span>{item.title}</span>}
               </Link>
             ))}

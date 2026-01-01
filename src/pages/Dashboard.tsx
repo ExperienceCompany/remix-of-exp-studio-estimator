@@ -65,7 +65,7 @@ export default function Dashboard() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
           Welcome back, {firstName}!
-          <Sparkles className="h-6 w-6 text-primary animate-pulse-glow" />
+          <Sparkles className="h-6 w-6 text-foreground animate-pulse-glow" />
         </h1>
         <p className="text-muted-foreground">
           Here's what's happening with your studio sessions.
@@ -146,7 +146,7 @@ export default function Dashboard() {
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CalendarDays className="h-5 w-5 text-primary" />
+                <CalendarDays className="h-5 w-5 text-foreground" />
                 Book a Studio
               </CardTitle>
               <CardDescription>
@@ -166,7 +166,7 @@ export default function Dashboard() {
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
+                <TrendingUp className="h-5 w-5 text-foreground" />
                 Get an Estimate
               </CardTitle>
               <CardDescription>
@@ -187,7 +187,7 @@ export default function Dashboard() {
             <Card className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Timer className="h-5 w-5 text-primary" />
+                  <Timer className="h-5 w-5 text-foreground" />
                   Manage Sessions
                 </CardTitle>
                 <CardDescription>
@@ -212,7 +212,7 @@ export default function Dashboard() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Upcoming Sessions</h2>
-            <Link to="/book" className="text-sm text-primary hover:underline">
+            <Link to="/book" className="text-sm text-foreground hover:underline">
               View all
             </Link>
           </div>
