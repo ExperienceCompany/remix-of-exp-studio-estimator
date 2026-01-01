@@ -46,7 +46,7 @@ const SelectionCard = React.forwardRef<HTMLDivElement, SelectionCardProps>(
         {badge && (
           <Badge 
             variant={badgeVariant}
-            className="absolute -top-2 -right-2 text-xs shadow-sm"
+            className="absolute -top-2 -right-2 text-xs shadow-sm z-10"
           >
             {badge}
           </Badge>
