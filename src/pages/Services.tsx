@@ -12,8 +12,8 @@ export default function Services() {
       <header className="border-b bg-card">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">EXP</span>
+          <div className="h-8 w-8 rounded bg-foreground flex items-center justify-center">
+              <span className="text-background font-bold text-sm">EXP</span>
             </div>
             <span className="font-bold text-xl">Post-Production Services</span>
           </div>
@@ -28,8 +28,8 @@ export default function Services() {
 
       {/* Hero */}
       <section className="container py-12 text-center">
-        <div className="h-16 w-16 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <Scissors className="h-8 w-8 text-primary" />
+        <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <Scissors className="h-8 w-8 text-foreground" />
         </div>
         <h1 className="text-3xl font-bold tracking-tight mb-3">
           Post-Production Services

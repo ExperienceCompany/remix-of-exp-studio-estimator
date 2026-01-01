@@ -117,7 +117,7 @@ export function PhotoEditingEstimator() {
                 <div
                   key={service.id}
                   className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
-                    state.serviceId === service.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                    state.serviceId === service.id ? 'border-foreground bg-muted' : 'hover:bg-muted/50'
                   }`}
                   onClick={() => handleServiceSelect(service.id)}
                 >
@@ -131,7 +131,7 @@ export function PhotoEditingEstimator() {
                         {service.description}
                       </p>
                     )}
-                    <p className="text-xs font-medium text-primary mt-2">
+                    <p className="text-xs font-medium text-foreground mt-2">
                       ${service.customer_price || service.base_price}/edit
                     </p>
                   </div>
@@ -258,7 +258,7 @@ export function PhotoEditingEstimator() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-primary" />
+            <CheckCircle2 className="h-5 w-5 text-foreground" />
             Your Photo Editing Quote
           </CardTitle>
           <CardDescription>
@@ -281,10 +281,10 @@ export function PhotoEditingEstimator() {
             </div>
           </div>
 
-          <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+          <div className="p-4 bg-muted rounded-lg border">
             <div className="flex justify-between items-center">
               <span className="text-lg font-semibold">Total</span>
-              <span className="text-2xl font-bold text-primary">${calculateTotal}</span>
+              <span className="text-2xl font-bold text-foreground">${calculateTotal}</span>
             </div>
           </div>
 
@@ -350,7 +350,7 @@ export function PhotoEditingEstimator() {
           <div
             key={s}
             className={`h-2 w-8 rounded-full transition-colors ${
-              s <= state.step ? 'bg-primary' : 'bg-muted'
+              s <= state.step ? 'bg-foreground' : 'bg-muted'
             }`}
           />
         ))}

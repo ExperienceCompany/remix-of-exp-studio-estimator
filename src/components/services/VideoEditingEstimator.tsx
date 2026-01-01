@@ -211,7 +211,7 @@ export function VideoEditingEstimator() {
               <div
                 key={service.id}
                 className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
-                  state.serviceId === service.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                  state.serviceId === service.id ? 'border-foreground bg-muted' : 'hover:bg-muted/50'
                 }`}
                 onClick={() => handleServiceSelect(service.id)}
               >
@@ -225,7 +225,7 @@ export function VideoEditingEstimator() {
                       {service.description}
                     </p>
                   )}
-                  <p className="text-xs font-medium text-primary mt-2">
+                  <p className="text-xs font-medium text-foreground mt-2">
                     Starting at ${service.customer_price || service.base_price}
                   </p>
                 </div>
@@ -303,7 +303,7 @@ export function VideoEditingEstimator() {
           {/* Base revision - always included */}
           <div className="p-4 bg-muted/50 rounded-lg border">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-primary" />
+              <CheckCircle className="h-5 w-5 text-foreground" />
               <div>
                 <p className="font-medium">1 Revision Round Included (1 hr)</p>
                 <p className="text-sm text-muted-foreground">Revisions are billed hourly</p>
@@ -416,7 +416,7 @@ export function VideoEditingEstimator() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-primary" />
+            <CheckCircle className="h-5 w-5 text-foreground" />
             Your Estimate
           </CardTitle>
           <CardDescription>Review your video editing service quote</CardDescription>
