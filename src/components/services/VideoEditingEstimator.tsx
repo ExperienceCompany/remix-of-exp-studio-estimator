@@ -530,7 +530,7 @@ export function VideoEditingEstimator() {
         <div
           key={step}
           className={`h-2 w-8 rounded-full transition-colors ${
-            step <= state.step ? 'bg-primary' : 'bg-muted'
+            step <= state.step ? 'bg-foreground' : 'bg-muted'
           }`}
         />
       ))}
