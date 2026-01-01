@@ -120,3 +120,117 @@
     text-wrap: balance;
   }
 }
+
+/* Rainbow Gradient Animations */
+@keyframes rainbow-rotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes progress-fill {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  100% {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+@keyframes level-up {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Rainbow gradient border utility */
+.rainbow-border {
+  position: relative;
+  border-radius: var(--radius);
+  z-index: 0;
+}
+
+.rainbow-border::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(var(--radius) + 2px);
+  background: linear-gradient(
+    90deg,
+    hsl(0 85% 60%),
+    hsl(60 85% 55%),
+    hsl(120 85% 50%),
+    hsl(180 85% 50%),
+    hsl(240 85% 55%),
+    hsl(300 85% 60%),
+    hsl(360 85% 60%)
+  );
+  background-size: 300% 100%;
+  animation: rainbow-rotate 8s linear infinite;
+  z-index: -1;
+}
+
+.rainbow-border-slow::before {
+  animation: rainbow-rotate 12s linear infinite;
+}
+
+/* Shimmer effect for progress bars */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--primary) / 0.3),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Level up animation */
+.level-up {
+  animation: level-up 0.5s ease-out;
+}
+
+/* Smooth sidebar transitions */
+.sidebar-transition {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar background (black in both modes) */
+.sidebar-bg {
+  background-color: hsl(0 0% 5%);
+  color: hsl(0 0% 95%);
+}
