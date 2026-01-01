@@ -33,10 +33,10 @@ const SelectionCard = React.forwardRef<HTMLDivElement, SelectionCardProps>(
       <Card
         ref={ref}
         className={cn(
-          "relative cursor-pointer transition-all duration-300",
+          "relative cursor-pointer transition-all duration-300 bg-card",
           "hover:shadow-lg hover:-translate-y-1",
           isSelected && "rainbow-border rainbow-border-slow shadow-lg",
-          !isSelected && "hover:border-primary/50",
+          !isSelected && "border border-border hover:border-primary/50",
           disabled && "opacity-50 cursor-not-allowed pointer-events-none",
           className
         )}
