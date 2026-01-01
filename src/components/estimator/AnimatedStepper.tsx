@@ -52,7 +52,7 @@ export function AnimatedStepper({ steps, currentStep, onStepClick }: AnimatedSte
                   <div 
                     className={cn(
                       "h-0.5 flex-1 transition-all duration-500",
-                      isCompleted || isCurrent ? "bg-gradient-to-r from-[hsl(270,85%,60%)] to-[hsl(0,85%,60%)]" : "bg-muted"
+                      isCompleted || isCurrent ? "bg-foreground" : "bg-muted"
                     )}
                   />
                 )}
@@ -63,7 +63,7 @@ export function AnimatedStepper({ steps, currentStep, onStepClick }: AnimatedSte
                   disabled={isUpcoming}
                   className={cn(
                     "relative flex items-center justify-center w-10 h-10 rounded-full text-sm font-semibold transition-all duration-300 shrink-0",
-                    isCompleted && "bg-primary text-primary-foreground cursor-pointer hover:scale-110 shadow-md",
+                    isCompleted && "bg-foreground text-background cursor-pointer hover:scale-110 shadow-md",
                     isCurrent && "rainbow-border rainbow-border-slow bg-card text-card-foreground shadow-lg scale-110",
                     isUpcoming && "bg-muted text-muted-foreground cursor-not-allowed"
                   )}
@@ -80,7 +80,7 @@ export function AnimatedStepper({ steps, currentStep, onStepClick }: AnimatedSte
                   <div 
                     className={cn(
                       "h-0.5 flex-1 transition-all duration-500",
-                      isCompleted ? "bg-gradient-to-r from-[hsl(0,85%,60%)] to-[hsl(90,85%,50%)]" : "bg-muted"
+                      isCompleted ? "bg-foreground" : "bg-muted"
                     )}
                   />
                 )}

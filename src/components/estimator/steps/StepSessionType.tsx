@@ -33,15 +33,15 @@ export function StepSessionType() {
       >
         <ul className="text-sm text-muted-foreground space-y-1.5 mt-2">
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
             Full access to studio equipment
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
             Self-operated session
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
             Most affordable option
           </li>
         </ul>
@@ -58,15 +58,15 @@ export function StepSessionType() {
       >
         <ul className="text-sm text-muted-foreground space-y-1.5 mt-2">
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
             Professional production crew
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
             Technical setup & operation
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
             Seamless experience
           </li>
         </ul>
