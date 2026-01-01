@@ -59,7 +59,7 @@ const SelectionCard = React.forwardRef<HTMLDivElement, SelectionCardProps>(
               className={cn(
                 "h-12 w-12 rounded-xl flex items-center justify-center mb-3 transition-all duration-300",
                 isSelected 
-                  ? "bg-gradient-to-br from-[hsl(0,85%,60%)] via-[hsl(180,85%,50%)] to-[hsl(270,85%,60%)] text-white shadow-md" 
+                  ? "bg-foreground text-background shadow-md" 
                   : "bg-muted text-muted-foreground"
               )}
             >
@@ -79,7 +79,7 @@ const SelectionCard = React.forwardRef<HTMLDivElement, SelectionCardProps>(
             
             {/* Price */}
             {price && (
-              <span className="text-sm font-semibold text-primary whitespace-nowrap">
+              <span className="text-sm font-semibold text-foreground whitespace-nowrap">
                 {price}
               </span>
             )}
@@ -95,8 +95,8 @@ const SelectionCard = React.forwardRef<HTMLDivElement, SelectionCardProps>(
         {/* Selection indicator */}
         {isSelected && (
           <div className="absolute top-3 right-3">
-            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-              <svg className="h-3 w-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="h-5 w-5 rounded-full bg-foreground flex items-center justify-center">
+              <svg className="h-3 w-3 text-background" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>

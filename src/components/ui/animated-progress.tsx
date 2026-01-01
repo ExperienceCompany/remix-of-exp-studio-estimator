@@ -35,9 +35,9 @@ const AnimatedProgress = React.forwardRef<HTMLDivElement, AnimatedProgressProps>
     };
 
     const barClasses = {
-      default: "bg-primary",
-      rainbow: "bg-gradient-to-r from-[hsl(0,85%,60%)] via-[hsl(180,85%,50%)] to-[hsl(270,85%,60%)]",
-      success: "bg-success",
+      default: "bg-foreground",
+      rainbow: "bg-foreground",
+      success: "bg-foreground",
     };
 
     return (
