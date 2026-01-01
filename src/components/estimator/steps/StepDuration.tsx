@@ -1,14 +1,16 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { useProviderLevels } from '@/hooks/useEstimatorData';
+import { GradientButton } from '@/components/ui/gradient-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { PriceCounter } from '@/components/ui/price-counter';
 import { CrewAllocation } from '@/types/estimator';
 import { Slider } from '@/components/ui/slider';
-import { ArrowLeft, ArrowRight, Clock, Camera, Users, Minus, Plus, AlertCircle, DollarSign, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Camera, Users, Minus, Plus, AlertCircle, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-// Format hours as "Xh Ym"
 function formatDuration(hours: number): string {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
@@ -29,10 +31,9 @@ export function StepDuration() {
     const current = selection.crewAllocation[level];
     const newValue = Math.max(0, current + delta);
     
-    // For serviced sessions, enforce minimum 1 total crew
     if (selection.sessionType === 'serviced' && delta < 0) {
       const newTotal = (lv1 + lv2 + lv3) + delta;
-      if (newTotal < 1) return; // Don't allow decrement below 1 total crew
+      if (newTotal < 1) return;
     }
     
     updateSelection({
@@ -48,16 +49,12 @@ export function StepDuration() {
   };
 
   const handleNext = () => {
-    // DIY: Duration is step 3 → Addons is step 4
-    // Serviced: Duration is step 4 → Addons is step 5
     const nextStep = selection.sessionType === 'diy' ? 4 : 5;
     setCurrentStep(nextStep);
   };
 
-  // Quick select buttons for common durations
   const quickDurations = [1, 2, 3, 4];
 
-  // Calculate crew costs
   const { lv1, lv2, lv3 } = selection.crewAllocation;
   const totalCrew = lv1 + lv2 + lv3;
   const lv1Rate = providerLevels?.find(p => p.level === 'lv1')?.hourly_rate || 20;
@@ -71,45 +68,46 @@ export function StepDuration() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Clock className="h-4 w-4" />
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[hsl(180,85%,50%)] to-[hsl(270,85%,60%)] flex items-center justify-center">
+              <Clock className="h-4 w-4 text-white" />
+            </div>
             Session Duration
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Duration</span>
-            <span className="text-2xl font-bold">{formatDuration(selection.hours)}</span>
+            <span className="text-3xl font-bold">{formatDuration(selection.hours)}</span>
           </div>
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-sm flex items-center gap-1">
-              <DollarSign className="h-3 w-3" />
-              Studio Estimate
-            </span>
-            <span className="text-lg font-semibold text-foreground">
-              ${totals.studioTotal.toFixed(0)}
-            </span>
+          
+          {/* Rainbow slider track */}
+          <div className="relative">
+            <Slider
+              value={[selection.hours]}
+              onValueChange={handleHoursChange}
+              min={1}
+              max={8}
+              step={0.25}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+              <span>1 hour</span>
+              <span>8 hours</span>
+            </div>
           </div>
-          <Slider
-            value={[selection.hours]}
-            onValueChange={handleHoursChange}
-            min={1}
-            max={8}
-            step={0.25}
-            className="w-full"
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>1 hour</span>
-            <span>8 hours</span>
-          </div>
+          
           {/* Quick select buttons */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2">
             {quickDurations.map(dur => (
               <Button
                 key={dur}
                 variant={selection.hours === dur ? "default" : "outline"}
                 size="sm"
                 onClick={() => updateSelection({ hours: dur })}
-                className="flex-1"
+                className={cn(
+                  "flex-1 transition-all",
+                  selection.hours === dur && "shadow-md"
+                )}
               >
                 {dur}h
               </Button>
@@ -123,7 +121,9 @@ export function StepDuration() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Users className="h-4 w-4" />
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[hsl(0,85%,60%)] to-[hsl(45,85%,60%)] flex items-center justify-center">
+                <Users className="h-4 w-4 text-white" />
+              </div>
               Production Crew Level
             </CardTitle>
             <CardDescription>
@@ -132,10 +132,13 @@ export function StepDuration() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Level 1 */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <div className="flex-1">
-                <p className="text-sm font-medium">Level 1 - Entry</p>
-                <p className="text-xs text-muted-foreground">+${lv1Rate}/hr per crew</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">Level 1 - Entry</p>
+                  <Badge variant="secondary" className="text-xs">${lv1Rate}/hr</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Basic support & assistance</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -147,7 +150,7 @@ export function StepDuration() {
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
-                <span className="w-8 text-center font-medium">{lv1}</span>
+                <span className="w-8 text-center font-bold text-lg">{lv1}</span>
                 <Button
                   variant="outline"
                   size="icon"
@@ -160,10 +163,14 @@ export function StepDuration() {
             </div>
 
             {/* Level 2 */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-primary/20">
               <div className="flex-1">
-                <p className="text-sm font-medium">Level 2 - Experienced</p>
-                <p className="text-xs text-muted-foreground">+${lv2Rate}/hr per crew</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">Level 2 - Experienced</p>
+                  <Badge variant="default" className="text-xs">${lv2Rate}/hr</Badge>
+                  <Badge variant="secondary" className="text-xs">Recommended</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Full production capability</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -175,7 +182,7 @@ export function StepDuration() {
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
-                <span className="w-8 text-center font-medium">{lv2}</span>
+                <span className="w-8 text-center font-bold text-lg">{lv2}</span>
                 <Button
                   variant="outline"
                   size="icon"
@@ -188,10 +195,13 @@ export function StepDuration() {
             </div>
 
             {/* Level 3 */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <div className="flex-1">
-                <p className="text-sm font-medium">Level 3 - Expert</p>
-                <p className="text-xs text-muted-foreground">+${lv3Rate}/hr per crew</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">Level 3 - Expert</p>
+                  <Badge variant="secondary" className="text-xs">${lv3Rate}/hr</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Senior producer/director</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -203,7 +213,7 @@ export function StepDuration() {
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
-                <span className="w-8 text-center font-medium">{lv3}</span>
+                <span className="w-8 text-center font-bold text-lg">{lv3}</span>
                 <Button
                   variant="outline"
                   size="icon"
@@ -215,9 +225,8 @@ export function StepDuration() {
               </div>
             </div>
 
-            {/* Minimum crew info */}
             {totalCrew === 1 && (
-              <Alert variant="default" className="bg-muted">
+              <Alert variant="default" className="bg-muted border-primary/20">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   EXP Sessions require at least 1 crew member.
@@ -225,11 +234,10 @@ export function StepDuration() {
               </Alert>
             )}
 
-            {/* Summary */}
             {totalCrew > 0 && (
               <div className="pt-3 border-t flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Total Crew: {totalCrew}</span>
-                <span className="text-sm font-medium">+${totalCrewCostPerHour}/hr</span>
+                <span className="text-sm font-semibold">+${totalCrewCostPerHour}/hr</span>
               </div>
             )}
           </CardContent>
@@ -241,7 +249,9 @@ export function StepDuration() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Camera className="h-4 w-4" />
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[hsl(90,85%,50%)] to-[hsl(180,85%,50%)] flex items-center justify-center">
+                <Camera className="h-4 w-4 text-white" />
+              </div>
               Camera Angles
             </CardTitle>
           </CardHeader>
@@ -252,11 +262,14 @@ export function StepDuration() {
                   key={count}
                   variant={selection.cameraCount === count ? "default" : "outline"}
                   onClick={() => handleCameraChange(count)}
-                  className="flex-1"
+                  className={cn(
+                    "flex-1 h-14 flex-col transition-all",
+                    selection.cameraCount === count && "shadow-md"
+                  )}
                 >
-                  {count} Cam
+                  <span className="font-bold">{count} Cam</span>
                   {count > 1 && (
-                    <span className="ml-1 text-xs opacity-75">
+                    <span className="text-xs opacity-75">
                       +${(count - 1) * 40}
                     </span>
                   )}
@@ -267,13 +280,15 @@ export function StepDuration() {
         </Card>
       )}
 
-
       {/* Running Total */}
-      <Card className="bg-muted/50">
-        <CardContent className="pt-4">
+      <Card className="rainbow-border rainbow-border-slow">
+        <CardContent className="pt-6">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Running Total</span>
-            <span className="text-xl font-bold">${totals.customerTotal.toFixed(0)}</span>
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium">Running Total</span>
+            </div>
+            <PriceCounter value={Math.round(totals.customerTotal)} size="xl" />
           </div>
         </CardContent>
       </Card>
@@ -283,10 +298,10 @@ export function StepDuration() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <Button onClick={handleNext}>
+        <GradientButton onClick={handleNext}>
           Next
           <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
+        </GradientButton>
       </div>
     </div>
   );

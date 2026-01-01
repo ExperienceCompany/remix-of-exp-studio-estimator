@@ -1,10 +1,10 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { useStudios, useDiyRates, useTimeSlots } from '@/hooks/useEstimatorData';
+import { GradientButton } from '@/components/ui/gradient-button';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SelectionCard } from '@/components/ui/selection-card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
-import { STUDIO_LABELS, StudioType } from '@/types/estimator';
+import { StudioType } from '@/types/estimator';
 import { Mic, Music, Video, Monitor, ArrowLeft, ArrowRight, Building } from 'lucide-react';
 
 const STUDIO_ICONS: Record<StudioType, typeof Mic> = {
@@ -38,14 +38,10 @@ export function StepStudio() {
 
   // Filter studios based on context
   const filteredStudios = studios?.filter(studio => {
-    // For DIY, show all studios
     if (isDiy) return true;
-    
-    // For serviced with a service selected, filter to valid options
     if (selection.serviceType && SERVICE_STUDIO_OPTIONS[selection.serviceType]) {
       return SERVICE_STUDIO_OPTIONS[selection.serviceType].includes(studio.type as StudioType);
     }
-    
     return true;
   });
 
@@ -58,8 +54,6 @@ export function StepStudio() {
 
   const handleNext = () => {
     if (selection.studioType) {
-      // DIY: Studio is step 1 → Day/Time is step 2
-      // Serviced: Studio is step 2 → Day/Time is step 3
       const nextStep = selection.sessionType === 'diy' ? 2 : 3;
       setCurrentStep(nextStep);
     }
@@ -67,10 +61,8 @@ export function StepStudio() {
 
   const handleBack = () => {
     if (isDiy) {
-      // DIY: go back to Session Type (step 0)
       setCurrentStep(0);
     } else {
-      // Serviced: go back to Service (step 1)
       setCurrentStep(1);
     }
   };
@@ -93,31 +85,15 @@ export function StepStudio() {
           const startingPrice = getStartingPrice(studio.type);
           
           return (
-            <Card 
+            <SelectionCard 
               key={studio.id}
-              className={cn(
-                "cursor-pointer transition-all hover:shadow-md",
-                selection.studioId === studio.id && "ring-2 ring-primary"
-              )}
+              title={studio.name}
+              description={studio.description || undefined}
+              icon={<Icon className="h-6 w-6" />}
+              isSelected={selection.studioId === studio.id}
+              price={startingPrice ? `From $${startingPrice}/hr` : undefined}
               onClick={() => handleSelect(studio)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  {startingPrice && (
-                    <span className="text-sm text-muted-foreground">
-                      From ${startingPrice}/hr
-                    </span>
-                  )}
-                </div>
-                <CardTitle className="text-lg">{studio.name}</CardTitle>
-                <CardDescription>
-                  {studio.description}
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            />
           );
         })}
       </div>
@@ -127,10 +103,10 @@ export function StepStudio() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <Button onClick={handleNext} disabled={!selection.studioType}>
+        <GradientButton onClick={handleNext} disabled={!selection.studioType}>
           Next
           <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
+        </GradientButton>
       </div>
     </div>
   );

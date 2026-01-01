@@ -1,10 +1,12 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { useServices, useStudios, useEditingMenu } from '@/hooks/useEstimatorData';
+import { GradientButton } from '@/components/ui/gradient-button';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { SelectionCard } from '@/components/ui/selection-card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { SERVICE_LABELS, ServiceType, StudioType } from '@/types/estimator';
+import { ServiceType, StudioType } from '@/types/estimator';
 import { Mic, Video, Music, Camera, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 
 const SERVICE_ICONS: Record<ServiceType, typeof Mic> = {
@@ -213,39 +215,27 @@ export function StepService() {
           const Icon = SERVICE_ICONS[service.type as ServiceType] || Mic;
           
           return (
-          <Card 
-            key={service.id}
-            className={cn(
-              "cursor-pointer transition-all hover:shadow-md",
-              selection.serviceId === service.id && "ring-2 ring-primary"
-            )}
-            onClick={() => handleSelect(service)}
-          >
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">{service.name}</CardTitle>
-                  <CardDescription className="text-sm">
-                    {service.type === 'vodcast' 
-                      ? 'Recording only – editing available as add-on'
-                      : service.type === 'photoshoot'
-                        ? 'Unedited photos only – editing add-on sold separately'
-                        : service.description}
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
+            <SelectionCard 
+              key={service.id}
+              title={service.name}
+              description={
+                service.type === 'vodcast' 
+                  ? 'Recording only – editing available as add-on'
+                  : service.type === 'photoshoot'
+                    ? 'Unedited photos only – editing add-on sold separately'
+                    : service.description || undefined
+              }
+              icon={<Icon className="h-6 w-6" />}
+              isSelected={selection.serviceId === service.id}
+              onClick={() => handleSelect(service)}
+            />
           );
         })}
       </div>
 
       {/* Follow-up question about editing */}
       {selection.serviceType && noEditOption && yesEditOption && (
-        <Card className="border-primary/20 bg-muted/30">
+        <Card className="rainbow-border rainbow-border-slow">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               {getFollowUpQuestion(selection.serviceType)}
@@ -255,27 +245,27 @@ export function StepService() {
             {/* No editing option */}
             <div 
               className={cn(
-                "p-3 rounded-lg border cursor-pointer transition-all",
+                "p-4 rounded-xl border-2 cursor-pointer transition-all",
                 selection.wantsEditing === false 
-                  ? "border-primary bg-primary/5" 
-                  : "border-border hover:border-primary/50"
+                  ? "border-primary bg-primary/5 shadow-md" 
+                  : "border-border hover:border-primary/50 hover:shadow-sm"
               )}
               onClick={() => handleEditingChoice(false)}
             >
               <div className="flex items-center gap-3">
                 <div className={cn(
-                  "h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                  "h-6 w-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all",
                   selection.wantsEditing === false 
                     ? "border-primary bg-primary" 
                     : "border-muted-foreground"
                 )}>
                   {selection.wantsEditing === false && (
-                    <Check className="h-3 w-3 text-primary-foreground" />
+                    <Check className="h-4 w-4 text-primary-foreground" />
                   )}
                 </div>
                 <div>
-                  <p className="font-medium text-sm">{noEditOption.label}</p>
-                  <p className="text-xs text-muted-foreground">{noEditOption.description}</p>
+                  <p className="font-medium">{noEditOption.label}</p>
+                  <p className="text-sm text-muted-foreground">{noEditOption.description}</p>
                 </div>
               </div>
             </div>
@@ -283,27 +273,27 @@ export function StepService() {
             {/* Yes editing option */}
             <div 
               className={cn(
-                "p-3 rounded-lg border cursor-pointer transition-all",
+                "p-4 rounded-xl border-2 cursor-pointer transition-all",
                 selection.wantsEditing === true 
-                  ? "border-primary bg-primary/5" 
-                  : "border-border hover:border-primary/50"
+                  ? "border-primary bg-primary/5 shadow-md" 
+                  : "border-border hover:border-primary/50 hover:shadow-sm"
               )}
               onClick={() => handleEditingChoice(true)}
             >
               <div className="flex items-center gap-3">
                 <div className={cn(
-                  "h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                  "h-6 w-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all",
                   selection.wantsEditing === true 
                     ? "border-primary bg-primary" 
                     : "border-muted-foreground"
                 )}>
                   {selection.wantsEditing === true && (
-                    <Check className="h-3 w-3 text-primary-foreground" />
+                    <Check className="h-4 w-4 text-primary-foreground" />
                   )}
                 </div>
                 <div>
-                  <p className="font-medium text-sm">{yesEditOption.label}</p>
-                  <p className="text-xs text-muted-foreground">{yesEditOption.description}</p>
+                  <p className="font-medium">{yesEditOption.label}</p>
+                  <p className="text-sm text-muted-foreground">{yesEditOption.description}</p>
                 </div>
               </div>
             </div>
@@ -316,10 +306,10 @@ export function StepService() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <Button onClick={handleNext} disabled={!selection.serviceType || selection.wantsEditing === null}>
+        <GradientButton onClick={handleNext} disabled={!selection.serviceType || selection.wantsEditing === null}>
           Next
           <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
+        </GradientButton>
       </div>
     </div>
   );
