@@ -220,7 +220,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    hsl(var(--primary) / 0.3),
+    hsl(var(--foreground) / 0.15),
     transparent
   );
   background-size: 200% 100%;
