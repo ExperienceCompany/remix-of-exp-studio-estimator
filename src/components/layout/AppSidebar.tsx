@@ -98,16 +98,16 @@ export function AppSidebar() {
       <div className="flex h-16 items-center justify-between px-4 border-b border-background/10">
         {!collapsed && (
           <Link to="/" className="flex items-center gap-2">
-            <div className="rainbow-border rainbow-border-slow h-8 w-8 rounded flex items-center justify-center bg-foreground">
-              <span className="text-background font-bold text-sm">EXP</span>
+            <div className="rainbow-border rainbow-border-slow h-8 w-8 rounded flex items-center justify-center bg-background">
+              <span className="text-foreground font-bold text-sm">EXP</span>
             </div>
             <span className="font-bold text-lg">Studio</span>
           </Link>
         )}
         {collapsed && (
           <Link to="/" className="mx-auto">
-            <div className="rainbow-border rainbow-border-slow h-8 w-8 rounded flex items-center justify-center bg-foreground">
-              <span className="text-background font-bold text-sm">EXP</span>
+            <div className="rainbow-border rainbow-border-slow h-8 w-8 rounded flex items-center justify-center bg-background">
+              <span className="text-foreground font-bold text-sm">EXP</span>
             </div>
           </Link>
         )}

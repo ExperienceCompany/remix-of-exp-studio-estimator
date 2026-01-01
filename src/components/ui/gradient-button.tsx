@@ -8,8 +8,8 @@ const gradientButtonVariants = cva(
   {
     variants: {
       variant: {
-        default: "rainbow-border rainbow-border-slow bg-background text-foreground hover:bg-muted",
-        solid: "rainbow-border bg-foreground text-background hover:opacity-90",
+        default: "rainbow-border rainbow-border-slow bg-card text-card-foreground hover:bg-muted",
+        solid: "rainbow-border rainbow-border-slow bg-foreground text-background hover:opacity-90",
         ghost: "hover:bg-muted text-foreground",
       },
       size: {
