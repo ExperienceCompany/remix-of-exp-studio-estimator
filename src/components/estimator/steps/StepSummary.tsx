@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEstimator } from '@/contexts/EstimatorContext';
+import { GradientButton } from '@/components/ui/gradient-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { PriceCounter } from '@/components/ui/price-counter';
+import { CelebrationAnimation } from '@/components/ui/celebration-animation';
 import { 
   STUDIO_LABELS, 
   SERVICE_LABELS, 
@@ -14,7 +17,7 @@ import {
   TimeSlotType,
   ProviderLevel,
 } from '@/types/estimator';
-import { ArrowLeft, FileText, RotateCcw, Download, Save, Timer } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Download, Save, Timer, CheckCircle2, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuotePdf } from '@/lib/generateQuotePdf';
 import { format } from 'date-fns';
@@ -34,6 +37,7 @@ export function StepSummary() {
   const [affiliateCode, setAffiliateCode] = useState('');
   const [affiliateName, setAffiliateName] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(true);
 
   const handleCopyQuote = () => {
     const lines = [
@@ -57,7 +61,6 @@ export function StepSummary() {
 
   const handleDownloadQuote = async () => {
     try {
-      // Save quote to database first
       const insertData = {
         session_type: selection.sessionType as 'diy' | 'serviced',
         hours: selection.hours,
@@ -77,14 +80,12 @@ export function StepSummary() {
 
       if (error) throw error;
 
-      // Build crew display string
       const { lv1, lv2, lv3 } = selection.crewAllocation;
       const crewParts: string[] = [];
       if (lv1 > 0) crewParts.push(lv1 > 1 ? `Lv1 ×${lv1}` : 'Lv1');
       if (lv2 > 0) crewParts.push(lv2 > 1 ? `Lv2 ×${lv2}` : 'Lv2');
       if (lv3 > 0) crewParts.push(lv3 > 1 ? `Lv3 ×${lv3}` : 'Lv3');
     
-      // Generate PDF with the saved quote ID
       await generateQuotePdf({
         quoteNumber: quote.id,
         date: format(new Date(), 'MMMM d, yyyy'),
@@ -134,7 +135,6 @@ export function StepSummary() {
   const handleBook = async () => {
     setIsBooking(true);
     try {
-      // 1. Create quote first
       const quoteInsertData = {
         session_type: selection.sessionType as 'diy' | 'serviced',
         hours: selection.hours,
@@ -156,7 +156,6 @@ export function StepSummary() {
 
       if (quoteError) throw quoteError;
 
-      // 2. Create session from quote
       const sessionInsertData = {
         quote_id: quote.id,
         session_type: selection.sessionType,
@@ -179,8 +178,6 @@ export function StepSummary() {
       if (sessionError) throw sessionError;
 
       toast({ title: 'Session created! Starting timer...' });
-      
-      // 3. Navigate to timer page
       navigate(`/session/${session.id}`);
     } catch (error) {
       console.error('Failed to create session:', error);
@@ -192,69 +189,82 @@ export function StepSummary() {
 
   return (
     <div className="space-y-6">
+      {/* Celebration Animation */}
+      <CelebrationAnimation show={showCelebration} type="sparkle" />
+
+      {/* Success Header */}
+      <div className="text-center space-y-2">
+        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-br from-[hsl(90,85%,50%)] to-[hsl(180,85%,50%)] mx-auto mb-2">
+          <CheckCircle2 className="h-8 w-8 text-white" />
+        </div>
+        <h2 className="text-2xl font-bold">Your Estimate is Ready!</h2>
+        <p className="text-muted-foreground">Review your selections below</p>
+      </div>
+
       {/* Summary Card */}
-      <Card>
+      <Card className="rainbow-border rainbow-border-slow">
         <CardHeader>
-          <CardTitle>Your Estimate</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Estimate Summary
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Selection Summary */}
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Session Type</p>
-              <p className="font-medium">
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-muted-foreground text-xs">Session Type</p>
+              <p className="font-semibold">
                 {selection.sessionType === 'diy' ? 'DIY' : 'EXP Session'}
               </p>
             </div>
-            <div>
-              <p className="text-muted-foreground">Studio</p>
-              <p className="font-medium">
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-muted-foreground text-xs">Studio</p>
+              <p className="font-semibold">
                 {selection.studioType ? STUDIO_LABELS[selection.studioType] : '-'}
               </p>
             </div>
-            <div>
-              <p className="text-muted-foreground">Service</p>
-              <p className="font-medium">
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-muted-foreground text-xs">Service</p>
+              <p className="font-semibold">
                 {selection.serviceType ? SERVICE_LABELS[selection.serviceType] : '-'}
               </p>
             </div>
-            <div>
-              <p className="text-muted-foreground">Time Slot</p>
-              <p className="font-medium">
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-muted-foreground text-xs">Time Slot</p>
+              <p className="font-semibold">
                 {selection.timeSlotType ? TIME_SLOT_LABELS[selection.timeSlotType] : '-'}
               </p>
             </div>
-            <div>
-              <p className="text-muted-foreground">Duration</p>
-              <p className="font-medium">{selection.hours} hour(s)</p>
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-muted-foreground text-xs">Duration</p>
+              <p className="font-semibold">{selection.hours} hour(s)</p>
             </div>
             {selection.sessionType === 'serviced' && (() => {
               const { lv1, lv2, lv3 } = selection.crewAllocation;
               const totalCrew = lv1 + lv2 + lv3;
               if (totalCrew === 0 && !selection.providerLevel) return null;
               
-              // Build crew display parts
               const crewParts: string[] = [];
               if (lv1 > 0) crewParts.push(lv1 > 1 ? `Lv1 ×${lv1}` : 'Lv1');
               if (lv2 > 0) crewParts.push(lv2 > 1 ? `Lv2 ×${lv2}` : 'Lv2');
               if (lv3 > 0) crewParts.push(lv3 > 1 ? `Lv3 ×${lv3}` : 'Lv3');
               
-              // Fallback to providerLevel if no crewAllocation
               const crewDisplay = crewParts.length > 0 
                 ? crewParts.join(', ') 
                 : (selection.providerLevel ? PROVIDER_LEVEL_LABELS[selection.providerLevel] : '-');
               
               return (
-                <div>
-                  <p className="text-muted-foreground">Crew Allocation</p>
-                  <p className="font-medium">{crewDisplay}</p>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-muted-foreground text-xs">Crew</p>
+                  <p className="font-semibold">{crewDisplay}</p>
                 </div>
               );
             })()}
             {selection.serviceType === 'vodcast' && (
-              <div>
-                <p className="text-muted-foreground">Cameras</p>
-                <p className="font-medium">{selection.cameraCount}</p>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-muted-foreground text-xs">Cameras</p>
+                <p className="font-semibold">{selection.cameraCount}</p>
               </div>
             )}
           </div>
@@ -264,7 +274,7 @@ export function StepSummary() {
           {/* Line Items */}
           <div className="space-y-2">
             {totals.lineItems.map((item, index) => (
-              <div key={index} className="flex justify-between text-sm">
+              <div key={index} className="flex justify-between text-sm py-1">
                 <span className="text-muted-foreground">{item.label}</span>
                 <span className="font-medium">${item.amount.toFixed(2)}</span>
               </div>
@@ -274,11 +284,9 @@ export function StepSummary() {
           <Separator />
 
           {/* Total */}
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center pt-2">
             <span className="text-lg font-semibold">Estimated Total</span>
-            <span className="text-2xl font-bold text-primary">
-              ${totals.customerTotal.toFixed(2)}
-            </span>
+            <PriceCounter value={Math.round(totals.customerTotal)} size="xl" className="text-primary" />
           </div>
         </CardContent>
       </Card>
@@ -297,35 +305,30 @@ export function StepSummary() {
 
       {/* Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <Button variant="outline" onClick={handleDownloadQuote}>
+        <Button variant="outline" onClick={handleDownloadQuote} className="h-12">
           <Download className="h-4 w-4 mr-2" />
           Download
         </Button>
         {isAdmin && (
-          <Button variant="outline" onClick={handleSaveToAdminLogs} disabled={createLog.isPending}>
+          <Button variant="outline" onClick={handleSaveToAdminLogs} disabled={createLog.isPending} className="h-12">
             <Save className="h-4 w-4 mr-2" />
             {createLog.isPending ? 'Saving...' : 'Save to Logs'}
           </Button>
         )}
-        <Button onClick={handleBook} disabled={isBooking}>
+        <GradientButton onClick={handleBook} disabled={isBooking} className="h-12 sm:col-span-1 col-span-2">
           <Timer className="h-4 w-4 mr-2" />
           {isBooking ? 'Creating...' : 'Book This'}
-        </Button>
+        </GradientButton>
       </div>
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => {
-          // Check if we should go back to Configure (if video editing exists) or Addons
           const hasVideoEditing = selection.editingItems.some(item => item.category !== 'photo_editing');
           const isDiy = selection.sessionType === 'diy';
           
           if (hasVideoEditing) {
-            // DIY: Summary is step 6 → Configure is step 5
-            // Serviced: Summary is step 7 → Configure is step 6
             setCurrentStep(isDiy ? 5 : 6);
           } else {
-            // DIY: Summary is step 6 → Addons is step 4
-            // Serviced: Summary is step 7 → Addons is step 5
             setCurrentStep(isDiy ? 4 : 5);
           }
         }}>

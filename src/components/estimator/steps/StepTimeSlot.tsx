@@ -1,12 +1,14 @@
 import { useEstimator } from '@/contexts/EstimatorContext';
 import { useTimeSlots, useDiyRates, useProviderLevels } from '@/hooks/useEstimatorData';
+import { GradientButton } from '@/components/ui/gradient-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { PriceCounter } from '@/components/ui/price-counter';
 import { cn } from '@/lib/utils';
 import { TimeSlotType, PROVIDER_LEVEL_LABELS, EditingItem } from '@/types/estimator';
-import { Sun, Moon, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Sun, Moon, ArrowLeft, ArrowRight, Sparkles, TrendingUp } from 'lucide-react';
 
 const formatTime12Hour = (time24: string): string => {
   const [hours, minutes] = time24.split(':').map(Number);
@@ -31,7 +33,6 @@ const calculateEditingItemTotal = (item: EditingItem): number => {
   const config = VIDEO_EDITING_CONFIG[item.category];
   
   if (config) {
-    // Video editing: duration-based pricing
     const duration = item.quantity;
     let baseItemTotal: number;
     
@@ -46,7 +47,6 @@ const calculateEditingItemTotal = (item: EditingItem): number => {
     const multiplier = EDITING_CREW_MULTIPLIERS[crewLevel] || 1;
     return Math.round(baseItemTotal * multiplier);
   } else {
-    // Photo editing: simple quantity × price
     return (item.customerPrice || item.basePrice) * item.quantity;
   }
 };
@@ -65,7 +65,6 @@ export function StepTimeSlot() {
     return rate ? Number(rate.first_hour_rate) : null;
   };
 
-  // Get the min/max rates for context message
   const getRateRange = () => {
     if (!rates || !selection.studioType) return null;
     const studioRates = rates.filter(r => r.studios?.type === selection.studioType);
@@ -78,7 +77,6 @@ export function StepTimeSlot() {
   const rateRange = getRateRange();
   const isServiced = selection.sessionType === 'serviced';
 
-  // Get provider hourly rate if selected
   const getProviderRate = () => {
     if (!selection.providerLevel || !providerLevels) return 0;
     const provider = providerLevels.find(p => p.level === selection.providerLevel);
@@ -87,45 +85,32 @@ export function StepTimeSlot() {
 
   const providerRate = getProviderRate();
 
-  // Calculate running total from session add-ons, editing items, and provider
   const calculateRunningTotal = () => {
     let total = 0;
-    
-    // Session add-ons (flat fees only - hourly addons depend on duration)
     selection.sessionAddons.forEach(addon => {
       if (!addon.isHourly) {
         total += addon.flatAmount;
       }
     });
-    
-    // Editing items with proper calculation
     selection.editingItems.forEach(item => {
       total += calculateEditingItemTotal(item);
     });
-    
     return total;
   };
 
   const runningTotal = calculateRunningTotal();
 
-  // Separate included (auto-added) vs optional add-ons
   const includedAddons = selection.sessionAddons.filter(addon => 
     addon.name.toLowerCase().includes('setup') || addon.name.toLowerCase().includes('set design')
   );
   
-  // Filter optional add-ons to only show those applicable to current studio
-  // Event Setup & Breakdown only applies to full_studio_buyout or multimedia_studio
   const optionalAddons = selection.sessionAddons.filter(addon => {
-    // Skip included addons
     if (addon.name.toLowerCase().includes('setup') || addon.name.toLowerCase().includes('set design')) {
       return false;
     }
-    
-    // Event Setup & Breakdown only for full studio or multimedia
     if (addon.name.toLowerCase().includes('event setup')) {
       return selection.studioType === 'full_studio_buyout' || selection.studioType === 'multimedia_studio';
     }
-    
     return true;
   });
 
@@ -138,8 +123,6 @@ export function StepTimeSlot() {
 
   const handleNext = () => {
     if (selection.timeSlotType) {
-      // DIY: TimeSlot is step 2 → Duration is step 3
-      // Serviced: TimeSlot is step 3 → Duration is step 4
       const nextStep = selection.sessionType === 'diy' ? 3 : 4;
       setCurrentStep(nextStep);
     }
@@ -155,44 +138,43 @@ export function StepTimeSlot() {
     );
   }
 
-  // Group by day range
   const dayGroups = [
-    { label: 'Mon-Wed', slots: timeSlots?.filter(s => s.type.startsWith('mon_wed')) || [] },
-    { label: 'Thu-Fri', slots: timeSlots?.filter(s => s.type.startsWith('thu_fri')) || [] },
-    { label: 'Sat-Sun', slots: timeSlots?.filter(s => s.type.startsWith('sat_sun')) || [] },
+    { label: 'Mon-Wed', badge: 'Best Value', slots: timeSlots?.filter(s => s.type.startsWith('mon_wed')) || [] },
+    { label: 'Thu-Fri', badge: null, slots: timeSlots?.filter(s => s.type.startsWith('thu_fri')) || [] },
+    { label: 'Sat-Sun', badge: 'Premium', slots: timeSlots?.filter(s => s.type.startsWith('sat_sun')) || [] },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Consolidated Running Total Summary */}
+      {/* Running Total Summary */}
       {(runningTotal > 0 || providerRate > 0 || includedAddons.length > 0) && (
-        <Card>
+        <Card className="bg-gradient-to-br from-muted/50 to-muted/30 border-muted-foreground/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Your Selections So Far</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Your Selections So Far
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-0">
-            {/* Included items */}
             {includedAddons.map(addon => (
-              <div key={addon.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+              <div key={addon.id} className="flex justify-between items-center py-2 border-b border-border/50 last:border-b-0">
                 <span className="text-sm">
                   {addon.name}
-                  <span className="text-xs text-muted-foreground ml-1">(included)</span>
+                  <Badge variant="secondary" className="ml-2 text-xs">Included</Badge>
                 </span>
                 <span className="text-sm font-medium">+${addon.flatAmount}</span>
               </div>
             ))}
             
-            {/* Optional add-ons */}
             {optionalAddons.map(addon => (
-              <div key={addon.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+              <div key={addon.id} className="flex justify-between items-center py-2 border-b border-border/50 last:border-b-0">
                 <span className="text-sm">{addon.name}</span>
                 <span className="text-sm font-medium">+${addon.flatAmount}</span>
               </div>
             ))}
             
-            {/* Editing items */}
             {selection.wantsEditing && selection.editingItems.map(item => (
-              <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+              <div key={item.id} className="flex justify-between items-center py-2 border-b border-border/50 last:border-b-0">
                 <span className="text-sm">
                   {item.name}
                   <span className="text-xs text-muted-foreground ml-1">
@@ -203,9 +185,8 @@ export function StepTimeSlot() {
               </div>
             ))}
             
-            {/* Production crew */}
             {isServiced && selection.providerLevel && providerRate > 0 && (
-              <div className="flex justify-between items-center py-2 border-b last:border-b-0">
+              <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-b-0">
                 <span className="text-sm">
                   Production Crew
                   <span className="text-xs text-muted-foreground ml-1">({PROVIDER_LEVEL_LABELS[selection.providerLevel]})</span>
@@ -214,13 +195,12 @@ export function StepTimeSlot() {
               </div>
             )}
             
-            {/* Studio time - show when time slot is selected */}
             {selection.timeSlotId && (() => {
               const selectedSlot = timeSlots?.find(s => s.id === selection.timeSlotId);
               const selectedRate = selection.timeSlotType ? getRate(selection.timeSlotType) : null;
               if (!selectedRate) return null;
               return (
-                <div className="flex justify-between items-center py-2 border-b last:border-b-0">
+                <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-b-0">
                   <span className="text-sm">
                     Studio Time
                     <span className="text-xs text-muted-foreground ml-1">
@@ -232,8 +212,7 @@ export function StepTimeSlot() {
               );
             })()}
             
-            {/* Subtotal footer */}
-            <div className="pt-3 mt-2 border-t">
+            <div className="pt-3 mt-2 border-t border-border">
               {(() => {
                 const selectedRate = selection.timeSlotType ? getRate(selection.timeSlotType) : null;
                 const totalHourly = (isServiced && providerRate > 0 ? providerRate : 0) + (selectedRate || 0);
@@ -249,15 +228,10 @@ export function StepTimeSlot() {
                         )}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {selectedRate 
-                        ? '(hourly rates apply to session duration)'
-                        : '+ studio time (select below)'}
-                    </p>
                     {selectedRate && totalHourly > 0 && (
-                      <div className="flex justify-between items-center mt-3 pt-3 border-t">
-                        <span className="text-sm font-semibold">Estimate Grand Total for 1 hr</span>
-                        <span className="font-bold text-primary text-lg">${runningTotal + totalHourly}</span>
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-border">
+                        <span className="text-sm font-semibold">Estimate (1 hr)</span>
+                        <PriceCounter value={runningTotal + totalHourly} size="md" />
                       </div>
                     )}
                   </>
@@ -268,11 +242,12 @@ export function StepTimeSlot() {
         </Card>
       )}
 
-      {/* Contextual info banner */}
+      {/* Rate info banner */}
       {rateRange && (
-        <div className="bg-muted/50 border rounded-lg p-3 text-sm">
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-sm flex items-center gap-3">
+          <TrendingUp className="h-5 w-5 text-primary shrink-0" />
           <p className="text-muted-foreground">
-            <span className="font-medium text-foreground">
+            <span className="font-semibold text-foreground">
               Base Rate: ${rateRange.min}{rateRange.max > rateRange.min ? `–$${rateRange.max}` : ''}/hr
             </span>
             {isServiced ? (
@@ -284,39 +259,58 @@ export function StepTimeSlot() {
         </div>
       )}
 
+      {/* Time slot groups */}
       {dayGroups.map((group, index) => (
-        <div key={group.label}>
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">{group.label}</h3>
+        <div key={group.label} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
+            {group.badge && (
+              <Badge variant={group.badge === 'Best Value' ? 'secondary' : 'default'} className="text-xs">
+                {group.badge}
+              </Badge>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {group.slots.map(slot => {
               const rate = getRate(slot.type);
               const isEvening = slot.type.includes('eve');
               const Icon = isEvening ? Moon : Sun;
+              const isSelected = selection.timeSlotId === slot.id;
               
               return (
                 <Card 
                   key={slot.id}
                   className={cn(
-                    "cursor-pointer transition-all hover:shadow-md",
-                    selection.timeSlotId === slot.id && "ring-2 ring-primary"
+                    "cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1",
+                    isSelected && "rainbow-border rainbow-border-slow shadow-lg"
                   )}
                   onClick={() => handleSelect(slot)}
                 >
                   <CardHeader className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <div className={cn(
+                          "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
+                          isSelected 
+                            ? "bg-gradient-to-br from-[hsl(0,85%,60%)] to-[hsl(270,85%,60%)] text-white" 
+                            : "bg-muted text-muted-foreground"
+                        )}>
+                          <Icon className="h-4 w-4" />
+                        </div>
                         <CardTitle className="text-sm font-medium">
                           {isEvening ? 'Evening' : 'Day'}
                         </CardTitle>
                       </div>
                       {rate && (
-                        <span className="text-sm font-semibold text-primary">
+                        <span className={cn(
+                          "text-sm font-bold transition-colors",
+                          isSelected ? "text-primary" : "text-foreground"
+                        )}>
                           ${rate}/hr
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {formatTime12Hour(slot.start_time)} - {formatTime12Hour(slot.end_time)}
                     </p>
                   </CardHeader>
@@ -324,21 +318,18 @@ export function StepTimeSlot() {
               );
             })}
           </div>
-          {index < dayGroups.length - 1 && (
-            <Separator className="mt-6 bg-border" />
-          )}
         </div>
       ))}
 
-      <div className="flex justify-between">
+      <div className="flex justify-between pt-4">
         <Button variant="outline" onClick={() => setCurrentStep(selection.sessionType === 'diy' ? 1 : 2)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <Button onClick={handleNext} disabled={!selection.timeSlotType}>
+        <GradientButton onClick={handleNext} disabled={!selection.timeSlotType}>
           Next
           <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
+        </GradientButton>
       </div>
     </div>
   );
