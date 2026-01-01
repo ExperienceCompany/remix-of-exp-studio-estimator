@@ -103,7 +103,7 @@ export default function CalendarSettings() {
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   activeSection === section.id
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-foreground text-background"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
