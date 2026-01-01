@@ -134,7 +134,7 @@ export function MonthView({
                 'min-h-[120px] border-b border-r p-1 cursor-pointer hover:bg-muted/50 transition-colors',
                 !isCurrentMonth && 'bg-muted/30',
                 idx % 7 === 0 && 'border-l',
-                isDragOver && 'bg-primary/10 ring-2 ring-primary ring-inset'
+                isDragOver && 'bg-foreground/10 ring-2 ring-foreground ring-inset'
               )}
               onClick={() => onSlotClick?.(day)}
               onDragOver={(e) => handleDragOver(e, day)}
@@ -144,7 +144,7 @@ export function MonthView({
               <div
                 className={cn(
                   'text-sm font-medium mb-1 w-7 h-7 flex items-center justify-center rounded-full',
-                  isToday(day) && 'bg-primary text-primary-foreground',
+                  isToday(day) && 'bg-foreground text-background',
                   !isCurrentMonth && 'text-muted-foreground'
                 )}
               >

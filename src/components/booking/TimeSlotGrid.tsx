@@ -145,7 +145,7 @@ export function TimeSlotGrid({
               booked && 'bg-destructive/20 border-destructive/30 text-destructive-foreground',
               buffer && 'bg-muted border-muted-foreground/20',
               past && !booked && 'bg-muted/50 border-muted',
-              selected && 'bg-primary text-primary-foreground border-primary',
+              selected && 'bg-foreground text-background border-foreground',
               !disabled && !selected && 'hover:bg-accent hover:border-accent-foreground/20'
             )}
           >

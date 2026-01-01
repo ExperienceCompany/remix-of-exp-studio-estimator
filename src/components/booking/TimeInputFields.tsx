@@ -316,7 +316,7 @@ export function TimeInputFields({
                   onStartChange(availabilityStatus.nextAvailable!.start);
                   onEndChange(availabilityStatus.nextAvailable!.end);
                 }}
-                className="text-primary hover:underline font-medium"
+                className="text-foreground hover:underline font-medium"
               >
                 Next available: {formatTimeDisplay(availabilityStatus.nextAvailable.start)} – {formatTimeDisplay(availabilityStatus.nextAvailable.end)}
               </button>

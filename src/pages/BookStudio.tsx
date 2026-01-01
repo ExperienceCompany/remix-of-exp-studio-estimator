@@ -285,7 +285,7 @@ export default function BookStudio() {
               {/* Legend */}
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-primary" />
+                  <div className="w-3 h-3 rounded bg-foreground" />
                   Selected
                 </div>
                 <div className="flex items-center gap-1">

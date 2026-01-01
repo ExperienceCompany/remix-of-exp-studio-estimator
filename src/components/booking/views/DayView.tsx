@@ -791,7 +791,7 @@ export function DayView({
                             isBlockedByPendingShared && !isBooked && !isBlockedByShared && "bg-muted/40",
                             isInPending && "border-transparent", // Hide cell borders within pending
                             isInPendingBuffer && !isBooked && !isBuffer && "bg-muted",
-                            showHoverState && "bg-primary"
+                            showHoverState && "bg-foreground"
                           )}
                         onClick={() => handleSlotClick(studio.id, time)}
                         onMouseEnter={() => setHoveredSlot({ studioId: studio.id, time })}
@@ -799,7 +799,7 @@ export function DayView({
                       >
                         {/* Hover state - orange with time */}
                         {showHoverState && (
-                          <div className="absolute inset-0 flex items-center justify-center text-primary-foreground font-medium text-xs">
+                          <div className="absolute inset-0 flex items-center justify-center text-background font-medium text-xs">
                             ⊕ {formatTime(time)}
                           </div>
                         )}

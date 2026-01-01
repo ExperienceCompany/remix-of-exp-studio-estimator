@@ -67,7 +67,7 @@ const PriceCounter = React.forwardRef<HTMLDivElement, PriceCounterProps>(
         <span 
           className={cn(
             "tabular-nums transition-colors",
-            isAnimating && "text-primary"
+            isAnimating && "text-foreground font-semibold"
           )}
         >
           {displayValue.toLocaleString()}

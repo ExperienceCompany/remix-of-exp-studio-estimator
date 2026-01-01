@@ -121,7 +121,7 @@ export function GridView({
                 className={cn(
                   'hover:bg-muted/30 transition-colors border-b border-muted-foreground/20',
                   isWeekend && 'bg-muted/10',
-                  isTodayDate && 'bg-primary/5'
+                  isTodayDate && 'bg-foreground/5'
                 )}
               >
                 <td
@@ -129,7 +129,7 @@ export function GridView({
                     "py-2 px-2 border-r cursor-pointer sticky left-0 z-10 min-w-[80px] max-w-[80px]",
                     isTodayDate && "font-bold",
                     isWeekend ? "bg-muted/30" : "bg-background",
-                    isTodayDate && "!bg-primary/10"
+                    isTodayDate && "!bg-foreground/10"
                   )}
                   onClick={() => onDateClick?.(date)}
                 >
@@ -138,7 +138,7 @@ export function GridView({
                   </div>
                   <div className={cn(
                     "text-lg",
-                    isTodayDate && "text-primary"
+                    isTodayDate && "text-foreground font-semibold"
                   )}>
                     {format(date, 'd')}
                   </div>
@@ -158,7 +158,7 @@ export function GridView({
                       key={studio.id}
                       className={cn(
                         'py-1 px-1 border-r align-top min-h-[80px] cursor-pointer hover:bg-muted/50 transition-colors',
-                        isDragOver && 'bg-primary/10 ring-2 ring-primary ring-inset'
+                        isDragOver && 'bg-foreground/10 ring-2 ring-foreground ring-inset'
                       )}
                       onClick={() => onSlotClick?.(date, studio.id)}
                       onDragOver={(e) => handleDragOver(e, date, studio.id)}
