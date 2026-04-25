@@ -174,7 +174,7 @@ export default function Sessions() {
     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
       const { error } = await supabase
         .from('sessions')
-        .update(updates)
+        .update(updates as never)
         .eq('id', id);
       if (error) throw error;
     },
