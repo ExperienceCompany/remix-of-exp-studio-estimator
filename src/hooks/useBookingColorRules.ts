@@ -71,7 +71,7 @@ export function useUpdateBookingColorRule() {
       }
       const { data, error } = await supabase
         .from('booking_color_rules')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', id)
         .select()
         .single();

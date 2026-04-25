@@ -64,7 +64,7 @@ export default function SessionTimer() {
     mutationFn: async (updates: Record<string, unknown>) => {
       const { data, error } = await supabase
         .from('sessions')
-        .update(updates)
+        .update(updates as never)
         .eq('id', id)
         .select()
         .single();
